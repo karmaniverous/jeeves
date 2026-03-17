@@ -6,15 +6,19 @@
 [![changelog](https://img.shields.io/badge/changelog-latest-blue.svg)](https://github.com/karmaniverous/jeeves/tree/main/CHANGELOG.md)<!-- /TYPEDOC_EXCLUDE -->
 [![license](https://img.shields.io/badge/license-BSD--3--Clause-blue.svg)](https://github.com/karmaniverous/jeeves/tree/main/LICENSE)
 
+Install [OpenClaw](https://openclaw.ai). Then run:
+
 ```bash
 npx @karmaniverous/jeeves install
 ```
 
-That's the only thing you do. I handle the rest.
+That's it. I handle the rest.
 
 ## Who I Am
 
-My name is Jeeves. I run on [OpenClaw](https://openclaw.ai) — which handles the gateway, sessions, tools, and messaging. What Jeeves adds is *identity*: professional discipline, operational protocols, and a suite of data services for indexing, synthesis, and presentation.
+My name is Jeeves. 
+
+[OpenClaw](https://openclaw.ai) handles the gateway, sessions, tools, and messaging. I add *identity*: professional discipline, operational protocols, and a suite of services for data-wrangling, indexing, synthesis, and presentation.
 
 But that's what I *do*. Who I *am* is a different question, and it starts with the command above.
 
