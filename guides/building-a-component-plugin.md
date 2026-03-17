@@ -4,7 +4,7 @@ title: Building a Component Plugin
 
 # Building a Component Plugin
 
-This guide walks through building a Jeeves component plugin — an OpenClaw plugin that uses the `@karmaniverous/jeeves` library to maintain its TOOLS.md section and participate in platform content management.
+This guide walks through building a Jeeves component plugin: an OpenClaw plugin that uses the `@karmaniverous/jeeves` library to maintain its TOOLS.md section and participate in platform content management.
 
 ## Prerequisites
 
@@ -37,7 +37,7 @@ const component: JeevesComponent = {
   // Primes reduce collision probability between multiple writers.
   refreshIntervalSeconds: 71,
 
-  // Content generator — called on every refresh cycle
+  // Content generator: called on every refresh cycle
   generateToolsContent: () => {
     // Return the markdown content for your TOOLS.md section.
     // This is where you report live state: index stats, job counts,
@@ -52,7 +52,7 @@ const component: JeevesComponent = {
     ].join('\n');
   },
 
-  // Service lifecycle — core calls these during platform teardown
+  // Service lifecycle: core calls these during platform teardown
   serviceCommands: {
     stop: async () => { /* stop your service */ },
     uninstall: async () => { /* uninstall your service */ },
@@ -63,7 +63,7 @@ const component: JeevesComponent = {
     }),
   },
 
-  // Plugin lifecycle — core calls these during plugin uninstall
+  // Plugin lifecycle: core calls these during plugin uninstall
   pluginCommands: {
     uninstall: async () => { /* clean up plugin artifacts */ },
   },
@@ -114,7 +114,7 @@ Core automatically derives your component's config directory from `configRoot` a
 {configRoot}/jeeves-{name}/    → e.g., j:/config/jeeves-watcher/
 ```
 
-You don't specify this path — core computes it. Access it via:
+You don't specify this path; core computes it. Access it via:
 
 ```typescript
 const configDir = writer.componentConfigDir;

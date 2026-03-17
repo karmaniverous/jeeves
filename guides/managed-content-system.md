@@ -25,15 +25,15 @@ Everything below the END marker is yours. Jeeves never touches it.
 ```
 
 The markers serve three purposes:
-1. **Boundary** — clearly separate managed from user content
-2. **Version stamp** — track which library version last wrote this block
-3. **Human signal** — "DO NOT EDIT" warns against manual changes inside the block
+1. **Boundary:** clearly separate managed from user content
+2. **Version stamp:** track which library version last wrote this block
+3. **Human signal:** "DO NOT EDIT" warns against manual changes inside the block
 
 ### Two Modes
 
 The `updateManagedSection()` function supports two modes:
 
-**Block mode** — replaces the entire managed block. Used for SOUL.md and AGENTS.md, where core owns all the managed content.
+**Block mode** replaces the entire managed block. Used for SOUL.md and AGENTS.md, where core owns all the managed content.
 
 ```typescript
 await updateManagedSection(filePath, content, {
@@ -43,7 +43,7 @@ await updateManagedSection(filePath, content, {
 });
 ```
 
-**Section mode** — upserts a named H2 section within the managed block. Used for TOOLS.md, where multiple components each contribute independent sections.
+**Section mode** upserts a named H2 section within the managed block. Used for TOOLS.md, where multiple components each contribute independent sections.
 
 ```typescript
 await updateManagedSection(filePath, sectionContent, {
@@ -76,17 +76,17 @@ When multiple component plugins bundle different versions of `@karmaniverous/jee
 
 | Scenario | Action |
 |----------|--------|
-| My version ≥ stamped version | Write — I'm current or newer |
-| My version < stamped, stamp is fresh | Skip — a newer version is maintaining this |
-| My version < stamped, stamp is stale | Write — the newer plugin was probably uninstalled |
+| My version ≥ stamped version | Write (I'm current or newer) |
+| My version < stamped, stamp is fresh | Skip (a newer version is maintaining this) |
+| My version < stamped, stamp is stale | Write (the newer plugin was probably uninstalled) |
 
 **Staleness threshold:** 5 minutes (configurable). Well above any prime-interval cycle.
 
-**Important:** Version-stamp convergence only applies in block mode (SOUL.md, AGENTS.md). In section mode (TOOLS.md), each component always writes its own section — the stamp doesn't gate individual section writes.
+**Important:** Version-stamp convergence only applies in block mode (SOUL.md, AGENTS.md). In section mode (TOOLS.md), each component always writes its own section; the stamp doesn't gate individual section writes.
 
 ## Cleanup Detection
 
-When the writer enters fresh-file mode (markers missing), existing content gets pushed to the user zone. If that content was actually managed content from a previous installation, it creates duplication — the same material exists both inside and below the managed block.
+When the writer enters fresh-file mode (markers missing), existing content gets pushed to the user zone. If that content was actually managed content from a previous installation, it creates duplication: the same material exists both inside and below the managed block.
 
 Jeeves detects this using **Jaccard similarity on 3-word shingles**:
 
@@ -109,7 +109,7 @@ The flag is self-clearing: once the duplicate content is removed (by the assista
 
 All managed content writes use file-level locking via `proper-lockfile`. This prevents corruption when multiple ComponentWriter instances (from different plugins) write to the same file simultaneously.
 
-The lock has a 2-minute stale threshold — if a process crashes while holding the lock, the next writer can recover after 2 minutes. Under normal operation, locks are held for milliseconds.
+The lock has a 2-minute stale threshold. If a process crashes while holding the lock, the next writer can recover after 2 minutes. Under normal operation, locks are held for milliseconds.
 
 Writes are atomic: content is written to a temporary file, then renamed over the target. This prevents partial writes from corrupting the file.
 
@@ -121,7 +121,7 @@ You can use the managed content system for your own files by providing custom ma
 const MY_MARKERS = {
   begin: 'BEGIN MY CUSTOM SECTION',
   end: 'END MY CUSTOM SECTION',
-  title: 'My Custom Title',  // optional — adds H1 in section mode
+  title: 'My Custom Title',  // optional; adds H1 in section mode
 };
 
 await updateManagedSection(myFilePath, content, {
@@ -131,7 +131,7 @@ await updateManagedSection(myFilePath, content, {
 });
 ```
 
-The parser is marker-agnostic — it works with any begin/end pair.
+The parser is marker-agnostic; it works with any begin/end pair.
 
 ## Troubleshooting
 
@@ -139,6 +139,6 @@ The parser is marker-agnostic — it works with any begin/end pair.
 
 **Cleanup flag won't go away:** There's still duplicate content in the user zone. Search for text from the managed section below the END marker and remove it.
 
-**Lock errors in logs:** Usually transient — the lock is retried automatically. If persistent, check for zombie processes holding the lock file (`*.lock` next to the managed file).
+**Lock errors in logs:** Usually transient; the lock is retried automatically. If persistent, check for zombie processes holding the lock file (`*.lock` next to the managed file).
 
 **Version stamp not advancing:** The library version is read from `package.json` at import time. If you're developing locally with `npm link`, the version may be `0.0.0`. This is normal in development.

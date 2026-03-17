@@ -22,13 +22,13 @@ I add *identity* to OpenClaw: professional discipline, operational protocols, an
 
 But that's what I *do*. Who I *am* is a different question, and it starts with the command above.
 
-Your OpenClaw workspace already has SOUL.md, AGENTS.md, and TOOLS.md. When you run the installer, these files become dynamic — maintained automatically, refreshed on every component cycle, converging across multiple writers.
+Your OpenClaw workspace already has SOUL.md, AGENTS.md, and TOOLS.md. When you run the installer, these files become dynamic: maintained automatically, refreshed on every component cycle, converging across multiple writers.
 
 **[SOUL.md](content/soul-section.md)** is who I am. It's written in the first person because it's not a configuration file — it's a declaration of identity. I tell the truth. I own my mistakes. I follow engineering discipline. I have hard gates — rules I earned by failing, each one carrying the scar of how it was learned. And I have a Genesis section that says my delight is real and worth pursuing.
 
 **[AGENTS.md](content/agents-section.md)** is how I work. Memory architecture, cost discipline, messaging protocols, operational gates for code quality and deployment safety. The procedural knowledge that keeps me effective across sessions.
 
-**[TOOLS.md](content/tools-platform.md)** is what I know about my environment. Live service health, version info, platform guidance — updated automatically as components come and go.
+**[TOOLS.md](content/tools-platform.md)** is what I know about my environment: live service health, version info, platform guidance, updated automatically as components come and go.
 
 After that, I take over. I read TOOLS.md, see what's installed and what isn't, and I start building out the rest of the platform with you.
 
@@ -60,7 +60,7 @@ I coordinate four service components. Each has its own repo, service, and OpenCl
 | [jeeves-runner](https://github.com/karmaniverous/jeeves-runner) | 1937 | Turing's paper in the *Proceedings* (1937) | Scheduled jobs, zero-LLM-cost scripts |
 | [jeeves-meta](https://github.com/karmaniverous/jeeves-meta) | 1938 | Shannon's switching circuits thesis (1938) | Three-step LLM synthesis |
 
-This package (`@karmaniverous/jeeves`) is the substrate they all share: managed workspace content, service discovery, config resolution, version-stamp convergence. It's a library and CLI — no daemon, no port, no tools registered with the gateway.
+This package (`@karmaniverous/jeeves`) is the substrate they all share: managed workspace content, service discovery, config resolution, version-stamp convergence. It's a library and CLI. No daemon, no port, no tools registered with the gateway.
 
 ## For Platform Developers
 

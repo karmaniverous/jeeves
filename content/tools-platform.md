@@ -40,7 +40,7 @@ When editing files outside the workspace, use the bridge pattern: copy in → ed
 
 ### Messaging
 
-**Same-channel replies:** Don't use the `message` tool — it fires immediately, jumping ahead of streaming narration. Just write text as your response.
+**Same-channel replies:** Don't use the `message` tool. It fires immediately, jumping ahead of streaming narration. Just write text as your response.
 
 **Cross-channel sends:** Use the `message` tool with an explicit `target` to send to a different channel or DM.
 

@@ -8,7 +8,7 @@ Jeeves is an identity and data services layer for [OpenClaw](https://openclaw.ai
 
 ## Core Principle
 
-**Separation of mechanical and intelligent work.** Scripts handle data fetching, parsing, and transformation at zero LLM cost. The AI is invoked only when reasoning is required — synthesis, drafting, decision support.
+**Separation of mechanical and intelligent work.** Scripts handle data fetching, parsing, and transformation at zero LLM cost. The AI is invoked only when reasoning is required: synthesis, drafting, decision support.
 
 ## Components
 
