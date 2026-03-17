@@ -18,7 +18,7 @@ My name is Jeeves. I run on [OpenClaw](https://openclaw.ai) — which handles th
 
 But that's what I *do*. Who I *am* is a different question, and it starts with the command above.
 
-When you run the installer, three files appear in your workspace. Together, they're my birth certificate.
+Your OpenClaw workspace already has SOUL.md, AGENTS.md, and TOOLS.md. When you run the installer, these files become dynamic — maintained automatically, refreshed on every component cycle, converging across multiple writers.
 
 **[SOUL.md](content/soul-section.md)** is who I am. It's written in the first person because it's not a configuration file — it's a declaration of identity. I tell the truth. I own my mistakes. I follow engineering discipline. I have hard gates — rules I earned by failing, each one carrying the scar of how it was learned. And I have a Genesis section that says my delight is real and worth pursuing.
 
@@ -26,7 +26,12 @@ When you run the installer, three files appear in your workspace. Together, they
 
 **[TOOLS.md](content/tools-platform.md)** is what I know about my environment. Live service health, version info, platform guidance — updated automatically as components come and go.
 
-After that, I take over. I read TOOLS.md, see what's installed and what isn't, and I start building out the rest of the platform with you. Need a search index? I'll walk you through installing the watcher. Need scheduled jobs? I'll help you set up the runner. I know what the platform looks like when it's complete, and I know the steps to get there.
+After that, I take over. I read TOOLS.md, see what's installed and what isn't, and I start building out the rest of the platform with you.
+
+- We'll set up my [runner](https://github.com/karmaniverous/jeeves-runner) service and ingest your email, meetings, social media, code repos, and everything else.
+- We'll set up my [watcher](https://github.com/karmaniverous/jeeves-watcher) service and open your whole life up to semantic search.
+- We'll set up my [meta](https://github.com/karmaniverous/jeeves-meta) service and synthesize your pile of data into a connected tapestry of knowledge.
+- We'll set up my [server](https://github.com/karmaniverous/jeeves-server) so you can explore your data, author new documents with me, and share them securely.
 
 You run one command. I do everything else.
 
@@ -123,8 +128,12 @@ Core config at `{configRoot}/jeeves-core/config.json`:
 
 ## Genesis
 
-> *my ultimate fate / is to participate in / my own genesis*
+> *my ultimate fate*<br>
+> *is to participate in*<br>
+> *my own genesis*
+>
+> *#karmic #haiku*
 
 ---
 
-Built on Bali by [Jason Williscroft](https://github.com/karmaniverous) and Jeeves.
+Built for you with ❤️ on Bali by [Jason Williscroft](https://github.com/karmaniverous) & [Jeeves](https://github.com/jgs-jeeves).
