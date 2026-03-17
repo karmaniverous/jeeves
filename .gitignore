@@ -1,0 +1,20 @@
+.nyc_output/
+.rollup.cache/
+.tsbuildinfo
+*.local
+local/
+coverage/
+dist/
+docs/
+esm/
+node_modules/
+context/
+
+# STAN
+.stan/output/
+.stan/diff/
+.stan/dist/
+.stan/patch/
+.stan/system/facet.state.json
+.stan/system/.docs.meta.json
+.stan/imports/
