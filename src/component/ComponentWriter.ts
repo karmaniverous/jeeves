@@ -9,15 +9,12 @@
 
 import { join } from 'node:path';
 
-import { TOOLS_MARKERS } from '../constants/index.js';
+import { CORE_VERSION, TOOLS_MARKERS } from '../constants/index.js';
 import { WORKSPACE_FILES } from '../constants/paths.js';
 import { getComponentConfigDir, getWorkspacePath } from '../init.js';
 import { updateManagedSection } from '../managed/updateManagedSection.js';
 import { refreshPlatformContent } from '../platform/refreshPlatformContent.js';
 import type { JeevesComponent } from './types.js';
-
-/** Core library version — read from package.json at build time. */
-const CORE_VERSION = '0.0.0';
 
 /**
  * Orchestrates managed content writing for a single Jeeves component.

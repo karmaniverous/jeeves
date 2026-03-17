@@ -28,3 +28,4 @@ export {
   WATCHER_PORT,
 } from './ports.js';
 export { SECTION_IDS, SECTION_ORDER, type SectionId } from './sections.js';
+export { CORE_VERSION } from './version.js';

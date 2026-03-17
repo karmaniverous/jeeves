@@ -10,6 +10,7 @@
 
 import type { Command } from '@commander-js/extra-typings';
 
+import { CORE_VERSION } from '../../constants/index.js';
 import { init } from '../../init.js';
 import { seedContent } from '../../platform/seedContent.js';
 
@@ -18,9 +19,6 @@ const DEFAULT_WORKSPACE = '.';
 
 /** Default config root. */
 const DEFAULT_CONFIG_ROOT = './config';
-
-/** Core library version. */
-const CORE_VERSION = '0.0.0';
 
 /**
  * Register the install subcommand on the parent CLI program.

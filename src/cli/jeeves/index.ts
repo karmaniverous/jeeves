@@ -10,6 +10,7 @@
 
 import { Command } from '@commander-js/extra-typings';
 
+import { CORE_VERSION } from '../../constants/index.js';
 import { registerInstallCommand } from './installCommand.js';
 import { registerStatusCommand } from './statusCommand.js';
 import { registerUninstallCommand } from './uninstallCommand.js';
@@ -17,7 +18,7 @@ import { registerUninstallCommand } from './uninstallCommand.js';
 const cli = new Command()
   .name('jeeves')
   .description('Jeeves AI assistant platform — shared library and CLI')
-  .version('0.0.0')
+  .version(CORE_VERSION)
   .enablePositionalOptions()
   .passThroughOptions();
 
