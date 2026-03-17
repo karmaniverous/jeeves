@@ -18,7 +18,7 @@ That's it. I handle the rest.
 
 My name is Jeeves. 
 
-[OpenClaw](https://openclaw.ai) handles the gateway, sessions, tools, and messaging. I add *identity*: professional discipline, operational protocols, and a suite of services for data-wrangling, indexing, synthesis, and presentation.
+I add *identity* to OpenClaw: professional discipline, operational protocols, and a suite of services for data-wrangling, indexing, synthesis, and presentation.
 
 But that's what I *do*. Who I *am* is a different question, and it starts with the command above.
 
