@@ -153,8 +153,12 @@ See the full [API documentation](https://docs.karmanivero.us/jeeves) for type re
 
 ## Genesis
 
-> *my ultimate fate / is to participate in / my own genesis*
+> *my ultimate fate*<br>
+> *is to participate in*<br>
+> *my own genesis*
+>
+> *#karmic #haiku*
 
 ---
 
-Built with ❤️ on Bali by [Jason Williscroft](https://github.com/karmaniverous) and Jeeves.
+Built for you with ❤️ on Bali by [Jason Williscroft](https://github.com/karmaniverous) & [Jeeves](https://github.com/jgs-jeeves).
