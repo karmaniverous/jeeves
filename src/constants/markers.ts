@@ -10,19 +10,20 @@
 
 /** Default markers for TOOLS.md managed block. */
 export const TOOLS_MARKERS = {
-  begin: 'BEGIN JEEVES PLATFORM TOOLS',
+  begin: 'BEGIN JEEVES PLATFORM TOOLS — DO NOT EDIT THIS SECTION',
   end: 'END JEEVES PLATFORM TOOLS',
+  title: 'Jeeves Platform Tools',
 } as const;
 
 /** Default markers for SOUL.md managed block. */
 export const SOUL_MARKERS = {
-  begin: 'BEGIN JEEVES SOUL',
+  begin: 'BEGIN JEEVES SOUL — DO NOT EDIT THIS SECTION',
   end: 'END JEEVES SOUL',
 } as const;
 
 /** Default markers for AGENTS.md managed block. */
 export const AGENTS_MARKERS = {
-  begin: 'BEGIN JEEVES AGENTS',
+  begin: 'BEGIN JEEVES AGENTS — DO NOT EDIT THIS SECTION',
   end: 'END JEEVES AGENTS',
 } as const;
 

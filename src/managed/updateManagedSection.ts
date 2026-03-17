@@ -37,7 +37,7 @@ export interface UpdateManagedSectionOptions {
   /** Section ID — required when mode is 'section'. */
   sectionId?: string;
   /** Custom markers. Defaults to TOOLS markers. */
-  markers?: { begin: string; end: string };
+  markers?: { begin: string; end: string; title?: string };
   /** Core library version for version-stamp convergence. */
   coreVersion?: string;
   /** Staleness threshold in ms for version-stamp convergence. */
@@ -127,9 +127,14 @@ export async function updateManagedSection(
         return aOrder - bOrder;
       });
 
-      newManagedBody = sections
+      const sectionText = sections
         .map((s) => `## ${s.id}\n\n${s.content}`)
         .join('\n\n');
+
+      // Prepend H1 title if markers specify one (e.g., "# Jeeves Platform Tools")
+      newManagedBody = markers.title
+        ? `# ${markers.title}\n\n${sectionText}`
+        : sectionText;
     }
 
     // Cleanup detection

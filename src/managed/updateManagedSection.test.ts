@@ -10,9 +10,23 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { SOUL_MARKERS } from '../constants';
+import { SOUL_MARKERS, TOOLS_MARKERS } from '../constants';
 import { parseManaged } from './parseManaged';
 import { updateManagedSection } from './updateManagedSection';
+
+/** Helper to build a BEGIN marker line with version stamp. */
+function begin(
+  markers: { begin: string },
+  version: string,
+  timestamp = '2026-03-17T00:00:00Z',
+): string {
+  return `<!-- ${markers.begin} | core:${version} | ${timestamp} -->`;
+}
+
+/** Helper to build an END marker line. */
+function end(markers: { end: string }): string {
+  return `<!-- ${markers.end} -->`;
+}
 
 describe('updateManagedSection', () => {
   let testDir: string;
@@ -35,8 +49,8 @@ describe('updateManagedSection', () => {
     });
 
     const content = readFileSync(testFile, 'utf-8');
-    expect(content).toContain('BEGIN JEEVES PLATFORM TOOLS');
-    expect(content).toContain('END JEEVES PLATFORM TOOLS');
+    expect(content).toContain(TOOLS_MARKERS.begin);
+    expect(content).toContain(TOOLS_MARKERS.end);
     expect(content).toContain('Platform content.');
   });
 
@@ -54,11 +68,11 @@ describe('updateManagedSection', () => {
     writeFileSync(
       testFile,
       [
-        '<!-- BEGIN JEEVES PLATFORM TOOLS | core:0.1.0 | 2026-03-17T00:00:00Z -->',
+        begin(TOOLS_MARKERS, '0.1.0'),
         '',
         'Old managed content.',
         '',
-        '<!-- END JEEVES PLATFORM TOOLS -->',
+        end(TOOLS_MARKERS),
         '',
         '# My Notes',
         '',
@@ -86,7 +100,7 @@ describe('updateManagedSection', () => {
     });
 
     const content = readFileSync(testFile, 'utf-8');
-    expect(content).toContain('BEGIN JEEVES PLATFORM TOOLS');
+    expect(content).toContain(TOOLS_MARKERS.begin);
     expect(content).toContain('Managed content.');
     expect(content).toContain('# Existing Content');
   });
@@ -110,13 +124,13 @@ describe('updateManagedSection', () => {
       writeFileSync(
         testFile,
         [
-          '<!-- BEGIN JEEVES PLATFORM TOOLS | core:0.1.0 | 2026-03-17T00:00:00Z -->',
+          begin(TOOLS_MARKERS, '0.1.0'),
           '',
           '## Watcher',
           '',
           'Old watcher content.',
           '',
-          '<!-- END JEEVES PLATFORM TOOLS -->',
+          end(TOOLS_MARKERS),
         ].join('\n'),
       );
 
@@ -129,6 +143,21 @@ describe('updateManagedSection', () => {
       const content = readFileSync(testFile, 'utf-8');
       expect(content).toContain('New watcher content.');
       expect(content).not.toContain('Old watcher content.');
+    });
+
+    it('should include H1 title when markers have a title', async () => {
+      writeFileSync(testFile, '');
+
+      await updateManagedSection(testFile, 'Platform content.', {
+        mode: 'section',
+        sectionId: 'Platform',
+        markers: TOOLS_MARKERS,
+        coreVersion: '0.1.0',
+      });
+
+      const content = readFileSync(testFile, 'utf-8');
+      expect(content).toContain('# Jeeves Platform Tools');
+      expect(content).toContain('## Platform');
     });
 
     it('should maintain stable section order', async () => {
@@ -178,11 +207,11 @@ describe('updateManagedSection', () => {
       writeFileSync(
         testFile,
         [
-          '<!-- BEGIN JEEVES PLATFORM TOOLS | core:0.1.0 | 2026-03-17T00:00:00Z -->',
+          begin(TOOLS_MARKERS, '0.1.0'),
           '',
           'Old content.',
           '',
-          '<!-- END JEEVES PLATFORM TOOLS -->',
+          end(TOOLS_MARKERS),
         ].join('\n'),
       );
 
@@ -201,11 +230,11 @@ describe('updateManagedSection', () => {
       writeFileSync(
         testFile,
         [
-          `<!-- BEGIN JEEVES PLATFORM TOOLS | core:0.3.0 | ${freshStamp} -->`,
+          begin(TOOLS_MARKERS, '0.3.0', freshStamp),
           '',
           'Newer content.',
           '',
-          '<!-- END JEEVES PLATFORM TOOLS -->',
+          end(TOOLS_MARKERS),
         ].join('\n'),
       );
 
@@ -232,8 +261,8 @@ describe('updateManagedSection', () => {
       });
 
       const content = readFileSync(soulFile, 'utf-8');
-      expect(content).toContain('BEGIN JEEVES SOUL');
-      expect(content).toContain('END JEEVES SOUL');
+      expect(content).toContain(SOUL_MARKERS.begin);
+      expect(content).toContain(SOUL_MARKERS.end);
       expect(content).toContain('Soul content here.');
     });
   });
@@ -276,11 +305,11 @@ describe('updateManagedSection', () => {
       writeFileSync(
         testFile,
         [
-          '<!-- BEGIN JEEVES PLATFORM TOOLS | core:0.1.0 | 2026-03-17T00:00:00Z -->',
+          begin(TOOLS_MARKERS, '0.1.0'),
           '',
           'Old managed content.',
           '',
-          '<!-- END JEEVES PLATFORM TOOLS -->',
+          end(TOOLS_MARKERS),
           '',
           managed,
         ].join('\n'),
@@ -299,11 +328,11 @@ describe('updateManagedSection', () => {
       writeFileSync(
         testFile,
         [
-          '<!-- BEGIN JEEVES PLATFORM TOOLS | core:0.1.0 | 2026-03-17T00:00:00Z -->',
+          begin(TOOLS_MARKERS, '0.1.0'),
           '',
           'Managed content about tools.',
           '',
-          '<!-- END JEEVES PLATFORM TOOLS -->',
+          end(TOOLS_MARKERS),
           '',
           '# My Grocery List',
           '',

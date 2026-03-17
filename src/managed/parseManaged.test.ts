@@ -20,7 +20,7 @@ describe('parseManaged', () => {
 
   it('should parse valid managed block with version stamp', () => {
     const content = [
-      '<!-- BEGIN JEEVES PLATFORM TOOLS | core:0.1.0 | 2026-03-17T00:00:00Z -->',
+      `<!-- ${TOOLS_MARKERS.begin} | core:0.1.0 | 2026-03-17T00:00:00Z -->`,
       '',
       '## Platform',
       '',
@@ -30,7 +30,7 @@ describe('parseManaged', () => {
       '',
       'Watcher content here.',
       '',
-      '<!-- END JEEVES PLATFORM TOOLS -->',
+      `<!-- ${TOOLS_MARKERS.end} -->`,
       '',
       '# User Notes',
       '',
@@ -44,22 +44,26 @@ describe('parseManaged', () => {
       timestamp: '2026-03-17T00:00:00Z',
     });
     expect(result.sections).toHaveLength(2);
-    expect(result.sections[0].id).toBe('Platform');
-    expect(result.sections[0].content).toBe('Platform content here.');
-    expect(result.sections[1].id).toBe('Watcher');
-    expect(result.sections[1].content).toBe('Watcher content here.');
+    expect(result.sections[0]).toMatchObject({
+      id: 'Platform',
+      content: 'Platform content here.',
+    });
+    expect(result.sections[1]).toMatchObject({
+      id: 'Watcher',
+      content: 'Watcher content here.',
+    });
     expect(result.userContent).toContain('My custom content.');
   });
 
   it('should handle managed block without version stamp', () => {
     const content = [
-      '<!-- BEGIN JEEVES PLATFORM TOOLS — DO NOT EDIT THIS SECTION -->',
+      `<!-- ${TOOLS_MARKERS.begin} -->`,
       '',
       '## Platform',
       '',
       'Content.',
       '',
-      '<!-- END JEEVES PLATFORM TOOLS -->',
+      `<!-- ${TOOLS_MARKERS.end} -->`,
     ].join('\n');
 
     const result = parseManaged(content);
@@ -70,19 +74,19 @@ describe('parseManaged', () => {
 
   it('should handle corrupt markers (BEGIN without END)', () => {
     const content = [
-      '<!-- BEGIN JEEVES PLATFORM TOOLS | core:0.1.0 | 2026-03-17T00:00:00Z -->',
+      `<!-- ${TOOLS_MARKERS.begin} | core:0.1.0 | 2026-03-17T00:00:00Z -->`,
       '## Platform',
       'Content.',
     ].join('\n');
 
     const result = parseManaged(content);
     expect(result.found).toBe(false);
-    expect(result.userContent).toContain('BEGIN JEEVES PLATFORM TOOLS');
+    expect(result.userContent).toContain(TOOLS_MARKERS.begin);
   });
 
   it('should sort sections by stable order', () => {
     const content = [
-      '<!-- BEGIN JEEVES PLATFORM TOOLS | core:0.1.0 | 2026-03-17T00:00:00Z -->',
+      `<!-- ${TOOLS_MARKERS.begin} | core:0.1.0 | 2026-03-17T00:00:00Z -->`,
       '',
       '## Meta',
       '',
@@ -96,26 +100,26 @@ describe('parseManaged', () => {
       '',
       'Watcher content.',
       '',
-      '<!-- END JEEVES PLATFORM TOOLS -->',
+      `<!-- ${TOOLS_MARKERS.end} -->`,
     ].join('\n');
 
     const result = parseManaged(content);
-    expect(result.sections[0].id).toBe('Platform');
-    expect(result.sections[1].id).toBe('Watcher');
-    expect(result.sections[2].id).toBe('Meta');
+    expect(result.sections[0]).toMatchObject({ id: 'Platform' });
+    expect(result.sections[1]).toMatchObject({ id: 'Watcher' });
+    expect(result.sections[2]).toMatchObject({ id: 'Meta' });
   });
 
   it('should preserve content before markers', () => {
     const content = [
       '# Title',
       '',
-      '<!-- BEGIN JEEVES PLATFORM TOOLS | core:0.1.0 | 2026-03-17T00:00:00Z -->',
+      `<!-- ${TOOLS_MARKERS.begin} | core:0.1.0 | 2026-03-17T00:00:00Z -->`,
       '',
       '## Platform',
       '',
       'Content.',
       '',
-      '<!-- END JEEVES PLATFORM TOOLS -->',
+      `<!-- ${TOOLS_MARKERS.end} -->`,
     ].join('\n');
 
     const result = parseManaged(content);
@@ -124,11 +128,11 @@ describe('parseManaged', () => {
 
   it('should work with custom markers', () => {
     const content = [
-      '<!-- BEGIN JEEVES SOUL | core:0.1.0 | 2026-03-17T00:00:00Z -->',
+      `<!-- ${SOUL_MARKERS.begin} | core:0.1.0 | 2026-03-17T00:00:00Z -->`,
       '',
       'Soul content here.',
       '',
-      '<!-- END JEEVES SOUL -->',
+      `<!-- ${SOUL_MARKERS.end} -->`,
       '',
       'User soul content.',
     ].join('\n');
@@ -141,9 +145,9 @@ describe('parseManaged', () => {
 
   it('should not match wrong markers', () => {
     const content = [
-      '<!-- BEGIN JEEVES SOUL | core:0.1.0 | 2026-03-17T00:00:00Z -->',
+      `<!-- ${SOUL_MARKERS.begin} | core:0.1.0 | 2026-03-17T00:00:00Z -->`,
       'Soul content.',
-      '<!-- END JEEVES SOUL -->',
+      `<!-- ${SOUL_MARKERS.end} -->`,
     ].join('\n');
 
     const result = parseManaged(content, TOOLS_MARKERS);
