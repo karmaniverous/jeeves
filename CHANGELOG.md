@@ -2,7 +2,15 @@
 
 All notable changes to this project will be documented in this file. Dates are displayed in UTC.
 
+#### [0.1.1](https://github.com/karmaniverous/jeeves/compare/0.1.0...0.1.1)
+
+- feat: add async content cache helper for sync generateToolsContent [`b0ea44e`](https://github.com/karmaniverous/jeeves/commit/b0ea44e7c26e257402e258e831d558b77edb61a2)
+- fix: use package-directory instead of hand-rolled package.json resolution [`b9dc559`](https://github.com/karmaniverous/jeeves/commit/b9dc5596fddc8d76ccf072312b08df25a3f13eb1)
+- fix: resolve package.json from dist/ via directory walk (fixes MODULE_NOT_FOUND when consumed as dependency) [`96518d5`](https://github.com/karmaniverous/jeeves/commit/96518d52f47ddc56c324d5befa05f1418bf444e1)
+
 #### 0.1.0
+
+> 18 March 2026
 
 - feat: jeeves-core v0.1.0 — library, content, CLI, integration tests [`#1`](https://github.com/karmaniverous/jeeves/pull/1)
 - Initial commit [`126f0b9`](https://github.com/karmaniverous/jeeves/commit/126f0b9bf62f78c33901826e55c5e0efceb3d683)
@@ -10,6 +18,7 @@ All notable changes to this project will be documented in this file. Dates are d
 - feat: Tasks 10, 16-22 — refreshPlatformContent, CLI commands, integration tests [`47b9c7e`](https://github.com/karmaniverous/jeeves/commit/47b9c7ee0ee83a9df8df89920f8768f879296a7b)
 - feat: author content files for Tasks 11-15 [`a3c5399`](https://github.com/karmaniverous/jeeves/commit/a3c539991645ffd17c13d04fcac9e3f26dede137)
 - docs: author README, TypeDoc guides, fix all TSDoc warnings [`126d6c0`](https://github.com/karmaniverous/jeeves/commit/126d6c0385b190fab425278f5b2d0a484d972bdc)
+- chore: release v0.1.0 [`729a638`](https://github.com/karmaniverous/jeeves/commit/729a638e18f49d9e80c3989cbe3ec839a48f2748)
 - docs: first-person SOUL, move operational gates to AGENTS, README storytelling + pronouns + links [`a0e38de`](https://github.com/karmaniverous/jeeves/commit/a0e38dec5637825efca132513b5397a5fcd2c35f)
 - docs: rewrite README - Jeeves bootstraps an identity, not just plumbing [`3930433`](https://github.com/karmaniverous/jeeves/commit/39304337915965cb7244850b0d2cd41583f960a6)
 - docs: add PlantUML diagrams, front matter titles, team narrative, remove template diagrams [`f27db2c`](https://github.com/karmaniverous/jeeves/commit/f27db2cf653972389e12421affe4471636590546)
