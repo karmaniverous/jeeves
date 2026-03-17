@@ -123,9 +123,9 @@ Core config at `{configRoot}/jeeves-core/config.json`:
 
 ## Documentation
 
-- [Platform Overview](https://docs.karmanivero.us/jeeves/documents/guides_platform-overview.html) — architecture, components, design philosophy
-- [Managed Content System](https://docs.karmanivero.us/jeeves/documents/guides_managed-content-system.html) — convergence, cleanup, file locking
-- [Building a Component Plugin](https://docs.karmanivero.us/jeeves/documents/guides_building-a-component-plugin.html) — step-by-step integration
+- [Platform Overview](https://docs.karmanivero.us/jeeves/documents/Platform_Overview.html) — architecture, components, design philosophy
+- [Managed Content System](https://docs.karmanivero.us/jeeves/documents/Managed_Content_System.html) — convergence, cleanup, file locking
+- [Building a Component Plugin](https://docs.karmanivero.us/jeeves/documents/Building_a_Component_Plugin.html) — step-by-step integration
 - [API Reference](https://docs.karmanivero.us/jeeves) — types, functions, constants
 
 <!-- /TYPEDOC_EXCLUDE -->
