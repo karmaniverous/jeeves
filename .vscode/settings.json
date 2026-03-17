@@ -19,8 +19,8 @@
   "files.eol": "\n",
   "git.autofetch": true,
   "git.enableSmartCommit": true,
-  "javascript.preferences.importModuleSpecifierEnding": "minimal",
-  "javascript.updateImportsOnFileMove.enabled": "always",
+  "js/ts.preferences.importModuleSpecifierEnding": "minimal",
+  "js/ts.updateImportsOnFileMove.enabled": "always",
   "plantuml.diagramsRoot": "diagrams/src",
   "plantuml.exportFormat": "",
   "plantuml.exportIncludeFolderHeirarchy": true,
@@ -68,6 +68,6 @@
   "todo-tree.tree.hideIconsWhenGroupedByTag": true,
   "todo-tree.tree.labelFormat": "${tag} ${after}",
   "todo-tree.tree.showCountsInTree": true,
-  "typescript.tsdk": "node_modules\\typescript\\lib",
+  "js/ts.tsdk.path": "node_modules/typescript/lib",
   "yaml.format.singleQuote": true
 }
