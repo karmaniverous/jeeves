@@ -6,6 +6,10 @@
 
 export { ComponentWriter } from './ComponentWriter.js';
 export {
+  type AsyncContentCacheOptions,
+  createAsyncContentCache,
+} from './createAsyncContentCache.js';
+export {
   createComponentWriter,
   type CreateComponentWriterOptions,
 } from './createComponentWriter.js';

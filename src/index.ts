@@ -10,7 +10,9 @@
  */
 
 export {
+  type AsyncContentCacheOptions,
   ComponentWriter,
+  createAsyncContentCache,
   createComponentWriter,
   type CreateComponentWriterOptions,
   type JeevesComponent,
