@@ -1,7 +1,7 @@
 @startuml managed-content-lifecycle
 skinparam shadowing false
 skinparam defaultFontSize 11
-skinparam backgroundColor transparent
+skinparam backgroundColor white
 skinparam ActivityDiamondBackgroundColor #EEEEEE
 
 title Managed Content Write Cycle

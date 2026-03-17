@@ -2,7 +2,7 @@
 skinparam componentStyle rectangle
 skinparam shadowing false
 skinparam defaultFontSize 11
-skinparam backgroundColor transparent
+skinparam backgroundColor white
 
 title Jeeves Component Architecture
 
