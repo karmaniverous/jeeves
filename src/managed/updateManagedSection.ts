@@ -20,10 +20,10 @@ import { dirname, join } from 'node:path';
 
 import { lock } from 'proper-lockfile';
 
-import { TOOLS_MARKERS } from '../constants/index.js';
-import { SECTION_ORDER } from '../constants/sections.js';
+import { CLEANUP_FLAG, TOOLS_MARKERS } from '../constants/index.js';
 import { needsCleanup } from './cleanupDetection.js';
 import { parseManaged } from './parseManaged.js';
+import { sortSectionsByOrder } from './sectionSort.js';
 import {
   formatBeginMarker,
   formatEndMarker,
@@ -118,14 +118,7 @@ export async function updateManagedSection(
         sections.push({ id: sectionId!, content });
       }
 
-      // Sort sections by stable order
-      sections.sort((a, b) => {
-        const aIdx = SECTION_ORDER.indexOf(a.id);
-        const bIdx = SECTION_ORDER.indexOf(b.id);
-        const aOrder = aIdx === -1 ? SECTION_ORDER.length : aIdx;
-        const bOrder = bIdx === -1 ? SECTION_ORDER.length : bIdx;
-        return aOrder - bOrder;
-      });
+      sortSectionsByOrder(sections);
 
       const sectionText = sections
         .map((s) => `## ${s.id}\n\n${s.content}`)
@@ -153,9 +146,7 @@ export async function updateManagedSection(
     parts.push(beginLine);
     if (cleanupNeeded) {
       parts.push('');
-      parts.push(
-        '> ⚠️ CLEANUP NEEDED: Orphaned Jeeves content may exist below this managed section. Review everything after the END marker and remove any content that duplicates what appears above.',
-      );
+      parts.push(CLEANUP_FLAG);
     }
     parts.push('');
     parts.push(newManagedBody);

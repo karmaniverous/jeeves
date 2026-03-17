@@ -11,6 +11,7 @@ export {
   type ParseManagedResult,
   type VersionStamp,
 } from './parseManaged.js';
+export { sortSectionsByOrder } from './sectionSort.js';
 export {
   updateManagedSection,
   type UpdateManagedSectionOptions,

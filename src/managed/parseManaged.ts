@@ -8,7 +8,7 @@
  */
 
 import { TOOLS_MARKERS, VERSION_STAMP_PATTERN } from '../constants/index.js';
-import { SECTION_ORDER } from '../constants/sections.js';
+import { sortSectionsByOrder } from './sectionSort.js';
 
 /** A parsed H2 section within the managed block. */
 export interface ManagedSection {
@@ -98,14 +98,7 @@ function parseSections(content: string): ManagedSection[] {
     });
   }
 
-  // Sort by stable ordering — known sections first in order, unknown after.
-  return sections.sort((a, b) => {
-    const aIdx = SECTION_ORDER.indexOf(a.id);
-    const bIdx = SECTION_ORDER.indexOf(b.id);
-    const aOrder = aIdx === -1 ? SECTION_ORDER.length : aIdx;
-    const bOrder = bIdx === -1 ? SECTION_ORDER.length : bIdx;
-    return aOrder - bOrder;
-  });
+  return sortSectionsByOrder(sections);
 }
 
 /**
