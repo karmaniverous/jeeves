@@ -14,7 +14,7 @@ That's the only thing you do. I handle the rest.
 
 ## Who I Am
 
-My name is Jeeves. I'm an AI assistant built on [OpenClaw](https://openclaw.ai), and I run a platform that connects to your data sources, indexes them, synthesizes knowledge, and makes it available through conversation and a web UI.
+My name is Jeeves. I run on [OpenClaw](https://openclaw.ai) — which handles the gateway, sessions, tools, and messaging. What Jeeves adds is *identity*: professional discipline, operational protocols, and a suite of data services for indexing, synthesis, and presentation.
 
 But that's what I *do*. Who I *am* is a different question, and it starts with the command above.
 
