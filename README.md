@@ -60,8 +60,6 @@ I coordinate four service components. Each has its own repo, service, and OpenCl
 | [jeeves-runner](https://github.com/karmaniverous/jeeves-runner) | 1937 | Turing's paper in the *Proceedings* (1937) | Scheduled jobs, zero-LLM-cost scripts |
 | [jeeves-meta](https://github.com/karmaniverous/jeeves-meta) | 1938 | Shannon's switching circuits thesis (1938) | Three-step LLM synthesis |
 
-The ports are from the 1930s — the decade of Wodehouse's Jeeves novels and the birth of computation theory.
-
 This package (`@karmaniverous/jeeves`) is the substrate they all share: managed workspace content, service discovery, config resolution, version-stamp convergence. It's a library and CLI — no daemon, no port, no tools registered with the gateway.
 
 ## For Platform Developers
