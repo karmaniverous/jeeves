@@ -10,13 +10,11 @@
 import type { Command } from '@commander-js/extra-typings';
 
 import { probeAllServices } from '../../discovery/probe.js';
-import { init } from '../../init.js';
-
-/** Default workspace path. */
-const DEFAULT_WORKSPACE = '.';
-
-/** Default config root. */
-const DEFAULT_CONFIG_ROOT = './config';
+import {
+  DEFAULT_CONFIG_ROOT,
+  DEFAULT_WORKSPACE,
+  initFromOptions,
+} from './cliDefaults.js';
 
 /**
  * Register the status subcommand on the parent CLI program.
@@ -35,12 +33,9 @@ export function registerStatusCommand(program: Command): void {
     )
     .option('-t, --timeout <ms>', 'Probe timeout in milliseconds', '3000')
     .action(async (opts) => {
-      const workspacePath = opts.workspace;
-      const configRoot = opts.configRoot;
       const timeoutMs = parseInt(opts.timeout, 10);
 
-      // Initialize core for service URL resolution
-      init({ workspacePath, configRoot });
+      initFromOptions(opts);
 
       console.log('Jeeves Platform Status');
       console.log('='.repeat(60));
@@ -48,7 +43,6 @@ export function registerStatusCommand(program: Command): void {
 
       const probeResults = await probeAllServices(undefined, timeoutMs);
 
-      // Build table
       const nameWidth = 10;
       const portWidth = 6;
       const statusWidth = 30;

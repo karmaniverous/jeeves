@@ -11,14 +11,12 @@
 import type { Command } from '@commander-js/extra-typings';
 
 import { CORE_VERSION } from '../../constants/index.js';
-import { init } from '../../init.js';
 import { seedContent } from '../../platform/seedContent.js';
-
-/** Default workspace path. */
-const DEFAULT_WORKSPACE = '.';
-
-/** Default config root. */
-const DEFAULT_CONFIG_ROOT = './config';
+import {
+  DEFAULT_CONFIG_ROOT,
+  DEFAULT_WORKSPACE,
+  initFromOptions,
+} from './cliDefaults.js';
 
 /**
  * Register the install subcommand on the parent CLI program.
@@ -36,18 +34,13 @@ export function registerInstallCommand(program: Command): void {
       DEFAULT_CONFIG_ROOT,
     )
     .action(async (opts) => {
-      const workspacePath = opts.workspace;
-      const configRoot = opts.configRoot;
-
       console.log('Jeeves platform install');
-      console.log(`  Workspace: ${workspacePath}`);
-      console.log(`  Config root: ${configRoot}`);
+      console.log(`  Workspace: ${opts.workspace}`);
+      console.log(`  Config root: ${opts.configRoot}`);
       console.log();
 
-      // Initialize the core library
-      init({ workspacePath, configRoot });
+      initFromOptions(opts);
 
-      // Seed all content
       await seedContent({
         coreVersion: CORE_VERSION,
         skipRegistryCheck: true,

@@ -20,14 +20,13 @@ import {
   WORKSPACE_FILES,
 } from '../../constants/index.js';
 import { probeAllServices } from '../../discovery/probe.js';
-import { getCoreConfigDir, getWorkspacePath, init } from '../../init.js';
+import { getCoreConfigDir, getWorkspacePath } from '../../init.js';
+import {
+  DEFAULT_CONFIG_ROOT,
+  DEFAULT_WORKSPACE,
+  initFromOptions,
+} from './cliDefaults.js';
 import { removeManagedBlockFromFile } from './uninstallHelpers.js';
-
-/** Default workspace path. */
-const DEFAULT_WORKSPACE = '.';
-
-/** Default config root. */
-const DEFAULT_CONFIG_ROOT = './config';
 
 /**
  * Register the uninstall subcommand on the parent CLI program.
@@ -45,16 +44,12 @@ export function registerUninstallCommand(program: Command): void {
       DEFAULT_CONFIG_ROOT,
     )
     .action(async (opts) => {
-      const workspacePath = opts.workspace;
-      const configRoot = opts.configRoot;
-
       console.log('Jeeves platform uninstall');
-      console.log(`  Workspace: ${workspacePath}`);
-      console.log(`  Config root: ${configRoot}`);
+      console.log(`  Workspace: ${opts.workspace}`);
+      console.log(`  Config root: ${opts.configRoot}`);
       console.log();
 
-      // Initialize the core library
-      init({ workspacePath, configRoot });
+      initFromOptions(opts);
 
       const wsPath = getWorkspacePath();
       const coreConfigDir = getCoreConfigDir();
