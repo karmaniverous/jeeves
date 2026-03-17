@@ -2,13 +2,11 @@
 
 import { Command } from '@commander-js/extra-typings';
 
-import { fooCommand } from './fooCommand';
-
 const cli = new Command()
-  .name('mycli')
-  .description('My CLI tool')
+  .name('jeeves')
+  .description('Jeeves AI assistant platform — shared library and CLI')
+  .version('0.0.0')
   .enablePositionalOptions()
-  .passThroughOptions()
-  .addCommand(fooCommand);
+  .passThroughOptions();
 
 cli.parse();
