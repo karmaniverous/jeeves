@@ -1,0 +1,47 @@
+@startuml managed-content-lifecycle
+skinparam shadowing false
+skinparam defaultFontSize 11
+skinparam backgroundColor transparent
+skinparam ActivityDiamondBackgroundColor #EEEEEE
+
+title Managed Content Write Cycle
+
+start
+
+:ComponentWriter timer fires;
+
+:Call generateToolsContent();
+note right: Component produces\nits TOOLS.md section
+
+:updateManagedSection()\n**section mode**;
+
+:Read file, parse markers;
+
+if (Markers found?) then (yes)
+  :Parse H2 sections\n+ version stamp;
+else (no)
+  :Fresh-file mode:\nwrap existing content\nbelow END marker;
+endif
+
+if (Block mode +\nversion < stamp +\nstamp is fresh?) then (skip)
+  stop
+else (write)
+endif
+
+:Upsert named section;
+:Sort by stable order;
+:Jaccard cleanup check;
+
+if (Orphaned content\ndetected?) then (yes)
+  :Inject cleanup flag;
+else (no)
+endif
+
+:Atomic write\n(temp + rename);
+
+:refreshPlatformContent();
+note right: Probe services\nRender Platform template\nWrite SOUL.md, AGENTS.md\nCopy templates
+
+stop
+
+@enduml

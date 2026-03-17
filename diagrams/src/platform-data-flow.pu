@@ -1,0 +1,46 @@
+@startuml platform-data-flow
+skinparam componentStyle rectangle
+skinparam shadowing false
+skinparam defaultFontSize 11
+skinparam backgroundColor transparent
+skinparam ArrowColor #555555
+
+title Jeeves Platform Data Flow
+
+rectangle "Primary Sources" as sources {
+  card "Email" as email
+  card "Slack" as slack
+  card "GitHub" as github
+  card "Meetings" as meetings
+  card "X/Twitter" as x
+}
+
+rectangle "Services" as services {
+  component "**Runner**\n(port 1937)\nScheduled jobs\nData ingestion" as runner
+  component "**Watcher**\n(port 1936)\nSemantic indexing\nInference rules" as watcher
+  database "**Qdrant**\nVector store" as qdrant
+  component "**Meta**\n(port 1938)\nLLM synthesis\nArchitect→Builder→Critic" as meta
+  component "**Server**\n(port 1934)\nWeb UI\nDoc rendering\nExport" as server
+}
+
+rectangle "Workspace Files" as workspace {
+  file "SOUL.md" as soul
+  file "AGENTS.md" as agents
+  file "TOOLS.md" as tools
+}
+
+rectangle "Jeeves Core Library" as core {
+  card "Managed content\nVersion convergence\nService discovery" as lib
+}
+
+sources --> runner : cron schedules
+runner --> watcher : writes files →\nwatcher indexes
+watcher --> qdrant : embeddings
+meta --> qdrant : reads
+meta --> watcher : ".meta/ output →\nwatcher indexes"
+server ..> qdrant : search proxy
+lib --> soul : managed section
+lib --> agents : managed section
+lib --> tools : Platform +\ncomponent sections
+
+@enduml

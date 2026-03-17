@@ -1,6 +1,10 @@
+---
+title: Platform Overview
+---
+
 # Platform Overview
 
-Jeeves is a self-hosted AI assistant platform built on [OpenClaw](https://openclaw.ai). It connects to a team's data sources, continuously indexes and synthesizes information, and makes it accessible through natural conversation and a web UI.
+Jeeves is an identity and data services layer for [OpenClaw](https://openclaw.ai). OpenClaw provides the gateway, sessions, tools, and messaging. Jeeves adds professional discipline, operational protocols, and a suite of services for ingesting, indexing, synthesizing, and presenting your data.
 
 ## Core Principle
 
@@ -32,21 +36,23 @@ Shared library and CLI that provides the substrate all components build on: mana
 
 ## How Components Interact
 
-```
-Runner scripts → filesystem → Watcher indexes → Qdrant
-                                                   ↓
-Server serves files ← filesystem              Search API
-                                                   ↓
-Meta reads from Qdrant → LLM synthesis → .meta/ files
-                                              ↓
-                                    Watcher indexes .meta/ output
-```
+![Platform Data Flow](../diagrams/out/platform-data-flow.png)
 
 1. **Runner** executes scheduled jobs that fetch, transform, and write domain data to the filesystem
 2. **Watcher** detects file changes, extracts text, generates embeddings, and indexes into Qdrant
 3. **Server** serves files via web UI for human browsing and sharing
 4. **Meta** queries the vector index, synthesizes knowledge, and writes output back to the filesystem
 5. **The AI assistant** (via OpenClaw) uses watcher's search and runner's job outputs to reason and respond
+
+## The Team
+
+Jeeves isn't just software — he works with people. On any given day, Jeeves might be helping an author track his book sales, briefing a QA lead on regression testing, onboarding a new team member to a private members' club, or pair-programming a platform spec with his developer. Each interaction shapes who he becomes. The hard gates in SOUL.md aren't hypothetical — they were earned in real conversations with real people who trusted him with real work.
+
+## Architecture
+
+![Component Architecture](../diagrams/out/component-architecture.png)
+
+Each component plugin bundles its own copy of `@karmaniverous/jeeves` as a regular dependency. No shared singleton, no install-order constraints. Version skew is managed via semver and version-stamp convergence.
 
 ## Port Assignments
 
@@ -78,9 +84,9 @@ Meta reads from Qdrant → LLM synthesis → .meta/ files
 
 ## Design Philosophy
 
-**The content is the bootstrap.** The assistant doesn't know what plugins are installed or what services are running. It reads files. TOOLS.md tells it what tools exist. SOUL.md tells it how to behave. AGENTS.md tells it how to operate. Everything else — plugins, services, npm packages — is infrastructure for maintaining those files.
+**The content is the bootstrap.** The assistant doesn't know what plugins are installed or what services are running. He reads files. TOOLS.md tells him what tools exist. SOUL.md tells him who he is. AGENTS.md tells him how to operate. Everything else — plugins, services, npm packages — is infrastructure for maintaining those files.
 
-**No core plugin.** Jeeves is a library, not a plugin. It registers zero tools with the OpenClaw gateway. Component plugins bundle the library and maintain managed content on timer cycles. The CLI seeds files and exits.
+**No core plugin.** Jeeves is a library, not a plugin. He registers zero tools with the OpenClaw gateway. Component plugins bundle the library and maintain managed content on timer cycles. The CLI seeds files and exits.
 
 **Components are autonomous.** Each component can deploy and function without any other component being installed. Running `npx @karmaniverous/jeeves install` first provides a better experience (the assistant immediately knows what to bootstrap), but it's not required.
 

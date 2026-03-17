@@ -1,3 +1,7 @@
+---
+title: Managed Content System
+---
+
 # Managed Content System
 
 The managed content system is the core mechanism Jeeves uses to maintain workspace files without destroying user-authored content. This guide covers how it works, how to extend it, and how to troubleshoot issues.
@@ -51,6 +55,10 @@ await updateManagedSection(filePath, sectionContent, {
 ```
 
 In section mode, sections are always rendered in stable order (Platform, Watcher, Server, Runner, Meta) regardless of write sequence. An H1 title is prepended when the markers include a `title` property.
+
+### Write Cycle
+
+![Managed Content Lifecycle](../diagrams/out/managed-content-lifecycle.png)
 
 ### Fresh File Handling
 

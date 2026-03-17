@@ -1,0 +1,34 @@
+@startuml component-architecture
+skinparam componentStyle rectangle
+skinparam shadowing false
+skinparam defaultFontSize 11
+skinparam backgroundColor transparent
+
+title Jeeves Component Architecture
+
+package "OpenClaw Gateway" as gw {
+  [jeeves-runner-openclaw] as runner_plugin
+  [jeeves-watcher-openclaw] as watcher_plugin
+  [jeeves-server-openclaw] as server_plugin
+  [jeeves-meta-openclaw] as meta_plugin
+}
+
+package "@karmaniverous/jeeves" as lib {
+  [Managed Content\nWriter] as writer
+  [Service Discovery] as discovery
+  [Config Resolution] as config
+  [Version Convergence] as convergence
+}
+
+runner_plugin -down-> lib : bundles
+watcher_plugin -down-> lib : bundles
+server_plugin -down-> lib : bundles
+meta_plugin -down-> lib : bundles
+
+note bottom of lib
+  Each plugin bundles its own copy.
+  No shared singleton. No install-order
+  constraints. Semver manages compatibility.
+end note
+
+@enduml

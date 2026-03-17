@@ -1,3 +1,7 @@
+---
+title: Building a Component Plugin
+---
+
 # Building a Component Plugin
 
 This guide walks through building a Jeeves component plugin — an OpenClaw plugin that uses the `@karmaniverous/jeeves` library to maintain its TOOLS.md section and participate in platform content management.
