@@ -15,13 +15,18 @@
     "yaml",
     "yml"
   ],
-  "hostedBaseUrl": "https://docs.karmanivero.us/npm-package-template-ts",
+  "hostedBaseUrl": "https://docs.karmanivero.us/jeeves",
   "navigationLinks": {
-    "GitHub": "https://github.com/karmaniverous/npm-package-template-ts"
+    "GitHub": "https://github.com/karmaniverous/jeeves"
   },
   "out": "./docs/",
   "plugin": ["typedoc-plugin-mdn-links", "typedoc-plugin-replace-text"],
-  "projectDocuments": ["./CHANGELOG.md"],
+  "projectDocuments": [
+    "./guides/platform-overview.md",
+    "./guides/managed-content-system.md",
+    "./guides/building-a-component-plugin.md",
+    "./CHANGELOG.md"
+  ],
   "replaceText": {
     "replacements": [
       {

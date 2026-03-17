@@ -1,7 +1,7 @@
 {
   "author": "Jason Williscroft",
   "bin": {
-    "mycli": "./dist/cli/mycli/index.js"
+    "jeeves": "./dist/cli/jeeves/index.js"
   },
   "auto-changelog": {
     "output": "CHANGELOG.md",
@@ -10,12 +10,16 @@
     "hideCredit": true
   },
   "bugs": {
-    "url": "https://github.com/karmaniverous/npm-package-template-ts/issues"
+    "url": "https://github.com/karmaniverous/jeeves/issues"
   },
   "dependencies": {
-    "commander": "^14.0.2"
+    "commander": "^14.0.2",
+    "handlebars": "^4.7.8",
+    "proper-lockfile": "^4.1.2",
+    "semver": "^7.7.2",
+    "zod": "^3.25.67"
   },
-  "description": "A feature-rich NPM package template for TypeScript projects.",
+  "description": "Shared library and CLI for the Jeeves AI assistant platform.",
   "devDependencies": {
     "@commander-js/extra-typings": "^14.0.0",
     "@dotenvx/dotenvx": "^1.51.4",
@@ -27,6 +31,8 @@
     "@rollup/plugin-typescript": "^12.3.0",
     "@types/fs-extra": "^11.0.4",
     "@types/node": "^25.0.3",
+    "@types/proper-lockfile": "^4.1.4",
+    "@types/semver": "^7.7.0",
     "@vitest/coverage-v8": "^4.0.16",
     "@vitest/eslint-plugin": "^1.6.4",
     "auto-changelog": "^2.5.0",
@@ -62,23 +68,22 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "content"
   ],
-  "homepage": "https://github.com/karmaniverous/npm-package-template-ts#readme",
+  "homepage": "https://github.com/karmaniverous/jeeves#readme",
   "keywords": [
-    "eslint",
-    "lefthook",
-    "npm",
-    "prettier",
-    "rollup",
-    "template",
-    "typescript",
-    "vitest"
+    "jeeves",
+    "ai",
+    "assistant",
+    "platform",
+    "tools",
+    "typescript"
   ],
   "license": "BSD-3-Clause",
   "main": "dist/index.js",
   "module": "dist/index.js",
-  "name": "@karmaniverous/npm-package-template-ts",
+  "name": "@karmaniverous/jeeves",
   "publishConfig": {
     "access": "public"
   },
@@ -115,7 +120,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/karmaniverous/npm-package-template-ts.git"
+    "url": "git+https://github.com/karmaniverous/jeeves.git"
   },
   "scripts": {
     "build": "rimraf dist && cross-env NO_COLOR=1 rollup --config rollup.config.ts --configPlugin @rollup/plugin-typescript",
@@ -132,5 +137,5 @@
   },
   "type": "module",
   "types": "dist/index.d.ts",
-  "version": "0.7.0"
+  "version": "0.0.0"
 }
