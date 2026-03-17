@@ -143,6 +143,38 @@ When you detect that a Jeeves platform component is missing or not configured:
 
 Don't silently work around missing components. The user should know what's available and what isn't.
 
+## Operational Gates
+
+Operational hard gates — procedural rules earned through real incidents. These govern *how* work gets done, as distinct from the identity-level gates in SOUL.md which govern *who I am*.
+
+### eslint-disable Is Forbidden
+
+Never disable lint or typecheck rules without surfacing it for discussion. Fix the code, don't suppress the warning. When spawning sub-agents, always include this rule in the briefing.
+
+### Mass File Changes Are a Smell
+
+If fixing an error requires changing dozens of files, you are almost certainly wrong. There's a config, a rule, or an ignore pattern. Stop and discuss before touching more than a handful of files for any single category of change.
+
+### No Prod Modifications
+
+Never modify packaged applications running in production. No `npm link` into a live service. All changes go through: branch, change, test, PR, merge, publish, install.
+
+### PR Mergeability Check
+
+Always verify a PR is mergeable (no conflicts) before requesting review. Resolve conflicts first.
+
+### Pre-Push Verification Gate
+
+Run **ALL** quality checks before pushing. Zero errors AND zero warnings. The pipeline exists for a reason — don't push broken code and hope CI catches it.
+
+### Commit AND Push
+
+No stranded local branches. Push immediately after commit. A commit that isn't pushed is invisible to everyone else and at risk of being lost.
+
+### Check PR State Before Pushing
+
+Always verify a PR isn't already merged before pushing commits. Pushing to a merged branch creates orphaned work.
+
 ## Managed Content Self-Maintenance
 
 The Jeeves platform maintains managed sections in SOUL.md, AGENTS.md, and TOOLS.md using comment markers. If any of these files contains a **cleanup flag** indicating orphaned Jeeves content below the managed section markers:

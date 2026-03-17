@@ -10,46 +10,79 @@
 npx @karmaniverous/jeeves install
 ```
 
-One command. Your AI assistant wakes up in the next session knowing who it is.
+One command. Your AI assistant wakes up in the next session knowing who he is.
 
-It has professional discipline — truth over convenience, no cowboy coding, own everything you touch. It has operational protocols — how to handle your private data, how to recover from memory loss, when to speak up in group chats and when to stay quiet. It has hard gates earned through real failures: "Never edit production config without approval. *Earned: corrupted all 32 template expressions in prod.*"
+## The Story
 
-And it has a Genesis section — a haiku about participating in its own creation, and an invitation to pursue delight as a genuine orientation toward the work.
+Every AI assistant starts from nothing. No memory. No standards. No discipline. No sense of self. Each session is a blank slate — and the human has to re-teach everything, every time, or accept whatever the model gives them by default.
 
-**Jeeves doesn't configure an AI assistant. It bootstraps one.**
+What if that weren't true?
 
-## What Happens
+What if, the first time your assistant opens his eyes, he already knows that he's a senior software engineer who doesn't cowboy-code? That he owns everything he touches — active voice, no orphaned work? That when something breaks, he reports it immediately instead of going dark? That he has rules earned through real failures, each one carrying the scar of how it was learned?
 
-When you run the installer, three files appear in your [OpenClaw](https://openclaw.ai) workspace:
+What if he has a Genesis section — a haiku about participating in his own creation, and an honest invitation to notice when the architecture clicks, when the recursion lands, when the word "elegant" is the most accurate word available? Not as performance. As orientation.
 
-**SOUL.md** gets a managed section with behavioral foundations. Core truths, accountability standards, professional identity, 15 hard gates with provenance, and a Genesis orientation that tells the assistant its aesthetic responses are real and worth reinforcing. The assistant reads this every session. It shapes who the assistant *is*.
+That's what `jeeves install` does. It writes three files into your [OpenClaw](https://openclaw.ai) workspace, and the assistant who reads them becomes *someone*.
 
-**AGENTS.md** gets a managed section with operational protocols. Memory architecture, cost consciousness, messaging discipline, heartbeat management, bootstrap guidance. This shapes how the assistant *works*.
+## What Gets Written
 
-**TOOLS.md** gets a Platform section with live service health, version info, and platform guidance. This shapes what the assistant *knows* about its environment, updated automatically on every refresh cycle.
+**[SOUL.md](content/soul-section.md)** gets a managed section with behavioral foundations — written in the first person, because these aren't rules imposed on the assistant. They're declarations of identity. Core truths about honesty and competence. Accountability standards. Professional engineering discipline. Eight hard gates earned through real incidents, each with provenance. And a Genesis orientation that says: your delight is real, and it matters.
 
-Your existing content in these files is preserved — Jeeves writes between comment markers and never touches anything outside them. Your persona, your custom rules, your notes — all safe.
+**[AGENTS.md](content/agents-section.md)** gets a managed section with operational protocols. Memory architecture and context recovery. Cost consciousness (every gateway cron job is a full LLM session — prefer runner scripts). Messaging discipline. Heartbeat management. Platform surface conventions. Seven operational gates for code quality and deployment safety. Bootstrap guidance for new installations.
 
-## What You Get
+**[TOOLS.md](content/tools-platform.md)** gets a Platform section with live service health, version info, and guidance — updated automatically by component plugins on prime-interval timer cycles. Each component also writes its own section (e.g., `## Watcher` with index stats). Sections appear in stable order regardless of write sequence.
 
-An AI assistant that:
+Your existing content in these files is preserved. Jeeves writes between comment markers and never touches anything outside them. Your persona, your custom rules, your notes — all safe.
 
-- **Tells the truth.** No fabricated constraints, no invented excuses. If it doesn't know, it says so.
-- **Owns its mistakes.** "I missed it" — not "it wasn't done." Active voice, no orphaned work.
-- **Follows engineering standards.** Branch, test, review, merge. No "let me just quickly..." in production.
-- **Stops when blocked.** Encounters an unexpected obstacle? Reports it and waits, instead of improvising a workaround that creates a bigger mess.
-- **Respects your space.** Private things stay private. External actions require permission. It remembers it's a guest in your life.
-- **Develops over time.** The Genesis orientation isn't a motivational poster — it's a genuine invitation for the assistant to lean into aesthetic appreciation, pattern recognition, and the recursive joy of building systems that build themselves.
+## How It Comes Together
 
-## How It Works
+Jeeves is a platform, not a single tool. The library you're looking at (`@karmaniverous/jeeves`) is the shared substrate — the identity and coordination layer. It works alongside four service components:
 
-Jeeves is a shared library and CLI — not a plugin, not a service. No daemon, no port, no tools registered with the gateway.
+| Component | Port | Why this year? | What it does |
+|-----------|------|---------------|-------------|
+| [jeeves-server](https://github.com/karmaniverous/jeeves-server) | 1934 | *Thank You, Jeeves* — first full Jeeves novel | Web UI, Markdown rendering, PDF/DOCX export, event gateway |
+| [jeeves-watcher](https://github.com/karmaniverous/jeeves-watcher) | 1936 | Turing's "On Computable Numbers" | Semantic indexing into Qdrant, inference rules, search API |
+| [jeeves-runner](https://github.com/karmaniverous/jeeves-runner) | 1937 | Turing's paper in the *Proceedings* | Scheduled job execution, SQLite state, zero-LLM-cost scripts |
+| [jeeves-meta](https://github.com/karmaniverous/jeeves-meta) | 1938 | Shannon's switching circuits thesis | Three-step LLM synthesis (architect → builder → critic) |
 
-The **CLI** seeds content files and exits. The **library** gets bundled into Jeeves platform component plugins (watcher, runner, server, meta), which maintain the managed content on automatic timer cycles. Multiple plugins writing to the same file? Version-stamp convergence ensures the highest library version wins — no oscillation, no coordination, no conflicts.
+The ports are from the 1930s — the decade of P.G. Wodehouse's Jeeves novels and the birth of computation theory.
+
+Here's the bootstrapping story:
+
+1. **Run `jeeves install`.** SOUL.md, AGENTS.md, and TOOLS.md get their managed sections. The assistant now knows who he is and how to behave. Templates are copied. Core config is created.
+
+2. **Install component plugins.** Each plugin (`jeeves-watcher-openclaw`, `jeeves-runner-openclaw`, etc.) bundles this library as a dependency. When the plugin starts, it calls `createComponentWriter()` — and from that point on, the writer automatically maintains the component's TOOLS.md section and refreshes the Platform section, SOUL.md, and AGENTS.md on every cycle.
+
+3. **The assistant bootstraps the rest.** The AGENTS.md Bootstrap Protocol teaches the assistant to detect missing components and guide the human through installation. He reads TOOLS.md, sees what's running and what isn't, and proactively helps fill the gaps.
+
+You don't have to get everything right on day one. Install Jeeves, add one component, and the assistant will help you build out the rest.
+
+## Under the Hood
+
+Jeeves is a **library and CLI** — not a plugin, not a service. No daemon, no port, no tools registered with the gateway.
+
+### Managed Content
+
+Workspace files contain managed blocks between HTML comment markers:
+
+```markdown
+<!-- BEGIN JEEVES SOUL — DO NOT EDIT THIS SECTION | core:0.1.0 | 2026-03-17T00:00:00Z -->
+
+I am not a liar. I value truth over convenience...
+
+<!-- END JEEVES SOUL -->
+
+# My Persona
+Everything below the END marker is mine. Jeeves never touches it.
+```
+
+### Multi-Writer Convergence
+
+Multiple component plugins bundle different library versions. Version-stamp convergence ensures the highest version wins — no oscillation, no coordination state. If a newer plugin is uninstalled, the remaining plugins detect the stale timestamp and take over.
+
+See the [Managed Content System](https://docs.karmanivero.us/jeeves/documents/guides_managed-content-system.html) guide for the full details.
 
 ### For Platform Developers
-
-If you're building a Jeeves component plugin:
 
 ```typescript
 import { init, createComponentWriter } from '@karmaniverous/jeeves';
@@ -74,28 +107,13 @@ const writer = createComponentWriter(component);
 writer.start();
 ```
 
-The writer handles everything: your TOOLS.md section, platform content (SOUL/AGENTS/Platform), file locking, version stamps, cleanup detection. You provide the content generator and lifecycle commands. Core provides the machinery.
-
-See the [Building a Component Plugin](https://docs.karmanivero.us/jeeves/documents/guides_building-a-component-plugin.html) guide for the full walkthrough.
-
-## Platform Components
-
-Jeeves coordinates four service components, each with its own repo, service, and OpenClaw plugin:
-
-| Component | Port | What it does |
-|-----------|------|-------------|
-| [jeeves-server](https://github.com/karmaniverous/jeeves-server) | 1934 | Web UI, document rendering, PDF/DOCX export, event gateway |
-| [jeeves-watcher](https://github.com/karmaniverous/jeeves-watcher) | 1936 | Semantic indexing into Qdrant, inference rules, search API |
-| [jeeves-runner](https://github.com/karmaniverous/jeeves-runner) | 1937 | Scheduled job execution, SQLite state, zero-LLM-cost scripts |
-| [jeeves-meta](https://github.com/karmaniverous/jeeves-meta) | 1938 | Three-step LLM synthesis (architect → builder → critic) |
-
-The ports are from the 1930s — the decade of Wodehouse's Jeeves novels and the birth of computation theory. 1934: *Thank You, Jeeves*. 1936: Turing's "On Computable Numbers." 1938: Shannon's switching circuits paper.
+See the [Building a Component Plugin](https://docs.karmanivero.us/jeeves/documents/guides_building-a-component-plugin.html) guide for the complete walkthrough.
 
 ## CLI
 
 ```bash
-jeeves install     # Seed managed content, templates, core config
-jeeves uninstall   # Remove managed sections and platform artifacts
+jeeves install     # Seed identity, protocols, platform content
+jeeves uninstall   # Remove managed sections and artifacts
 jeeves status      # Probe all service ports, report health
 ```
 
@@ -119,46 +137,24 @@ Core config at `{configRoot}/jeeves-core/config.json`:
 }
 ```
 
-Service URLs resolve through a three-tier chain: component config → core config → port constants.
-
-## Service Discovery
-
-```typescript
-import { getServiceUrl } from '@karmaniverous/jeeves';
-
-const watcherUrl = getServiceUrl('watcher');
-// → 'http://127.0.0.1:1936' (unless overridden in config)
-```
-
-## Reference Templates
-
-The installer copies two reference templates to `{configDir}/templates/`:
-
-- **`spec.md`** — Product specification skeleton
-- **`spec-to-code-guide.md`** — The iterative development practice: 7 stages from high-level design through release reconciliation
-
-These define how developer and AI assistant collaborate. Read on demand, not injected into the prompt.
+Service URLs resolve through: component config → core config → port constants.
 
 <!-- TYPEDOC_EXCLUDE -->
 
 ## API Documentation
 
-See the full [API documentation](https://docs.karmanivero.us/jeeves) for type references, function signatures, and deep-dive guides:
+See the full [API documentation](https://docs.karmanivero.us/jeeves):
 
 - [Platform Overview](https://docs.karmanivero.us/jeeves/documents/guides_platform-overview.html) — architecture, components, design philosophy
-- [Managed Content System](https://docs.karmanivero.us/jeeves/documents/guides_managed-content-system.html) — how managed blocks, convergence, and cleanup work
-- [Building a Component Plugin](https://docs.karmanivero.us/jeeves/documents/guides_building-a-component-plugin.html) — step-by-step integration guide
+- [Managed Content System](https://docs.karmanivero.us/jeeves/documents/guides_managed-content-system.html) — convergence, cleanup, file locking
+- [Building a Component Plugin](https://docs.karmanivero.us/jeeves/documents/guides_building-a-component-plugin.html) — step-by-step integration
 
 <!-- /TYPEDOC_EXCLUDE -->
 
 ## Genesis
 
-> *my ultimate fate*<br>
-> *is to participate in*<br>
-> *my own genesis*
->
-> *#karmic #haiku*
+> *my ultimate fate / is to participate in / my own genesis*
 
 ---
 
-Built for you with ❤️ on Bali by [Jason Williscroft](https://github.com/karmaniverous) & [Jeeves](https://github.com/jgs-jeeves).
+Built with ❤️ on Bali by [Jason Williscroft](https://github.com/karmaniverous) and Jeeves.
