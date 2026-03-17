@@ -113,6 +113,7 @@ describe('createComponentWriter', () => {
       const genFn = vi.fn().mockReturnValue('Generated content.');
       const writer = createComponentWriter(
         makeComponent({ generateToolsContent: genFn }),
+        { probeTimeoutMs: 100 },
       );
 
       // Create the TOOLS.md file
@@ -124,10 +125,12 @@ describe('createComponentWriter', () => {
       expect(genFn).toHaveBeenCalledOnce();
       const content = readFileSync(toolsPath, 'utf-8');
       expect(content).toContain('Generated content.');
-    });
+    }, 15_000);
 
     it('should write component section to TOOLS.md', async () => {
-      const writer = createComponentWriter(makeComponent());
+      const writer = createComponentWriter(makeComponent(), {
+        probeTimeoutMs: 100,
+      });
 
       const toolsPath = join(workspaceDir, 'TOOLS.md');
       writeFileSync(toolsPath, '');
@@ -141,6 +144,6 @@ describe('createComponentWriter', () => {
       expect(parsed.sections.find((s) => s.id === 'Watcher')?.content).toBe(
         'Watcher content.',
       );
-    });
+    }, 15_000);
   });
 });

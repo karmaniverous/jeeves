@@ -12,6 +12,7 @@
 export {
   ComponentWriter,
   createComponentWriter,
+  type CreateComponentWriterOptions,
   type JeevesComponent,
   type PluginCommands,
   type ServiceCommands,
@@ -45,7 +46,9 @@ export {
   coreConfigSchema,
   generateJsonSchema,
   getServiceUrl,
-  loadConfig,
+  probeAllServices,
+  type ProbeResult,
+  probeService,
 } from './discovery/index.js';
 export {
   getComponentConfigDir,
@@ -71,3 +74,9 @@ export {
   type UpdateManagedSectionOptions,
   type VersionStamp,
 } from './managed/index.js';
+export {
+  refreshPlatformContent,
+  type RefreshPlatformContentOptions,
+  seedContent,
+  type SeedContentOptions,
+} from './platform/index.js';

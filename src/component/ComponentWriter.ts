@@ -13,6 +13,7 @@ import { TOOLS_MARKERS } from '../constants/index.js';
 import { WORKSPACE_FILES } from '../constants/paths.js';
 import { getComponentConfigDir, getWorkspacePath } from '../init.js';
 import { updateManagedSection } from '../managed/updateManagedSection.js';
+import { refreshPlatformContent } from '../platform/refreshPlatformContent.js';
 import type { JeevesComponent } from './types.js';
 
 /** Core library version — read from package.json at build time. */
@@ -30,11 +31,13 @@ export class ComponentWriter {
   private timer: ReturnType<typeof setInterval> | undefined;
   private readonly component: JeevesComponent;
   private readonly configDir: string;
+  private readonly probeTimeoutMs: number;
 
   /** @internal */
-  constructor(component: JeevesComponent) {
+  constructor(component: JeevesComponent, probeTimeoutMs = 3000) {
     this.component = component;
     this.configDir = getComponentConfigDir(component.name);
+    this.probeTimeoutMs = probeTimeoutMs;
   }
 
   /** The component's config directory path. */
@@ -94,8 +97,13 @@ export class ComponentWriter {
         coreVersion: CORE_VERSION,
       });
 
-      // Platform content maintenance would go here
-      // (refreshPlatformContent — Task 10, not in scope for Tasks 1-6a)
+      // Platform content maintenance: SOUL.md, AGENTS.md, Platform section
+      await refreshPlatformContent({
+        coreVersion: CORE_VERSION,
+        componentName: this.component.name,
+        skipRegistryCheck: false,
+        probeTimeoutMs: this.probeTimeoutMs,
+      });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       console.warn(

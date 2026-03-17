@@ -5,7 +5,10 @@
  */
 
 export { ComponentWriter } from './ComponentWriter.js';
-export { createComponentWriter } from './createComponentWriter.js';
+export {
+  createComponentWriter,
+  type CreateComponentWriterOptions,
+} from './createComponentWriter.js';
 export type {
   JeevesComponent,
   PluginCommands,

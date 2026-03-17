@@ -84,16 +84,24 @@ function validateDescriptor(input: unknown): asserts input is JeevesComponent {
   }
 }
 
+/** Options for creating a ComponentWriter. */
+export interface CreateComponentWriterOptions {
+  /** Timeout for health probes in ms (default 3000). */
+  probeTimeoutMs?: number;
+}
+
 /**
  * Create a ComponentWriter for a validated component descriptor.
  *
  * @param component - The component descriptor to validate and wrap.
+ * @param options - Optional configuration.
  * @returns A new `ComponentWriter` instance.
  * @throws Error if the component descriptor is invalid.
  */
 export function createComponentWriter(
   component: JeevesComponent,
+  options?: CreateComponentWriterOptions,
 ): ComponentWriter {
   validateDescriptor(component);
-  return new ComponentWriter(component);
+  return new ComponentWriter(component, options?.probeTimeoutMs);
 }

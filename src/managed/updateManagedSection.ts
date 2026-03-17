@@ -94,8 +94,13 @@ export async function updateManagedSection(
     const fileContent = readFileSync(filePath, 'utf-8');
     const parsed = parseManaged(fileContent, markers);
 
-    // Version-stamp convergence check
-    if (!shouldWrite(coreVersion, parsed.versionStamp, stalenessThresholdMs)) {
+    // Version-stamp convergence check (block mode only).
+    // In section mode, components always write their own sections — the version
+    // stamp governs shared content convergence, not component-specific sections.
+    if (
+      mode === 'block' &&
+      !shouldWrite(coreVersion, parsed.versionStamp, stalenessThresholdMs)
+    ) {
       return;
     }
 

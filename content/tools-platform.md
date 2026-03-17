@@ -1,5 +1,3 @@
-## Platform
-
 {{#if versionInfo}}
 | Component | Service | Plugin | Core | Available |
 |-----------|---------|--------|------|-----------|

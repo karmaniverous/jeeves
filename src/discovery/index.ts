@@ -1,5 +1,5 @@
 /**
- * Service discovery, config resolution, and registry cache.
+ * Service discovery, config resolution, registry cache, and health probing.
  *
  * @packageDocumentation
  */
@@ -11,4 +11,5 @@ export {
   loadConfig,
 } from './config.js';
 export { getServiceUrl } from './getServiceUrl.js';
+export { probeAllServices, type ProbeResult, probeService } from './probe.js';
 export { checkRegistryVersion } from './registry.js';
