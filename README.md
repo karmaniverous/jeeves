@@ -1,4 +1,4 @@
-# Jeeves 🎩
+# 🎩 Jeeves
 
 [![npm version](https://img.shields.io/npm/v/@karmaniverous/jeeves.svg)](https://www.npmjs.com/package/@karmaniverous/jeeves)
 ![Node Current](https://img.shields.io/node/v/@karmaniverous/jeeves) <!-- TYPEDOC_EXCLUDE -->
