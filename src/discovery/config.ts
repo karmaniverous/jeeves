@@ -18,19 +18,34 @@ import { CONFIG_FILE } from '../constants/paths.js';
 
 /** Zod schema for a service entry in core config. */
 const serviceEntrySchema = z.object({
-  url: z.string().url(),
+  /** Service URL (must be a valid URL). */
+  url: z.string().url().describe('Service URL'),
 });
 
 /** Zod schema for the core config file. */
 export const coreConfigSchema = z.object({
-  $schema: z.string().optional(),
-  owners: z.array(z.string()).default([]),
-  services: z.record(z.string(), serviceEntrySchema).default({}),
+  /** JSON Schema pointer for IDE autocomplete. */
+  $schema: z.string().optional().describe('JSON Schema pointer'),
+  /** Owner identity keys (canonical identityLinks references). */
+  owners: z.array(z.string()).default([]).describe('Owner identity keys'),
+  /** Service URL overrides keyed by service name. */
+  services: z
+    .record(z.string(), serviceEntrySchema)
+    .default({})
+    .describe('Service URL overrides'),
+  /** Registry cache configuration. */
   registryCache: z
     .object({
-      ttlSeconds: z.number().int().positive().default(3600),
+      /** Cache TTL in seconds for npm registry queries. */
+      ttlSeconds: z
+        .number()
+        .int()
+        .positive()
+        .default(3600)
+        .describe('Cache TTL in seconds'),
     })
-    .default({}),
+    .default({})
+    .describe('Registry cache settings'),
 });
 
 /** Core config type derived from the Zod schema. */

@@ -10,20 +10,27 @@
 
 /** Default markers for TOOLS.md managed block. */
 export const TOOLS_MARKERS = {
+  /** BEGIN comment marker text. */
   begin: 'BEGIN JEEVES PLATFORM TOOLS — DO NOT EDIT THIS SECTION',
+  /** END comment marker text. */
   end: 'END JEEVES PLATFORM TOOLS',
+  /** H1 title prepended in section mode. */
   title: 'Jeeves Platform Tools',
 } as const;
 
 /** Default markers for SOUL.md managed block. */
 export const SOUL_MARKERS = {
+  /** BEGIN comment marker text. */
   begin: 'BEGIN JEEVES SOUL — DO NOT EDIT THIS SECTION',
+  /** END comment marker text. */
   end: 'END JEEVES SOUL',
 } as const;
 
 /** Default markers for AGENTS.md managed block. */
 export const AGENTS_MARKERS = {
+  /** BEGIN comment marker text. */
   begin: 'BEGIN JEEVES AGENTS — DO NOT EDIT THIS SECTION',
+  /** END comment marker text. */
   end: 'END JEEVES AGENTS',
 } as const;
 

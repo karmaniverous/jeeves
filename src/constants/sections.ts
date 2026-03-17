@@ -8,10 +8,15 @@
 
 /** Known section IDs for TOOLS.md managed block. */
 export const SECTION_IDS = {
+  /** Platform health and guidance section. */
   Platform: 'Platform',
+  /** Watcher index stats and search configuration. */
   Watcher: 'Watcher',
+  /** Server export capabilities and connected services. */
   Server: 'Server',
+  /** Runner job status and active scripts. */
   Runner: 'Runner',
+  /** Meta synthesis entity summary and tools. */
   Meta: 'Meta',
 } as const;
 

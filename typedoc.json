@@ -21,7 +21,12 @@
   },
   "out": "./docs/",
   "plugin": ["typedoc-plugin-mdn-links", "typedoc-plugin-replace-text"],
-  "projectDocuments": ["./CHANGELOG.md"],
+  "projectDocuments": [
+    "./guides/platform-overview.md",
+    "./guides/managed-content-system.md",
+    "./guides/building-a-component-plugin.md",
+    "./CHANGELOG.md"
+  ],
   "replaceText": {
     "replacements": [
       {

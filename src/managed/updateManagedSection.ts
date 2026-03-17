@@ -37,7 +37,14 @@ export interface UpdateManagedSectionOptions {
   /** Section ID — required when mode is 'section'. */
   sectionId?: string;
   /** Custom markers. Defaults to TOOLS markers. */
-  markers?: { begin: string; end: string; title?: string };
+  markers?: {
+    /** BEGIN comment marker text. */
+    begin: string;
+    /** END comment marker text. */
+    end: string;
+    /** Optional H1 title prepended in section mode. */
+    title?: string;
+  };
   /** Core library version for version-stamp convergence. */
   coreVersion?: string;
   /** Staleness threshold in ms for version-stamp convergence. */

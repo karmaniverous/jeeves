@@ -10,8 +10,11 @@ export const COMPONENT_CONFIG_PREFIX = 'jeeves-';
 
 /** Default workspace file names. */
 export const WORKSPACE_FILES = {
+  /** TOOLS.md — live platform state and component sections. */
   tools: 'TOOLS.md',
+  /** SOUL.md — professional discipline and behavioral foundations. */
   soul: 'SOUL.md',
+  /** AGENTS.md — operational protocols and memory architecture. */
   agents: 'AGENTS.md',
 } as const;
 
