@@ -9,6 +9,8 @@ import fs from 'fs-extra';
 import type { InputOptions, RollupOptions } from 'rollup';
 import dtsPlugin from 'rollup-plugin-dts';
 
+import { mdPlugin } from './rollup-plugin-md.js';
+
 const require = createRequire(import.meta.url);
 type Package = Record<string, Record<string, string> | undefined>;
 const pkg = require('./package.json') as Package;
@@ -38,6 +40,7 @@ const typescript = typescriptPlugin({
 const commonPlugins = [
   commonjsPlugin(),
   jsonPlugin(),
+  mdPlugin(),
   nodeResolve(),
   typescript,
 ];
