@@ -40,8 +40,12 @@ export interface PluginCommands {
 export interface JeevesComponent {
   /** Component name (e.g., 'watcher', 'runner', 'server', 'meta'). */
   name: string;
-  /** Component's own version. */
+  /** Component's own version (plugin package version). */
   version: string;
+  /** npm package name for the service (e.g., `\@karmaniverous/jeeves-watcher`). */
+  servicePackage?: string;
+  /** npm package name for the plugin (e.g., `\@karmaniverous/jeeves-watcher-openclaw`). */
+  pluginPackage?: string;
   /** TOOLS.md section name (e.g., 'Watcher'). */
   sectionId: string;
   /** Refresh interval in seconds (must be a prime number). */

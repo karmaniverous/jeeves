@@ -1,30 +1,13 @@
 /**
- * Core library version, read from package.json at runtime.
+ * Core library version, inlined at build time.
  *
  * @remarks
- * Used for version-stamp convergence (Decision 21). The version stamp
- * on managed content reflects the actual published library version,
- * enabling higher-version writers to take precedence.
- *
- * Uses `package-directory` to locate the package root regardless of
- * whether this code runs from `src/constants/` (dev) or `dist/` (bundled).
+ * The `__JEEVES_CORE_VERSION__` placeholder is replaced by
+ * `@rollup/plugin-replace` during the build with the actual version
+ * from `package.json`. This ensures the correct version survives
+ * when consumers bundle core into their own dist (where runtime
+ * `import.meta.url`-based resolution would find the wrong package.json).
  */
 
-import { createRequire } from 'node:module';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-import { packageDirectorySync } from 'package-directory';
-
-const pkgDir = packageDirectorySync({ cwd: fileURLToPath(import.meta.url) });
-if (!pkgDir) {
-  throw new Error(
-    'Could not find package root from ' + fileURLToPath(import.meta.url),
-  );
-}
-
-const require = createRequire(import.meta.url);
-const pkg = require(join(pkgDir, 'package.json')) as { version: string };
-
-/** The core library version from package.json. */
-export const CORE_VERSION: string = pkg.version;
+/** The core library version from package.json (inlined at build time). */
+export const CORE_VERSION: string = '__JEEVES_CORE_VERSION__';

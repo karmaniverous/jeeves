@@ -98,6 +98,9 @@ export class ComponentWriter {
       await refreshPlatformContent({
         coreVersion: CORE_VERSION,
         componentName: this.component.name,
+        componentVersion: this.component.version,
+        servicePackage: this.component.servicePackage,
+        pluginPackage: this.component.pluginPackage,
         skipRegistryCheck: false,
         probeTimeoutMs: this.probeTimeoutMs,
       });

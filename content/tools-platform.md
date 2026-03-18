@@ -1,17 +1,7 @@
-{{#if versionInfo}}
-| Component | Service | Plugin | Core | Available |
-|-----------|---------|--------|------|-----------|
-{{#each versionInfo}}
-| **{{name}}** | {{#if serviceVersion}}{{serviceVersion}}{{else}}—{{/if}} | {{#if pluginVersion}}{{pluginVersion}}{{else}}—{{/if}} | {{coreVersion}} | {{#if availableVersion}}⬆ {{availableVersion}}{{else}}✓ current{{/if}} |
-{{/each}}
-{{/if}}
-
-### Service Health
-
-| Service | Port | Status |
-|---------|------|--------|
+| Component | Port | Status | Service | Plugin | Core |
+|-----------|------|--------|---------|--------|------|
 {{#each services}}
-| {{name}} | {{port}} | {{#if healthy}}✅ Running{{#if version}} (v{{version}}){{/if}}{{else}}{{#if error}}⚠️ {{error}}{{else}}❌ Down{{/if}}{{/if}} |
+| **{{name}}** | {{port}} | {{#if healthy}}✅ Running{{else}}{{#if error}}⚠️ {{error}}{{else}}❌ Down{{/if}}{{/if}} | {{#if version}}{{version}}{{#if availableServiceVersion}} (⬆ {{availableServiceVersion}}){{/if}}{{else}}—{{/if}} | {{#if pluginVersion}}{{pluginVersion}}{{#if availablePluginVersion}} (⬆ {{availablePluginVersion}}){{/if}}{{else}}—{{/if}} | {{../coreVersion}}{{#if ../availableCoreVersion}} (⬆ {{../availableCoreVersion}}){{/if}} |
 {{/each}}
 
 {{#if unhealthyServices}}

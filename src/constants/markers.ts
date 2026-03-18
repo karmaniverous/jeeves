@@ -24,6 +24,8 @@ export const SOUL_MARKERS = {
   begin: 'BEGIN JEEVES SOUL — DO NOT EDIT THIS SECTION',
   /** END comment marker text. */
   end: 'END JEEVES SOUL',
+  /** H1 title prepended in the managed block. */
+  title: 'Jeeves Platform Soul',
 } as const;
 
 /** Default markers for AGENTS.md managed block. */
@@ -32,6 +34,8 @@ export const AGENTS_MARKERS = {
   begin: 'BEGIN JEEVES AGENTS — DO NOT EDIT THIS SECTION',
   /** END comment marker text. */
   end: 'END JEEVES AGENTS',
+  /** H1 title prepended in the managed block. */
+  title: 'Jeeves Platform Agents',
 } as const;
 
 /**
