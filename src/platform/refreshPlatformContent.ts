@@ -9,10 +9,11 @@
  */
 
 import { cpSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import Handlebars from 'handlebars';
+import { packageDirectorySync } from 'package-directory';
 
 import {
   AGENTS_MARKERS,
@@ -66,13 +67,24 @@ interface VersionInfoEntry {
 /**
  * Resolve the package's content directory.
  *
+ * @remarks
+ * Uses `package-directory` to locate the package root regardless of
+ * whether this code runs from `src/platform/` (dev) or `dist/` (bundled).
+ * Rollup flattens all source into `dist/index.js`, so static relative
+ * paths like `../../content/` break when consumed as a dependency.
+ *
  * @returns Absolute path to the content/ directory.
  */
 function getContentDir(): string {
-  const thisFile = fileURLToPath(import.meta.url);
-  // From src/platform/refreshPlatformContent.ts → ../../content/
-  // From dist/platform/refreshPlatformContent.js → ../../content/
-  return join(dirname(thisFile), '..', '..', 'content');
+  const pkgDir = packageDirectorySync({
+    cwd: fileURLToPath(import.meta.url),
+  });
+  if (!pkgDir) {
+    throw new Error(
+      'Could not find package root from ' + fileURLToPath(import.meta.url),
+    );
+  }
+  return join(pkgDir, 'content');
 }
 
 /**
