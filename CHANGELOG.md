@@ -2,10 +2,18 @@
 
 All notable changes to this project will be documented in this file. Dates are displayed in UTC.
 
+#### [0.1.3](https://github.com/karmaniverous/jeeves/compare/0.1.2...0.1.3)
+
+- fix: inline content files at build time (fixes empty managed sections when bundled) [`#3`](https://github.com/karmaniverous/jeeves/pull/3)
+- fix: inline content files at build time via rollup md plugin (fixes empty managed sections when bundled into consumers) [`4b49be7`](https://github.com/karmaniverous/jeeves/commit/4b49be768009b328aa424e3636c2b5f90911e8fc)
+
 #### [0.1.2](https://github.com/karmaniverous/jeeves/compare/0.1.1...0.1.2)
+
+> 18 March 2026
 
 - fix: use package-directory for content file resolution [`#2`](https://github.com/karmaniverous/jeeves/pull/2)
 - fix: use package-directory for content file resolution (fixes empty managed sections) [`85f2f38`](https://github.com/karmaniverous/jeeves/commit/85f2f381ea7060af5dc6f6110857edeeb38148f3)
+- chore: release v0.1.2 [`b4f7038`](https://github.com/karmaniverous/jeeves/commit/b4f70380f40de95fe33b673484b249e10930cf59)
 
 #### [0.1.1](https://github.com/karmaniverous/jeeves/compare/0.1.0...0.1.1)
 
