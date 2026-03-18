@@ -2,10 +2,17 @@
 
 All notable changes to this project will be documented in this file. Dates are displayed in UTC.
 
+#### [0.1.5](https://github.com/karmaniverous/jeeves/compare/0.1.4...0.1.5)
+
+- fix: check config workspace before resolvePath (resolvePath returns cwd, not workspace) [`cbe441a`](https://github.com/karmaniverous/jeeves/commit/cbe441a4f7897f1ed981871cc063236afc488501)
+
 #### [0.1.4](https://github.com/karmaniverous/jeeves/compare/0.1.3...0.1.4)
+
+> 18 March 2026
 
 - fix: add resolveWorkspacePath to core [`#4`](https://github.com/karmaniverous/jeeves/pull/4)
 - fix: add resolveWorkspacePath to core (fixes writer writing to system32 when gateway cwd is C:\Windows\system32) [`b1b82ab`](https://github.com/karmaniverous/jeeves/commit/b1b82abe64327d5c40205bc9234705a95a64b273)
+- chore: release v0.1.4 [`98cf6d5`](https://github.com/karmaniverous/jeeves/commit/98cf6d5c13c8c58f79c42820556339659b216662)
 
 #### [0.1.3](https://github.com/karmaniverous/jeeves/compare/0.1.2...0.1.3)
 
