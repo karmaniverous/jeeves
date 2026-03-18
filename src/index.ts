@@ -16,7 +16,9 @@ export {
   createComponentWriter,
   type CreateComponentWriterOptions,
   type JeevesComponent,
+  type PluginApiLike,
   type PluginCommands,
+  resolveWorkspacePath,
   type ServiceCommands,
   type ServiceStatus,
 } from './component/index.js';
