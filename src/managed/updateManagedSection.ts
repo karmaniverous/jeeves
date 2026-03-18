@@ -114,7 +114,10 @@ export async function updateManagedSection(
     let newManagedBody: string;
 
     if (mode === 'block') {
-      newManagedBody = content;
+      // Prepend H1 title if markers specify one
+      newManagedBody = markers.title
+        ? `# ${markers.title}\n\n${content}`
+        : content;
     } else {
       // Section mode: upsert the named section
       const sections = [...parsed.sections];

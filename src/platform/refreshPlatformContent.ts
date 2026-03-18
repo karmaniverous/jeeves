@@ -40,6 +40,12 @@ export interface RefreshPlatformContentOptions {
   coreVersion: string;
   /** Component name (for registry cache directory). */
   componentName?: string;
+  /** Component plugin version (e.g., '0.2.0'). */
+  componentVersion?: string;
+  /** npm package name for the service (for registry update check). */
+  servicePackage?: string;
+  /** npm package name for the plugin (for registry update check). */
+  pluginPackage?: string;
   /** Staleness threshold override in ms. */
   stalenessThresholdMs?: number;
   /** Timeout for health probes in ms. */
@@ -48,23 +54,24 @@ export interface RefreshPlatformContentOptions {
   skipRegistryCheck?: boolean;
 }
 
-/** Data passed to the Handlebars Platform template. */
-interface PlatformTemplateData {
-  services: ProbeResult[];
-  unhealthyServices: ProbeResult[];
-  versionInfo?: VersionInfoEntry[];
-  pointCount?: number;
-  templatesAvailable: boolean;
-  templatePath: string;
+/** Per-service row data for the Platform template. */
+interface ServiceRow extends ProbeResult {
+  /** Plugin version for this component. */
+  pluginVersion?: string;
+  /** Available service update from npm registry. */
+  availableServiceVersion?: string;
+  /** Available plugin update from npm registry. */
+  availablePluginVersion?: string;
 }
 
-/** Version information for a component. */
-interface VersionInfoEntry {
-  name: string;
-  serviceVersion?: string;
-  pluginVersion?: string;
+/** Data passed to the Handlebars Platform template. */
+interface PlatformTemplateData {
+  services: ServiceRow[];
+  unhealthyServices: ProbeResult[];
   coreVersion: string;
-  availableVersion?: string;
+  availableCoreVersion?: string;
+  templatesAvailable: boolean;
+  templatePath: string;
 }
 
 /**
@@ -138,6 +145,9 @@ export async function refreshPlatformContent(
   const {
     coreVersion,
     componentName,
+    componentVersion,
+    servicePackage,
+    pluginPackage,
     stalenessThresholdMs,
     probeTimeoutMs = 3000,
     skipRegistryCheck = false,
@@ -150,44 +160,67 @@ export async function refreshPlatformContent(
   const probeResults = await probeAllServices(undefined, probeTimeoutMs);
   const unhealthyServices = probeResults.filter((r) => !r.healthy);
 
-  // 2. Build version info (registry check for the core package)
-  let availableVersion: string | undefined;
+  // 2. Registry version checks
+  const cacheDir = componentName
+    ? getComponentConfigDir(componentName)
+    : coreConfigDir;
+
+  let availableCoreVersion: string | undefined;
+  let availableServiceVersion: string | undefined;
+  let availablePluginVersion: string | undefined;
+
   if (!skipRegistryCheck) {
-    const cacheDir = componentName
-      ? getComponentConfigDir(componentName)
-      : coreConfigDir;
-    availableVersion = checkRegistryVersion('@karmaniverous/jeeves', cacheDir);
+    const coreRegistryVersion = checkRegistryVersion(
+      '@karmaniverous/jeeves',
+      cacheDir,
+    );
+    if (coreRegistryVersion && coreRegistryVersion !== coreVersion) {
+      availableCoreVersion = coreRegistryVersion;
+    }
+
+    if (servicePackage) {
+      const svcVersion = checkRegistryVersion(servicePackage, cacheDir);
+      if (svcVersion) {
+        availableServiceVersion = svcVersion;
+      }
+    }
+
+    if (pluginPackage) {
+      const plgVersion = checkRegistryVersion(pluginPackage, cacheDir);
+      if (plgVersion) {
+        availablePluginVersion = plgVersion;
+      }
+    }
   }
 
-  const versionInfo: VersionInfoEntry[] = probeResults.map((r) => ({
-    name: r.name,
-    serviceVersion: r.version,
-    coreVersion,
-    availableVersion:
-      availableVersion && availableVersion !== coreVersion
-        ? availableVersion
-        : undefined,
+  // 3. Build enriched service rows — match the calling component by name
+  const serviceRows: ServiceRow[] = probeResults.map((r) => ({
+    ...r,
+    pluginVersion: r.name === componentName ? componentVersion : undefined,
+    availableServiceVersion:
+      r.name === componentName ? availableServiceVersion : undefined,
+    availablePluginVersion:
+      r.name === componentName ? availablePluginVersion : undefined,
   }));
 
-  // 3. Check if templates are available
+  // 5. Check if templates are available
   const templatePath = join(coreConfigDir, TEMPLATES_DIR);
   const templatesAvailable = existsSync(templatePath);
 
-  // 4. Render Platform template
+  // 6. Render Platform template
   registerHelpers();
   const template = Handlebars.compile(toolsPlatformTemplate);
   const templateData: PlatformTemplateData = {
-    services: probeResults,
+    services: serviceRows,
     unhealthyServices,
-    versionInfo: versionInfo.some((v) => v.serviceVersion)
-      ? versionInfo
-      : undefined,
+    coreVersion,
+    availableCoreVersion,
     templatesAvailable,
     templatePath,
   };
   const platformContent = template(templateData);
 
-  // 5. Write TOOLS.md Platform section
+  // 7. Write TOOLS.md Platform section
   const toolsPath = join(workspacePath, WORKSPACE_FILES.tools);
   await updateManagedSection(toolsPath, platformContent, {
     mode: 'section',
@@ -197,7 +230,7 @@ export async function refreshPlatformContent(
     stalenessThresholdMs,
   });
 
-  // 6. Write SOUL.md managed block
+  // 8. Write SOUL.md managed block
   const soulPath = join(workspacePath, WORKSPACE_FILES.soul);
   await updateManagedSection(soulPath, soulSectionContent, {
     mode: 'block',
@@ -206,7 +239,7 @@ export async function refreshPlatformContent(
     stalenessThresholdMs,
   });
 
-  // 7. Write AGENTS.md managed block
+  // 9. Write AGENTS.md managed block
   const agentsPath = join(workspacePath, WORKSPACE_FILES.agents);
   await updateManagedSection(agentsPath, agentsSectionContent, {
     mode: 'block',
@@ -215,6 +248,6 @@ export async function refreshPlatformContent(
     stalenessThresholdMs,
   });
 
-  // 8. Copy templates to config dir
+  // 10. Copy templates to config dir
   copyTemplates(coreConfigDir);
 }

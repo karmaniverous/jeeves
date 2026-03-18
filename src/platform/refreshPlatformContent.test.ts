@@ -87,7 +87,7 @@ describe('refreshPlatformContent', () => {
     expect(parsed.sections.some((s) => s.id === 'Platform')).toBe(true);
 
     const platform = parsed.sections.find((s) => s.id === 'Platform');
-    expect(platform?.content).toContain('Service Health');
+    expect(platform?.content).toContain('Status');
   }, 15_000);
 
   it('should include version stamp in markers', async () => {

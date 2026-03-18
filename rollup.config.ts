@@ -4,6 +4,7 @@ import aliasPlugin, { type Alias } from '@rollup/plugin-alias';
 import commonjsPlugin from '@rollup/plugin-commonjs';
 import jsonPlugin from '@rollup/plugin-json';
 import { nodeResolve } from '@rollup/plugin-node-resolve';
+import replacePlugin from '@rollup/plugin-replace';
 import typescriptPlugin from '@rollup/plugin-typescript';
 import fs from 'fs-extra';
 import type { InputOptions, RollupOptions } from 'rollup';
@@ -38,6 +39,10 @@ const typescript = typescriptPlugin({
 });
 
 const commonPlugins = [
+  replacePlugin({
+    __JEEVES_CORE_VERSION__: (pkg as unknown as { version: string }).version,
+    preventAssignment: true,
+  }),
   commonjsPlugin(),
   jsonPlugin(),
   mdPlugin(),
