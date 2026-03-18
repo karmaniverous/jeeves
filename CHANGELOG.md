@@ -2,9 +2,17 @@
 
 All notable changes to this project will be documented in this file. Dates are displayed in UTC.
 
+#### [0.1.6](https://github.com/karmaniverous/jeeves/compare/0.1.5...0.1.6)
+
+- fix: CORE_VERSION inlining, H1 titles, merge Service Health table [`#5`](https://github.com/karmaniverous/jeeves/pull/5)
+- fix: inline CORE_VERSION at build time, add H1 titles to SOUL/AGENTS, merge Service Health into Platform table [`2211301`](https://github.com/karmaniverous/jeeves/commit/2211301022f6b67221942c462c2985b99f823d4b)
+
 #### [0.1.5](https://github.com/karmaniverous/jeeves/compare/0.1.4...0.1.5)
 
+> 18 March 2026
+
 - fix: check config workspace before resolvePath (resolvePath returns cwd, not workspace) [`cbe441a`](https://github.com/karmaniverous/jeeves/commit/cbe441a4f7897f1ed981871cc063236afc488501)
+- chore: release v0.1.5 [`69296ce`](https://github.com/karmaniverous/jeeves/commit/69296ce242a456ac3134fcad1963c7de2362ff79)
 
 #### [0.1.4](https://github.com/karmaniverous/jeeves/compare/0.1.3...0.1.4)
 
