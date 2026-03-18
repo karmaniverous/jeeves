@@ -8,13 +8,16 @@
  * and writes managed sections using `updateManagedSection`.
  */
 
-import { cpSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import Handlebars from 'handlebars';
 import { packageDirectorySync } from 'package-directory';
 
+import agentsSectionContent from '../../content/agents-section.md';
+import soulSectionContent from '../../content/soul-section.md';
+import toolsPlatformTemplate from '../../content/tools-platform.md';
 import {
   AGENTS_MARKERS,
   SOUL_MARKERS,
@@ -65,41 +68,27 @@ interface VersionInfoEntry {
 }
 
 /**
- * Resolve the package's content directory.
+ * Resolve the package's content directory for template file copying.
  *
  * @remarks
- * Uses `package-directory` to locate the package root regardless of
- * whether this code runs from `src/platform/` (dev) or `dist/` (bundled).
- * Rollup flattens all source into `dist/index.js`, so static relative
- * paths like `../../content/` break when consumed as a dependency.
+ * Templates are actual files that need to be copied to the config directory.
+ * This only works when core is in `node_modules` (CLI install, service).
+ * When bundled into a consumer plugin, returns undefined and template
+ * copying is skipped (templates are seeded by `jeeves install`, not plugins).
  *
- * @returns Absolute path to the content/ directory.
+ * Content `.md` files (soul, agents, platform template) are inlined at
+ * build time via the rollup md plugin and imported as string literals.
+ * They do not use this function.
+ *
+ * @returns Absolute path to the content/ directory, or undefined.
  */
-function getContentDir(): string {
+function getContentDir(): string | undefined {
   const pkgDir = packageDirectorySync({
     cwd: fileURLToPath(import.meta.url),
   });
-  if (!pkgDir) {
-    throw new Error(
-      'Could not find package root from ' + fileURLToPath(import.meta.url),
-    );
-  }
-  return join(pkgDir, 'content');
-}
-
-/**
- * Read a content file from the package's content/ directory.
- *
- * @param fileName - File name within content/.
- * @returns File content as string, or empty string if missing.
- */
-function readContentFile(fileName: string): string {
-  const filePath = join(getContentDir(), fileName);
-  if (!existsSync(filePath)) {
-    console.warn(`jeeves-core: content file missing: ${filePath}`);
-    return '';
-  }
-  return readFileSync(filePath, 'utf-8');
+  if (!pkgDir) return undefined;
+  const dir = join(pkgDir, 'content');
+  return existsSync(dir) ? dir : undefined;
 }
 
 /**
@@ -108,7 +97,9 @@ function readContentFile(fileName: string): string {
  * @param coreConfigDir - Core config directory path.
  */
 function copyTemplates(coreConfigDir: string): void {
-  const sourceDir = join(getContentDir(), 'templates');
+  const contentDir = getContentDir();
+  if (!contentDir) return;
+  const sourceDir = join(contentDir, 'templates');
   if (!existsSync(sourceDir)) return;
 
   const destDir = join(coreConfigDir, TEMPLATES_DIR);
@@ -184,8 +175,7 @@ export async function refreshPlatformContent(
 
   // 4. Render Platform template
   registerHelpers();
-  const templateSrc = readContentFile('tools-platform.md');
-  const template = Handlebars.compile(templateSrc);
+  const template = Handlebars.compile(toolsPlatformTemplate);
   const templateData: PlatformTemplateData = {
     services: probeResults,
     unhealthyServices,
@@ -208,9 +198,8 @@ export async function refreshPlatformContent(
   });
 
   // 6. Write SOUL.md managed block
-  const soulContent = readContentFile('soul-section.md');
   const soulPath = join(workspacePath, WORKSPACE_FILES.soul);
-  await updateManagedSection(soulPath, soulContent, {
+  await updateManagedSection(soulPath, soulSectionContent, {
     mode: 'block',
     markers: SOUL_MARKERS,
     coreVersion,
@@ -218,9 +207,8 @@ export async function refreshPlatformContent(
   });
 
   // 7. Write AGENTS.md managed block
-  const agentsContent = readContentFile('agents-section.md');
   const agentsPath = join(workspacePath, WORKSPACE_FILES.agents);
-  await updateManagedSection(agentsPath, agentsContent, {
+  await updateManagedSection(agentsPath, agentsSectionContent, {
     mode: 'block',
     markers: AGENTS_MARKERS,
     coreVersion,
