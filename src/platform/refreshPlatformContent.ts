@@ -8,13 +8,18 @@
  * and writes managed sections using `updateManagedSection`.
  */
 
-import { cpSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import Handlebars from 'handlebars';
 import { packageDirectorySync } from 'package-directory';
 
+// Content files inlined at build time via rollup-plugin-md.
+// This eliminates runtime filesystem dependencies when bundled into consumers.
+import agentsSectionContent from '../../content/agents-section.md';
+import soulSectionContent from '../../content/soul-section.md';
+import toolsPlatformContent from '../../content/tools-platform.md';
 import {
   AGENTS_MARKERS,
   SOUL_MARKERS,
@@ -65,50 +70,40 @@ interface VersionInfoEntry {
 }
 
 /**
- * Resolve the package's content directory.
+ * Resolve the package's content directory for template copying.
  *
  * @remarks
- * Uses `package-directory` to locate the package root regardless of
- * whether this code runs from `src/platform/` (dev) or `dist/` (bundled).
- * Rollup flattens all source into `dist/index.js`, so static relative
- * paths like `../../content/` break when consumed as a dependency.
+ * Templates are actual files that need to be copied to the config directory.
+ * This resolution works when core is in `node_modules` (CLI install, service).
+ * When bundled into a consumer plugin, this returns undefined and template
+ * copying is skipped (templates are only needed for the CLI `jeeves install`).
  *
- * @returns Absolute path to the content/ directory.
+ * @returns Absolute path to the content/ directory, or undefined if not found.
  */
-function getContentDir(): string {
+function getContentDir(): string | undefined {
   const pkgDir = packageDirectorySync({
     cwd: fileURLToPath(import.meta.url),
   });
-  if (!pkgDir) {
-    throw new Error(
-      'Could not find package root from ' + fileURLToPath(import.meta.url),
-    );
-  }
-  return join(pkgDir, 'content');
-}
-
-/**
- * Read a content file from the package's content/ directory.
- *
- * @param fileName - File name within content/.
- * @returns File content as string, or empty string if missing.
- */
-function readContentFile(fileName: string): string {
-  const filePath = join(getContentDir(), fileName);
-  if (!existsSync(filePath)) {
-    console.warn(`jeeves-core: content file missing: ${filePath}`);
-    return '';
-  }
-  return readFileSync(filePath, 'utf-8');
+  if (!pkgDir) return undefined;
+  const contentDir = join(pkgDir, 'content');
+  return existsSync(contentDir) ? contentDir : undefined;
 }
 
 /**
  * Copy templates from content/templates/ to the core config directory.
  *
+ * @remarks
+ * This is best-effort: when core is bundled into a consumer plugin,
+ * the content directory isn't available and copying is silently skipped.
+ * Templates are primarily seeded by `jeeves install` (CLI), not by
+ * plugin writer cycles.
+ *
  * @param coreConfigDir - Core config directory path.
  */
 function copyTemplates(coreConfigDir: string): void {
-  const sourceDir = join(getContentDir(), 'templates');
+  const contentDir = getContentDir();
+  if (!contentDir) return;
+  const sourceDir = join(contentDir, 'templates');
   if (!existsSync(sourceDir)) return;
 
   const destDir = join(coreConfigDir, TEMPLATES_DIR);
@@ -184,7 +179,7 @@ export async function refreshPlatformContent(
 
   // 4. Render Platform template
   registerHelpers();
-  const templateSrc = readContentFile('tools-platform.md');
+  const templateSrc = toolsPlatformContent;
   const template = Handlebars.compile(templateSrc);
   const templateData: PlatformTemplateData = {
     services: probeResults,
@@ -208,7 +203,7 @@ export async function refreshPlatformContent(
   });
 
   // 6. Write SOUL.md managed block
-  const soulContent = readContentFile('soul-section.md');
+  const soulContent = soulSectionContent;
   const soulPath = join(workspacePath, WORKSPACE_FILES.soul);
   await updateManagedSection(soulPath, soulContent, {
     mode: 'block',
@@ -218,7 +213,7 @@ export async function refreshPlatformContent(
   });
 
   // 7. Write AGENTS.md managed block
-  const agentsContent = readContentFile('agents-section.md');
+  const agentsContent = agentsSectionContent;
   const agentsPath = join(workspacePath, WORKSPACE_FILES.agents);
   await updateManagedSection(agentsPath, agentsContent, {
     mode: 'block',
