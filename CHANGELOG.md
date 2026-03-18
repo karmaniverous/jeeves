@@ -2,11 +2,19 @@
 
 All notable changes to this project will be documented in this file. Dates are displayed in UTC.
 
+#### [0.1.2](https://github.com/karmaniverous/jeeves/compare/0.1.1...0.1.2)
+
+- fix: use package-directory for content file resolution [`#2`](https://github.com/karmaniverous/jeeves/pull/2)
+- fix: use package-directory for content file resolution (fixes empty managed sections) [`85f2f38`](https://github.com/karmaniverous/jeeves/commit/85f2f381ea7060af5dc6f6110857edeeb38148f3)
+
 #### [0.1.1](https://github.com/karmaniverous/jeeves/compare/0.1.0...0.1.1)
+
+> 18 March 2026
 
 - feat: add async content cache helper for sync generateToolsContent [`b0ea44e`](https://github.com/karmaniverous/jeeves/commit/b0ea44e7c26e257402e258e831d558b77edb61a2)
 - fix: use package-directory instead of hand-rolled package.json resolution [`b9dc559`](https://github.com/karmaniverous/jeeves/commit/b9dc5596fddc8d76ccf072312b08df25a3f13eb1)
 - fix: resolve package.json from dist/ via directory walk (fixes MODULE_NOT_FOUND when consumed as dependency) [`96518d5`](https://github.com/karmaniverous/jeeves/commit/96518d52f47ddc56c324d5befa05f1418bf444e1)
+- chore: release v0.1.1 [`dd246b8`](https://github.com/karmaniverous/jeeves/commit/dd246b8e2a8d08c0c595184b866a1bd28eecc937)
 
 #### 0.1.0
 
