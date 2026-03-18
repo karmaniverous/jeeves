@@ -2,10 +2,18 @@
 
 All notable changes to this project will be documented in this file. Dates are displayed in UTC.
 
+#### [0.1.4](https://github.com/karmaniverous/jeeves/compare/0.1.3...0.1.4)
+
+- fix: add resolveWorkspacePath to core [`#4`](https://github.com/karmaniverous/jeeves/pull/4)
+- fix: add resolveWorkspacePath to core (fixes writer writing to system32 when gateway cwd is C:\Windows\system32) [`b1b82ab`](https://github.com/karmaniverous/jeeves/commit/b1b82abe64327d5c40205bc9234705a95a64b273)
+
 #### [0.1.3](https://github.com/karmaniverous/jeeves/compare/0.1.2...0.1.3)
+
+> 18 March 2026
 
 - fix: inline content files at build time (fixes empty managed sections when bundled) [`#3`](https://github.com/karmaniverous/jeeves/pull/3)
 - fix: inline content files at build time via rollup md plugin (fixes empty managed sections when bundled into consumers) [`4b49be7`](https://github.com/karmaniverous/jeeves/commit/4b49be768009b328aa424e3636c2b5f90911e8fc)
+- chore: release v0.1.3 [`932ab91`](https://github.com/karmaniverous/jeeves/commit/932ab9117d917e604297661131ec549fc414b0d6)
 
 #### [0.1.2](https://github.com/karmaniverous/jeeves/compare/0.1.1...0.1.2)
 
