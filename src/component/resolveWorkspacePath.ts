@@ -3,9 +3,14 @@
  *
  * @remarks
  * Tries three sources in order:
- * 1. `api.resolvePath('.')` — the gateway-provided resolver (most authoritative)
- * 2. `api.config.agents.defaults.workspace` — the OpenClaw config value
+ * 1. `api.config.agents.defaults.workspace` — explicit config (most authoritative)
+ * 2. `api.resolvePath('.')` — gateway-provided path resolver
  * 3. `process.cwd()` — last resort (unsafe when gateway runs from system32)
+ *
+ * The config value is checked first because `api.resolvePath('.')` delegates
+ * to `path.resolve('.')`, which returns `process.cwd()` — not the workspace.
+ * When the gateway runs as a Windows service from `C:\Windows\system32`,
+ * `resolvePath('.')` returns system32, not the configured workspace.
  *
  * Plugins should call this once at registration time and pass the result
  * to `init({ workspacePath })`.
@@ -41,15 +46,15 @@ export interface PluginApiLike {
  * @returns Absolute path to the workspace root.
  */
 export function resolveWorkspacePath(api: PluginApiLike): string {
-  // 1. Gateway-provided resolver (most authoritative)
-  if (typeof api.resolvePath === 'function') {
-    return api.resolvePath('.');
-  }
-
-  // 2. OpenClaw config value
+  // 1. Explicit config value (most authoritative)
   const configured = api.config?.agents?.defaults?.workspace;
   if (typeof configured === 'string' && configured.trim()) {
     return configured;
+  }
+
+  // 2. Gateway-provided path resolver
+  if (typeof api.resolvePath === 'function') {
+    return api.resolvePath('.');
   }
 
   // 3. Last resort — unsafe when gateway runs from system32
