@@ -85,3 +85,18 @@ export {
   seedContent,
   type SeedContentOptions,
 } from './platform/index.js';
+export {
+  connectionFail,
+  fail,
+  fetchJson,
+  ok,
+  patchConfig,
+  type PluginApi,
+  postJson,
+  resolveConfigPath,
+  resolveOpenClawHome,
+  resolvePluginSetting,
+  type ToolDescriptor,
+  type ToolRegistrationOptions,
+  type ToolResult,
+} from './plugin/index.js';

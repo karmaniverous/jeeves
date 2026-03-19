@@ -14,30 +14,12 @@
  *
  * Plugins should call this once at registration time and pass the result
  * to `init({ workspacePath })`.
+ *
+ * @deprecated Import `resolveWorkspacePath` from `plugin/resolve` instead.
+ * This re-export is kept for backward compatibility and will be removed in v0.3.0.
  */
 
-/**
- * Minimal shape of the OpenClaw plugin API needed for workspace resolution.
- *
- * @remarks
- * Intentionally loose — plugins define their own full `PluginApi` type.
- * This captures only the fields `resolveWorkspacePath` inspects.
- */
-export interface PluginApiLike {
-  /** Gateway-provided path resolver. May not exist in all gateway versions. */
-  resolvePath?: (input: string) => string;
-  /** OpenClaw configuration object. */
-  config?: {
-    /** Agent configuration block. */
-    agents?: {
-      /** Default agent settings. */
-      defaults?: {
-        /** Absolute path to the workspace root directory. */
-        workspace?: string;
-      };
-    };
-  };
-}
+import type { PluginApi } from '../plugin/types.js';
 
 /**
  * Resolve the workspace root from the OpenClaw plugin API.
@@ -45,7 +27,7 @@ export interface PluginApiLike {
  * @param api - The plugin API object provided by the gateway at registration.
  * @returns Absolute path to the workspace root.
  */
-export function resolveWorkspacePath(api: PluginApiLike): string {
+export function resolveWorkspacePath(api: PluginApi): string {
   // 1. Explicit config value (most authoritative)
   const configured = api.config?.agents?.defaults?.workspace;
   if (typeof configured === 'string' && configured.trim()) {

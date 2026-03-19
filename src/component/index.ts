@@ -13,12 +13,10 @@ export {
   createComponentWriter,
   type CreateComponentWriterOptions,
 } from './createComponentWriter.js';
-export {
-  type PluginApiLike,
-  resolveWorkspacePath,
-} from './resolveWorkspacePath.js';
+export { resolveWorkspacePath } from './resolveWorkspacePath.js';
 export type {
   JeevesComponent,
+  PluginApiLike,
   PluginCommands,
   ServiceCommands,
   ServiceStatus,
