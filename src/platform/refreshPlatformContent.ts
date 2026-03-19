@@ -20,6 +20,11 @@ import agentsSectionContent from '../../content/agents-section.md';
 import soulSectionContent from '../../content/soul-section.md';
 import toolsPlatformTemplate from '../../content/tools-platform.md';
 import {
+  type ComponentVersionEntry,
+  readComponentVersions,
+  writeComponentVersion,
+} from '../component/componentVersions.js';
+import {
   AGENTS_MARKERS,
   SOUL_MARKERS,
   TEMPLATES_DIR,
@@ -161,14 +166,27 @@ export async function refreshPlatformContent(
   const probeResults = await probeAllServices(undefined, probeTimeoutMs);
   const unhealthyServices = probeResults.filter((r) => !r.healthy);
 
-  // 2. Registry version checks
+  // 2. Write calling component's version entry (with serviceVersion from probe)
+  if (componentName) {
+    const callerProbe = probeResults.find((r) => r.name === componentName);
+    writeComponentVersion(coreConfigDir, {
+      componentName,
+      serviceVersion: callerProbe?.version,
+      pluginVersion: componentVersion,
+      servicePackage,
+      pluginPackage,
+    });
+  }
+
+  // 3. Read all component versions from the shared state file
+  const componentVersions = readComponentVersions(coreConfigDir);
+
+  // 4. Registry version checks
   const cacheDir = componentName
     ? getComponentConfigDir(componentName)
     : coreConfigDir;
 
   let availableCoreVersion: string | undefined;
-  let availableServiceVersion: string | undefined;
-  let availablePluginVersion: string | undefined;
 
   if (!skipRegistryCheck) {
     const coreRegistryVersion = checkRegistryVersion(
@@ -183,56 +201,65 @@ export async function refreshPlatformContent(
     ) {
       availableCoreVersion = coreRegistryVersion;
     }
-
-    if (servicePackage) {
-      availableServiceVersion =
-        checkRegistryVersion(servicePackage, cacheDir) ?? undefined;
-    }
-
-    if (pluginPackage) {
-      availablePluginVersion =
-        checkRegistryVersion(pluginPackage, cacheDir) ?? undefined;
-    }
   }
 
-  // 3. Build enriched service rows — match the calling component by name
+  // 5. Build enriched service rows using component versions state
+  const versionLookup: Partial<Record<string, ComponentVersionEntry>> =
+    componentVersions;
   const serviceRows: ServiceRow[] = probeResults.map((r) => {
-    if (r.name !== componentName) {
-      return { ...r };
+    const versionEntry = versionLookup[r.name];
+    if (!versionEntry) return { ...r };
+
+    // Check for available updates via registry
+    let availableServiceVersion: string | undefined;
+    let availablePluginVersion: string | undefined;
+
+    if (!skipRegistryCheck) {
+      if (versionEntry.servicePackage) {
+        const registryServiceVersion = checkRegistryVersion(
+          versionEntry.servicePackage,
+          cacheDir,
+        );
+        if (
+          registryServiceVersion &&
+          r.version &&
+          semver.valid(registryServiceVersion) &&
+          semver.valid(r.version) &&
+          semver.gt(registryServiceVersion, r.version)
+        ) {
+          availableServiceVersion = registryServiceVersion;
+        }
+      }
+
+      if (versionEntry.pluginPackage && versionEntry.pluginVersion) {
+        const registryPluginVersion = checkRegistryVersion(
+          versionEntry.pluginPackage,
+          cacheDir,
+        );
+        if (
+          registryPluginVersion &&
+          semver.valid(registryPluginVersion) &&
+          semver.valid(versionEntry.pluginVersion) &&
+          semver.gt(registryPluginVersion, versionEntry.pluginVersion)
+        ) {
+          availablePluginVersion = registryPluginVersion;
+        }
+      }
     }
-
-    // Apply semver comparison: only show update arrow when registry > installed
-    const svcUpgrade =
-      availableServiceVersion &&
-      r.version &&
-      semver.valid(availableServiceVersion) &&
-      semver.valid(r.version) &&
-      semver.gt(availableServiceVersion, r.version)
-        ? availableServiceVersion
-        : undefined;
-
-    const plgUpgrade =
-      availablePluginVersion &&
-      componentVersion &&
-      semver.valid(availablePluginVersion) &&
-      semver.valid(componentVersion) &&
-      semver.gt(availablePluginVersion, componentVersion)
-        ? availablePluginVersion
-        : undefined;
 
     return {
       ...r,
-      pluginVersion: componentVersion,
-      availableServiceVersion: svcUpgrade,
-      availablePluginVersion: plgUpgrade,
+      pluginVersion: versionEntry.pluginVersion,
+      availableServiceVersion,
+      availablePluginVersion,
     };
   });
 
-  // 5. Check if templates are available
+  // 6. Check if templates are available
   const templatePath = join(coreConfigDir, TEMPLATES_DIR);
   const templatesAvailable = existsSync(templatePath);
 
-  // 6. Render Platform template
+  // 7. Render Platform template
   registerHelpers();
   const template = Handlebars.compile(toolsPlatformTemplate);
   const templateData: PlatformTemplateData = {
@@ -245,7 +272,7 @@ export async function refreshPlatformContent(
   };
   const platformContent = template(templateData);
 
-  // 7. Write TOOLS.md Platform section
+  // 8. Write TOOLS.md Platform section
   const toolsPath = join(workspacePath, WORKSPACE_FILES.tools);
   await updateManagedSection(toolsPath, platformContent, {
     mode: 'section',
@@ -255,7 +282,7 @@ export async function refreshPlatformContent(
     stalenessThresholdMs,
   });
 
-  // 8. Write SOUL.md managed block
+  // 9. Write SOUL.md managed block
   const soulPath = join(workspacePath, WORKSPACE_FILES.soul);
   await updateManagedSection(soulPath, soulSectionContent, {
     mode: 'block',
@@ -264,7 +291,7 @@ export async function refreshPlatformContent(
     stalenessThresholdMs,
   });
 
-  // 9. Write AGENTS.md managed block
+  // 10. Write AGENTS.md managed block
   const agentsPath = join(workspacePath, WORKSPACE_FILES.agents);
   await updateManagedSection(agentsPath, agentsSectionContent, {
     mode: 'block',
@@ -273,6 +300,6 @@ export async function refreshPlatformContent(
     stalenessThresholdMs,
   });
 
-  // 10. Copy templates to config dir
+  // 11. Copy templates to config dir
   copyTemplates(coreConfigDir);
 }

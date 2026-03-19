@@ -11,14 +11,9 @@ import { join } from 'node:path';
 
 import { CORE_VERSION, TOOLS_MARKERS } from '../constants/index.js';
 import { WORKSPACE_FILES } from '../constants/paths.js';
-import {
-  getComponentConfigDir,
-  getCoreConfigDir,
-  getWorkspacePath,
-} from '../init.js';
+import { getComponentConfigDir, getWorkspacePath } from '../init.js';
 import { updateManagedSection } from '../managed/updateManagedSection.js';
 import { refreshPlatformContent } from '../platform/refreshPlatformContent.js';
-import { writeComponentVersion } from './componentVersions.js';
 import type { JeevesComponent } from './types.js';
 
 /**
@@ -100,6 +95,8 @@ export class ComponentWriter {
       });
 
       // Platform content maintenance: SOUL.md, AGENTS.md, Platform section
+      // refreshPlatformContent also writes the component version entry
+      // (with serviceVersion from probe) to the shared state file.
       await refreshPlatformContent({
         coreVersion: CORE_VERSION,
         componentName: this.component.name,
@@ -108,14 +105,6 @@ export class ComponentWriter {
         pluginPackage: this.component.pluginPackage,
         skipRegistryCheck: false,
         probeTimeoutMs: this.probeTimeoutMs,
-      });
-
-      // Write component version entry to shared state file
-      writeComponentVersion(getCoreConfigDir(), {
-        componentName: this.component.name,
-        pluginVersion: this.component.version,
-        servicePackage: this.component.servicePackage,
-        pluginPackage: this.component.pluginPackage,
       });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);

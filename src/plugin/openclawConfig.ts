@@ -59,17 +59,21 @@ function patchAllowList(
   pluginId: string,
   mode: 'add' | 'remove',
 ): string | undefined {
-  if (!Array.isArray(parent[key]) || (parent[key] as unknown[]).length === 0)
-    return undefined;
-
-  const list = parent[key] as string[];
-
   if (mode === 'add') {
+    if (!Array.isArray(parent[key])) {
+      parent[key] = [pluginId];
+      return `Created ${label} with "${pluginId}"`;
+    }
+
+    const list = parent[key] as string[];
     if (!list.includes(pluginId)) {
       list.push(pluginId);
       return `Added "${pluginId}" to ${label}`;
     }
   } else {
+    if (!Array.isArray(parent[key])) return undefined;
+
+    const list = parent[key] as string[];
     const filtered = list.filter((id) => id !== pluginId);
     if (filtered.length !== list.length) {
       parent[key] = filtered;
@@ -84,7 +88,7 @@ function patchAllowList(
  * Patch an OpenClaw config for plugin install or uninstall.
  *
  * @remarks
- * Manages `plugins.entries.{pluginId}` and `tools.alsoAllow`/`tools.allow`.
+ * Manages `plugins.entries.{pluginId}` and `tools.alsoAllow`.
  * Idempotent: adding twice produces no duplicates; removing when absent
  * produces no errors.
  *
@@ -106,16 +110,6 @@ export function patchConfig(
   }
   const plugins = config.plugins as Record<string, unknown>;
 
-  // plugins.allow
-  const pluginAllow = patchAllowList(
-    plugins,
-    'allow',
-    'plugins.allow',
-    pluginId,
-    mode,
-  );
-  if (pluginAllow) messages.push(pluginAllow);
-
   // plugins.entries
   if (!plugins.entries || typeof plugins.entries !== 'object') {
     plugins.entries = {};
@@ -132,19 +126,19 @@ export function patchConfig(
     messages.push(`Removed "${pluginId}" from plugins.entries`);
   }
 
-  // tools.allow
+  // tools.alsoAllow
   if (!config.tools || typeof config.tools !== 'object') {
     config.tools = {};
   }
   const tools = config.tools as Record<string, unknown>;
-  const toolAllow = patchAllowList(
+  const toolAlsoAllow = patchAllowList(
     tools,
-    'allow',
-    'tools.allow',
+    'alsoAllow',
+    'tools.alsoAllow',
     pluginId,
     mode,
   );
-  if (toolAllow) messages.push(toolAllow);
+  if (toolAlsoAllow) messages.push(toolAlsoAllow);
 
   return messages;
 }

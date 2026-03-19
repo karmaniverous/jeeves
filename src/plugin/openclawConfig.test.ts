@@ -92,6 +92,7 @@ describe('patchConfig', () => {
       plugins: {
         entries: { 'my-plugin': { enabled: true } },
       },
+      tools: { alsoAllow: ['my-plugin'] },
     };
 
     const messages = patchConfig(config, 'my-plugin', 'add');
@@ -124,69 +125,76 @@ describe('patchConfig', () => {
     expect(messages).toHaveLength(0);
   });
 
-  it('patches plugins.allow when present', () => {
+  it('creates tools.alsoAllow on fresh install', () => {
+    const config: Record<string, unknown> = {};
+
+    const messages = patchConfig(config, 'my-plugin', 'add');
+    const tools = config.tools as Record<string, unknown>;
+    const alsoAllow = tools.alsoAllow as string[];
+
+    expect(alsoAllow).toContain('my-plugin');
+    expect(messages).toContain('Created tools.alsoAllow with "my-plugin"');
+  });
+
+  it('appends to existing tools.alsoAllow', () => {
+    const config: Record<string, unknown> = {
+      tools: { alsoAllow: ['other-tool'] },
+    };
+
+    const messages = patchConfig(config, 'my-plugin', 'add');
+    const tools = config.tools as Record<string, unknown>;
+    const alsoAllow = tools.alsoAllow as string[];
+
+    expect(alsoAllow).toEqual(['other-tool', 'my-plugin']);
+    expect(messages).toContain('Added "my-plugin" to tools.alsoAllow');
+  });
+
+  it('does not duplicate in tools.alsoAllow', () => {
     const config: Record<string, unknown> = {
       plugins: {
-        allow: ['other-plugin'],
+        entries: { 'my-plugin': { enabled: true } },
+      },
+      tools: { alsoAllow: ['my-plugin'] },
+    };
+
+    const messages = patchConfig(config, 'my-plugin', 'add');
+    const tools = config.tools as Record<string, unknown>;
+    const alsoAllow = tools.alsoAllow as string[];
+
+    expect(alsoAllow.filter((id) => id === 'my-plugin')).toHaveLength(1);
+    expect(messages).toHaveLength(0);
+  });
+
+  it('removes from tools.alsoAllow on uninstall', () => {
+    const config: Record<string, unknown> = {
+      plugins: {
+        entries: { 'my-plugin': { enabled: true } },
+      },
+      tools: { alsoAllow: ['my-plugin', 'other-tool'] },
+    };
+
+    const messages = patchConfig(config, 'my-plugin', 'remove');
+    const tools = config.tools as Record<string, unknown>;
+    const alsoAllow = tools.alsoAllow as string[];
+
+    expect(alsoAllow).not.toContain('my-plugin');
+    expect(alsoAllow).toContain('other-tool');
+    expect(messages).toHaveLength(2); // entries, tools.alsoAllow
+  });
+
+  it('does not touch plugins.allow (not in spec)', () => {
+    const config: Record<string, unknown> = {
+      plugins: {
+        allow: ['existing-plugin'],
         entries: {},
       },
     };
 
-    const messages = patchConfig(config, 'my-plugin', 'add');
+    patchConfig(config, 'my-plugin', 'add');
     const plugins = config.plugins as Record<string, unknown>;
     const allow = plugins.allow as string[];
 
-    expect(allow).toContain('my-plugin');
-    expect(messages).toContain('Added "my-plugin" to plugins.allow');
-  });
-
-  it('patches tools.allow when present', () => {
-    const config: Record<string, unknown> = {
-      tools: { allow: ['some-tool'] },
-    };
-
-    const messages = patchConfig(config, 'my-plugin', 'add');
-    const tools = config.tools as Record<string, unknown>;
-    const allow = tools.allow as string[];
-
-    expect(allow).toContain('my-plugin');
-    expect(messages).toContain('Added "my-plugin" to tools.allow');
-  });
-
-  it('does not duplicate in allow lists', () => {
-    const config: Record<string, unknown> = {
-      plugins: {
-        allow: ['my-plugin'],
-        entries: { 'my-plugin': { enabled: true } },
-      },
-      tools: { allow: ['my-plugin'] },
-    };
-
-    const messages = patchConfig(config, 'my-plugin', 'add');
-    const plugins = config.plugins as Record<string, unknown>;
-    const allow = plugins.allow as string[];
-
-    expect(allow.filter((id) => id === 'my-plugin')).toHaveLength(1);
-    expect(messages).toHaveLength(0);
-  });
-
-  it('removes from allow lists on uninstall', () => {
-    const config: Record<string, unknown> = {
-      plugins: {
-        allow: ['my-plugin', 'other'],
-        entries: { 'my-plugin': { enabled: true } },
-      },
-      tools: { allow: ['my-plugin'] },
-    };
-
-    const messages = patchConfig(config, 'my-plugin', 'remove');
-    const plugins = config.plugins as Record<string, unknown>;
-    const pluginsAllow = plugins.allow as string[];
-    const tools = config.tools as Record<string, unknown>;
-    const toolsAllow = tools.allow as string[];
-
-    expect(pluginsAllow).not.toContain('my-plugin');
-    expect(toolsAllow).not.toContain('my-plugin');
-    expect(messages).toHaveLength(3); // plugins.allow, entries, tools.allow
+    // plugins.allow should be untouched
+    expect(allow).toEqual(['existing-plugin']);
   });
 });
