@@ -20,7 +20,6 @@ import agentsSectionContent from '../../content/agents-section.md';
 import soulSectionContent from '../../content/soul-section.md';
 import toolsPlatformTemplate from '../../content/tools-platform.md';
 import {
-  type ComponentVersionEntry,
   readComponentVersions,
   writeComponentVersion,
 } from '../component/componentVersions.js';
@@ -31,7 +30,7 @@ import {
   TOOLS_MARKERS,
   WORKSPACE_FILES,
 } from '../constants/index.js';
-import { probeAllServices, type ProbeResult } from '../discovery/probe.js';
+import { probeAllServices } from '../discovery/probe.js';
 import { checkRegistryVersion } from '../discovery/registry.js';
 import {
   getComponentConfigDir,
@@ -39,6 +38,7 @@ import {
   getWorkspacePath,
 } from '../init.js';
 import { updateManagedSection } from '../managed/updateManagedSection.js';
+import { buildServiceRows, type ServiceRow } from './buildServiceRows.js';
 
 /** Options for refreshPlatformContent. */
 export interface RefreshPlatformContentOptions {
@@ -60,20 +60,10 @@ export interface RefreshPlatformContentOptions {
   skipRegistryCheck?: boolean;
 }
 
-/** Per-service row data for the Platform template. */
-interface ServiceRow extends ProbeResult {
-  /** Plugin version for this component. */
-  pluginVersion?: string;
-  /** Available service update from npm registry. */
-  availableServiceVersion?: string;
-  /** Available plugin update from npm registry. */
-  availablePluginVersion?: string;
-}
-
 /** Data passed to the Handlebars Platform template. */
 interface PlatformTemplateData {
   services: ServiceRow[];
-  unhealthyServices: ProbeResult[];
+  unhealthyServices: ServiceRow[];
   coreVersion: string;
   availableCoreVersion?: string;
   templatesAvailable: boolean;
@@ -126,9 +116,7 @@ function copyTemplates(coreConfigDir: string): void {
 /** Whether Handlebars helpers have been registered. */
 let helpersRegistered = false;
 
-/**
- * Register Handlebars helpers used in the Platform template.
- */
+/** Register Handlebars helpers used in the Platform template. */
 function registerHelpers(): void {
   if (helpersRegistered) return;
   helpersRegistered = true;
@@ -138,6 +126,30 @@ function registerHelpers(): void {
     (a: unknown, b: unknown) =>
       typeof a === 'number' && typeof b === 'number' && a > b,
   );
+}
+
+/**
+ * Check if a newer core version is available on npm.
+ *
+ * @returns The newer version string, or undefined.
+ */
+function checkCoreUpdate(
+  coreVersion: string,
+  cacheDir: string,
+): string | undefined {
+  const registryVersion = checkRegistryVersion(
+    '@karmaniverous/jeeves',
+    cacheDir,
+  );
+  if (
+    registryVersion &&
+    semver.valid(registryVersion) &&
+    semver.valid(coreVersion) &&
+    semver.gt(registryVersion, coreVersion)
+  ) {
+    return registryVersion;
+  }
+  return undefined;
 }
 
 /**
@@ -164,7 +176,6 @@ export async function refreshPlatformContent(
 
   // 1. Probe all services
   const probeResults = await probeAllServices(undefined, probeTimeoutMs);
-  const unhealthyServices = probeResults.filter((r) => !r.healthy);
 
   // 2. Write calling component's version entry (with serviceVersion from probe)
   if (componentName) {
@@ -181,98 +192,37 @@ export async function refreshPlatformContent(
   // 3. Read all component versions from the shared state file
   const componentVersions = readComponentVersions(coreConfigDir);
 
-  // 4. Registry version checks
+  // 4. Build enriched service rows with registry checks
   const cacheDir = componentName
     ? getComponentConfigDir(componentName)
     : coreConfigDir;
 
-  let availableCoreVersion: string | undefined;
+  const availableCoreVersion = skipRegistryCheck
+    ? undefined
+    : checkCoreUpdate(coreVersion, cacheDir);
 
-  if (!skipRegistryCheck) {
-    const coreRegistryVersion = checkRegistryVersion(
-      '@karmaniverous/jeeves',
-      cacheDir,
-    );
-    if (
-      coreRegistryVersion &&
-      semver.valid(coreRegistryVersion) &&
-      semver.valid(coreVersion) &&
-      semver.gt(coreRegistryVersion, coreVersion)
-    ) {
-      availableCoreVersion = coreRegistryVersion;
-    }
-  }
-
-  // 5. Build enriched service rows using component versions state
-  const versionLookup: Partial<Record<string, ComponentVersionEntry>> =
-    componentVersions;
-  const serviceRows: ServiceRow[] = probeResults.map((r) => {
-    const versionEntry = versionLookup[r.name];
-    if (!versionEntry) return { ...r };
-
-    // Check for available updates via registry
-    let availableServiceVersion: string | undefined;
-    let availablePluginVersion: string | undefined;
-
-    if (!skipRegistryCheck) {
-      if (versionEntry.servicePackage) {
-        const registryServiceVersion = checkRegistryVersion(
-          versionEntry.servicePackage,
-          cacheDir,
-        );
-        if (
-          registryServiceVersion &&
-          r.version &&
-          semver.valid(registryServiceVersion) &&
-          semver.valid(r.version) &&
-          semver.gt(registryServiceVersion, r.version)
-        ) {
-          availableServiceVersion = registryServiceVersion;
-        }
-      }
-
-      if (versionEntry.pluginPackage && versionEntry.pluginVersion) {
-        const registryPluginVersion = checkRegistryVersion(
-          versionEntry.pluginPackage,
-          cacheDir,
-        );
-        if (
-          registryPluginVersion &&
-          semver.valid(registryPluginVersion) &&
-          semver.valid(versionEntry.pluginVersion) &&
-          semver.gt(registryPluginVersion, versionEntry.pluginVersion)
-        ) {
-          availablePluginVersion = registryPluginVersion;
-        }
-      }
-    }
-
-    return {
-      ...r,
-      pluginVersion: versionEntry.pluginVersion,
-      availableServiceVersion,
-      availablePluginVersion,
-    };
+  const serviceRows = buildServiceRows({
+    probeResults,
+    componentVersions,
+    cacheDir,
+    skipRegistryCheck,
   });
 
-  // 6. Check if templates are available
+  // 5. Render Platform template
   const templatePath = join(coreConfigDir, TEMPLATES_DIR);
-  const templatesAvailable = existsSync(templatePath);
-
-  // 7. Render Platform template
   registerHelpers();
   const template = Handlebars.compile(toolsPlatformTemplate);
   const templateData: PlatformTemplateData = {
     services: serviceRows,
-    unhealthyServices,
+    unhealthyServices: serviceRows.filter((r) => !r.healthy),
     coreVersion,
     availableCoreVersion,
-    templatesAvailable,
+    templatesAvailable: existsSync(templatePath),
     templatePath,
   };
   const platformContent = template(templateData);
 
-  // 8. Write TOOLS.md Platform section
+  // 6. Write TOOLS.md Platform section
   const toolsPath = join(workspacePath, WORKSPACE_FILES.tools);
   await updateManagedSection(toolsPath, platformContent, {
     mode: 'section',
@@ -282,7 +232,7 @@ export async function refreshPlatformContent(
     stalenessThresholdMs,
   });
 
-  // 9. Write SOUL.md managed block
+  // 7. Write SOUL.md managed block
   const soulPath = join(workspacePath, WORKSPACE_FILES.soul);
   await updateManagedSection(soulPath, soulSectionContent, {
     mode: 'block',
@@ -291,7 +241,7 @@ export async function refreshPlatformContent(
     stalenessThresholdMs,
   });
 
-  // 10. Write AGENTS.md managed block
+  // 8. Write AGENTS.md managed block
   const agentsPath = join(workspacePath, WORKSPACE_FILES.agents);
   await updateManagedSection(agentsPath, agentsSectionContent, {
     mode: 'block',
@@ -300,6 +250,6 @@ export async function refreshPlatformContent(
     stalenessThresholdMs,
   });
 
-  // 11. Copy templates to config dir
+  // 9. Copy templates to config dir
   copyTemplates(coreConfigDir);
 }
