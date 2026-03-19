@@ -12,7 +12,11 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
-import { CLEANUP_FLAG, TOOLS_MARKERS } from '../constants/index.js';
+import {
+  CLEANUP_FLAG,
+  type ManagedMarkers,
+  TOOLS_MARKERS,
+} from '../constants/index.js';
 import { needsCleanup } from './cleanupDetection.js';
 import { atomicWrite, DEFAULT_CORE_VERSION, withFileLock } from './fileOps.js';
 import { parseManaged } from './parseManaged.js';
@@ -30,14 +34,7 @@ export interface UpdateManagedSectionOptions {
   /** Section ID — required when mode is 'section'. */
   sectionId?: string;
   /** Custom markers. Defaults to TOOLS markers. */
-  markers?: {
-    /** BEGIN comment marker text. */
-    begin: string;
-    /** END comment marker text. */
-    end: string;
-    /** Optional H1 title prepended in section mode. */
-    title?: string;
-  };
+  markers?: ManagedMarkers;
   /** Core library version for version-stamp convergence. */
   coreVersion?: string;
   /** Staleness threshold in ms for version-stamp convergence. */

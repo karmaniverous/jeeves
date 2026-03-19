@@ -41,6 +41,7 @@ export {
   CORE_CONFIG_DIR,
   CORE_VERSION,
   DEFAULT_PORTS,
+  type ManagedMarkers,
   META_PORT,
   REGISTRY_CACHE_FILE,
   RUNNER_PORT,

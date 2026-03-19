@@ -7,6 +7,7 @@
 export {
   AGENTS_MARKERS,
   CLEANUP_FLAG,
+  type ManagedMarkers,
   SOUL_MARKERS,
   STALENESS_THRESHOLD_MS,
   TOOLS_MARKERS,

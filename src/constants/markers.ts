@@ -8,8 +8,18 @@
  * is never touched.
  */
 
+/** Shape of managed content markers used by updateManagedSection and removeManagedSection. */
+export interface ManagedMarkers {
+  /** BEGIN comment marker text. */
+  begin: string;
+  /** END comment marker text. */
+  end: string;
+  /** Optional H1 title prepended inside the managed block. */
+  title?: string;
+}
+
 /** Default markers for TOOLS.md managed block. */
-export const TOOLS_MARKERS = {
+export const TOOLS_MARKERS: ManagedMarkers = {
   /** BEGIN comment marker text. */
   begin: 'BEGIN JEEVES PLATFORM TOOLS — DO NOT EDIT THIS SECTION',
   /** END comment marker text. */
@@ -19,7 +29,7 @@ export const TOOLS_MARKERS = {
 } as const;
 
 /** Default markers for SOUL.md managed block. */
-export const SOUL_MARKERS = {
+export const SOUL_MARKERS: ManagedMarkers = {
   /** BEGIN comment marker text. */
   begin: 'BEGIN JEEVES SOUL — DO NOT EDIT THIS SECTION',
   /** END comment marker text. */
@@ -29,7 +39,7 @@ export const SOUL_MARKERS = {
 } as const;
 
 /** Default markers for AGENTS.md managed block. */
-export const AGENTS_MARKERS = {
+export const AGENTS_MARKERS: ManagedMarkers = {
   /** BEGIN comment marker text. */
   begin: 'BEGIN JEEVES AGENTS — DO NOT EDIT THIS SECTION',
   /** END comment marker text. */

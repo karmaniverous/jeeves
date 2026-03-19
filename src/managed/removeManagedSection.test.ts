@@ -25,7 +25,7 @@ function buildManagedFile(
   const sectionText = sections
     .map((s) => `## ${s.id}\n\n${s.content}`)
     .join('\n\n');
-  const body = `# ${TOOLS_MARKERS.title}\n\n${sectionText}`;
+  const body = `# ${TOOLS_MARKERS.title ?? ''}\n\n${sectionText}`;
 
   const parts: string[] = [];
   if (options?.before) {

@@ -14,7 +14,7 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 
-import { TOOLS_MARKERS } from '../constants/index.js';
+import { type ManagedMarkers, TOOLS_MARKERS } from '../constants/index.js';
 import { atomicWrite, DEFAULT_CORE_VERSION, withFileLock } from './fileOps.js';
 import { parseManaged } from './parseManaged.js';
 import { sortSectionsByOrder } from './sectionSort.js';
@@ -25,14 +25,7 @@ export interface RemoveManagedSectionOptions {
   /** Section ID to remove. If omitted, removes the entire managed block. */
   sectionId?: string;
   /** Custom markers. Defaults to TOOLS markers. */
-  markers?: {
-    /** BEGIN comment marker text. */
-    begin: string;
-    /** END comment marker text. */
-    end: string;
-    /** Optional H1 title prepended in section mode. */
-    title?: string;
-  };
+  markers?: ManagedMarkers;
 }
 
 /**
@@ -108,7 +101,7 @@ function buildWithSections(
   beforeContent: string,
   userContent: string,
   sections: Array<{ id: string; content: string }>,
-  markers: { begin: string; end: string; title?: string },
+  markers: ManagedMarkers,
   coreVersion?: string,
 ): string {
   const sorted = sortSectionsByOrder([...sections]);
