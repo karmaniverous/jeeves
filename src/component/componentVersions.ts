@@ -8,16 +8,11 @@
  * table, not just the calling component's.
  */
 
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  renameSync,
-  writeFileSync,
-} from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { COMPONENT_VERSIONS_FILE } from '../constants/paths.js';
+import { atomicWrite } from '../managed/fileOps.js';
 
 /** Version entry for a single component. */
 export interface ComponentVersionEntry {
@@ -99,8 +94,5 @@ export function writeComponentVersion(
     mkdirSync(dir, { recursive: true });
   }
 
-  // Atomic write
-  const tempPath = join(dir, `.${String(Date.now())}.tmp`);
-  writeFileSync(tempPath, JSON.stringify(existing, null, 2) + '\n', 'utf-8');
-  renameSync(tempPath, filePath);
+  atomicWrite(filePath, JSON.stringify(existing, null, 2) + '\n');
 }

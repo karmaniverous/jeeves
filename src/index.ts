@@ -77,6 +77,8 @@ export {
   resetInit,
 } from './init.js';
 export {
+  atomicWrite,
+  DEFAULT_CORE_VERSION,
   formatBeginMarker,
   formatEndMarker,
   jaccard,
@@ -88,9 +90,11 @@ export {
   type RemoveManagedSectionOptions,
   shingles,
   shouldWrite,
+  STALE_LOCK_MS,
   updateManagedSection,
   type UpdateManagedSectionOptions,
   type VersionStamp,
+  withFileLock,
 } from './managed/index.js';
 export {
   refreshPlatformContent,

@@ -12,12 +12,10 @@
  * Missing markers or nonexistent sections are no-ops (no error thrown).
  */
 
-import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-
-import { lock } from 'proper-lockfile';
+import { existsSync, readFileSync } from 'node:fs';
 
 import { TOOLS_MARKERS } from '../constants/index.js';
+import { atomicWrite, DEFAULT_CORE_VERSION, withFileLock } from './fileOps.js';
 import { parseManaged } from './parseManaged.js';
 import { sortSectionsByOrder } from './sectionSort.js';
 import { formatBeginMarker, formatEndMarker } from './versionStamp.js';
@@ -37,9 +35,6 @@ export interface RemoveManagedSectionOptions {
   };
 }
 
-/** Stale lock threshold in ms (2 minutes). */
-const STALE_LOCK_MS = 120_000;
-
 /**
  * Remove a managed section or entire managed block from a file.
  *
@@ -54,13 +49,7 @@ export async function removeManagedSection(
 
   if (!existsSync(filePath)) return;
 
-  let release: (() => Promise<void>) | undefined;
-  try {
-    release = await lock(filePath, {
-      stale: STALE_LOCK_MS,
-      retries: { retries: 5, minTimeout: 100, maxTimeout: 1000 },
-    });
-
+  await withFileLock(filePath, () => {
     const fileContent = readFileSync(filePath, 'utf-8');
     const parsed = parseManaged(fileContent, markers);
 
@@ -98,20 +87,8 @@ export async function removeManagedSection(
       }
     }
 
-    // Atomic write
-    const dir = dirname(filePath);
-    const tempPath = join(dir, `.${String(Date.now())}.tmp`);
-    writeFileSync(tempPath, newContent, 'utf-8');
-    renameSync(tempPath, filePath);
-  } finally {
-    if (release) {
-      try {
-        await release();
-      } catch {
-        // Lock already released or file deleted
-      }
-    }
-  }
+    atomicWrite(filePath, newContent);
+  });
 }
 
 /** Build file content without the managed block. */
@@ -143,7 +120,10 @@ function buildWithSections(
     ? `# ${markers.title}\n\n${sectionText}`
     : sectionText;
 
-  const beginLine = formatBeginMarker(markers.begin, coreVersion ?? '0.0.0');
+  const beginLine = formatBeginMarker(
+    markers.begin,
+    coreVersion ?? DEFAULT_CORE_VERSION,
+  );
   const endLine = formatEndMarker(markers.end);
 
   const parts: string[] = [];
