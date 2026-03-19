@@ -10,6 +10,11 @@
  */
 
 export {
+  type ConfigQueryHandler,
+  type ConfigQueryResponse,
+  createConfigQueryHandler,
+} from './api/index.js';
+export {
   type AsyncContentCacheOptions,
   type ComponentVersionEntry,
   type ComponentVersionsState,
