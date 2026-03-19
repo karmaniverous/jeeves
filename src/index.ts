@@ -11,6 +11,8 @@
 
 export {
   type AsyncContentCacheOptions,
+  type ComponentVersionEntry,
+  type ComponentVersionsState,
   ComponentWriter,
   createAsyncContentCache,
   createComponentWriter,
@@ -18,14 +20,18 @@ export {
   type JeevesComponent,
   type PluginApiLike,
   type PluginCommands,
+  readComponentVersions,
   resolveWorkspacePath,
   type ServiceCommands,
   type ServiceStatus,
+  writeComponentVersion,
+  type WriteComponentVersionOptions,
 } from './component/index.js';
 export {
   AGENTS_MARKERS,
   CLEANUP_FLAG,
   COMPONENT_CONFIG_PREFIX,
+  COMPONENT_VERSIONS_FILE,
   CONFIG_FILE,
   CORE_CONFIG_DIR,
   CORE_VERSION,
@@ -73,6 +79,8 @@ export {
   needsCleanup,
   parseManaged,
   type ParseManagedResult,
+  removeManagedSection,
+  type RemoveManagedSectionOptions,
   shingles,
   shouldWrite,
   updateManagedSection,

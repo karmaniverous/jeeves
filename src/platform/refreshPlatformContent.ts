@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url';
 
 import Handlebars from 'handlebars';
 import { packageDirectorySync } from 'package-directory';
+import semver from 'semver';
 
 import agentsSectionContent from '../../content/agents-section.md';
 import soulSectionContent from '../../content/soul-section.md';
@@ -174,34 +175,58 @@ export async function refreshPlatformContent(
       '@karmaniverous/jeeves',
       cacheDir,
     );
-    if (coreRegistryVersion && coreRegistryVersion !== coreVersion) {
+    if (
+      coreRegistryVersion &&
+      semver.valid(coreRegistryVersion) &&
+      semver.valid(coreVersion) &&
+      semver.gt(coreRegistryVersion, coreVersion)
+    ) {
       availableCoreVersion = coreRegistryVersion;
     }
 
     if (servicePackage) {
-      const svcVersion = checkRegistryVersion(servicePackage, cacheDir);
-      if (svcVersion) {
-        availableServiceVersion = svcVersion;
-      }
+      availableServiceVersion =
+        checkRegistryVersion(servicePackage, cacheDir) ?? undefined;
     }
 
     if (pluginPackage) {
-      const plgVersion = checkRegistryVersion(pluginPackage, cacheDir);
-      if (plgVersion) {
-        availablePluginVersion = plgVersion;
-      }
+      availablePluginVersion =
+        checkRegistryVersion(pluginPackage, cacheDir) ?? undefined;
     }
   }
 
   // 3. Build enriched service rows — match the calling component by name
-  const serviceRows: ServiceRow[] = probeResults.map((r) => ({
-    ...r,
-    pluginVersion: r.name === componentName ? componentVersion : undefined,
-    availableServiceVersion:
-      r.name === componentName ? availableServiceVersion : undefined,
-    availablePluginVersion:
-      r.name === componentName ? availablePluginVersion : undefined,
-  }));
+  const serviceRows: ServiceRow[] = probeResults.map((r) => {
+    if (r.name !== componentName) {
+      return { ...r };
+    }
+
+    // Apply semver comparison: only show update arrow when registry > installed
+    const svcUpgrade =
+      availableServiceVersion &&
+      r.version &&
+      semver.valid(availableServiceVersion) &&
+      semver.valid(r.version) &&
+      semver.gt(availableServiceVersion, r.version)
+        ? availableServiceVersion
+        : undefined;
+
+    const plgUpgrade =
+      availablePluginVersion &&
+      componentVersion &&
+      semver.valid(availablePluginVersion) &&
+      semver.valid(componentVersion) &&
+      semver.gt(availablePluginVersion, componentVersion)
+        ? availablePluginVersion
+        : undefined;
+
+    return {
+      ...r,
+      pluginVersion: componentVersion,
+      availableServiceVersion: svcUpgrade,
+      availablePluginVersion: plgUpgrade,
+    };
+  });
 
   // 5. Check if templates are available
   const templatePath = join(coreConfigDir, TEMPLATES_DIR);

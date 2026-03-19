@@ -4,6 +4,13 @@
  * @packageDocumentation
  */
 
+export {
+  type ComponentVersionEntry,
+  type ComponentVersionsState,
+  readComponentVersions,
+  writeComponentVersion,
+  type WriteComponentVersionOptions,
+} from './componentVersions.js';
 export { ComponentWriter } from './ComponentWriter.js';
 export {
   type AsyncContentCacheOptions,

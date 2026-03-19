@@ -14,6 +14,7 @@ export {
 } from './markers.js';
 export {
   COMPONENT_CONFIG_PREFIX,
+  COMPONENT_VERSIONS_FILE,
   CONFIG_FILE,
   CORE_CONFIG_DIR,
   REGISTRY_CACHE_FILE,
