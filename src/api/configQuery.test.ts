@@ -67,6 +67,15 @@ describe('createConfigQueryHandler', () => {
     expect(body.count).toBe(1);
   });
 
+  it('returns 400 for invalid JSONPath expression', async () => {
+    const result = await handler({ path: '$[?(' });
+    expect(result.status).toBe(400);
+
+    const body = result.body as { error: string };
+    expect(body.error).toBeDefined();
+    expect(typeof body.error).toBe('string');
+  });
+
   it('calls getConfig on each invocation', async () => {
     let counter = 0;
     const dynamicHandler = createConfigQueryHandler(() => {
