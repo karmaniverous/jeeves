@@ -2,10 +2,28 @@
 
 All notable changes to this project will be documented in this file. Dates are displayed in UTC.
 
+#### [0.2.0](https://github.com/karmaniverous/jeeves/compare/0.1.6...0.2.0)
+
+- feat: v0.2.0 Plugin SDK, managed content, config query [`#6`](https://github.com/karmaniverous/jeeves/pull/6)
+- [V0-2] feat: Phase 1 — Plugin SDK types and utilities [`bd9b3c1`](https://github.com/karmaniverous/jeeves/commit/bd9b3c1742378a7f5825d99f01b397b29148a607)
+- [V0-2] feat: Phase 2 — Managed content removal, semver fix, component versions [`80a1f40`](https://github.com/karmaniverous/jeeves/commit/80a1f409865e014f95161d93a1828e9b3863141b)
+- [V0-2] docs: update README and guides for v0.2.0 Plugin SDK [`293ac2a`](https://github.com/karmaniverous/jeeves/commit/293ac2a9dc17e1a6a8ac2e9852944bc18414039f)
+- [V0-2] fix: patch tools.alsoAllow, read component versions in platform refresh, consolidate resolveWorkspacePath [`b1466a0`](https://github.com/karmaniverous/jeeves/commit/b1466a0858d3f4477f7a71439bc0087ad9c9da95)
+- [V0-2] refactor: extract shared fileOps (atomicWrite, withFileLock, constants) from managed section files [`f429df6`](https://github.com/karmaniverous/jeeves/commit/f429df6d3a11e02b8466b602148ce554d612797e)
+- [V0-2] refactor: extract buildServiceRows from refreshPlatformContent [`d705be3`](https://github.com/karmaniverous/jeeves/commit/d705be30b3d24ee97b22d9005d0c90853b90cd53)
+- [V0-2] feat: Phase 3 — Config query handler with JSONPath support [`c1e80a9`](https://github.com/karmaniverous/jeeves/commit/c1e80a9d1901cd142dca3296d9b643d2e3131737)
+- npm audit fix [`0393220`](https://github.com/karmaniverous/jeeves/commit/0393220510cf9e91217ed8940aa5327951805502)
+- [V0-2] refactor: extract ManagedMarkers interface from inline types [`502eba4`](https://github.com/karmaniverous/jeeves/commit/502eba478fcf3bc99b312e5af37fbeec4595d36b)
+- [V0-2] chore: remove stray _push.cjs helper script [`6c0c1d8`](https://github.com/karmaniverous/jeeves/commit/6c0c1d8f2d54a955bf522c2d7c9f72409f671852)
+- [V0-2] test: add 400 error path test for invalid JSONPath in configQuery [`57c9b63`](https://github.com/karmaniverous/jeeves/commit/57c9b63a9f66e4afb545c7032e055b0d5c0fb4c0)
+
 #### [0.1.6](https://github.com/karmaniverous/jeeves/compare/0.1.5...0.1.6)
+
+> 18 March 2026
 
 - fix: CORE_VERSION inlining, H1 titles, merge Service Health table [`#5`](https://github.com/karmaniverous/jeeves/pull/5)
 - fix: inline CORE_VERSION at build time, add H1 titles to SOUL/AGENTS, merge Service Health into Platform table [`2211301`](https://github.com/karmaniverous/jeeves/commit/2211301022f6b67221942c462c2985b99f823d4b)
+- chore: release v0.1.6 [`4600fa6`](https://github.com/karmaniverous/jeeves/commit/4600fa600058a8d42936c8fd3fecf1c0045ed037)
 
 #### [0.1.5](https://github.com/karmaniverous/jeeves/compare/0.1.4...0.1.5)
 
