@@ -9,19 +9,16 @@
  * Provides file-level locking, version-stamp convergence, and atomic writes.
  */
 
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
+
 import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  renameSync,
-  writeFileSync,
-} from 'node:fs';
-import { dirname, join } from 'node:path';
-
-import { lock } from 'proper-lockfile';
-
-import { CLEANUP_FLAG, TOOLS_MARKERS } from '../constants/index.js';
+  CLEANUP_FLAG,
+  type ManagedMarkers,
+  TOOLS_MARKERS,
+} from '../constants/index.js';
 import { needsCleanup } from './cleanupDetection.js';
+import { atomicWrite, DEFAULT_CORE_VERSION, withFileLock } from './fileOps.js';
 import { parseManaged } from './parseManaged.js';
 import { sortSectionsByOrder } from './sectionSort.js';
 import {
@@ -37,25 +34,12 @@ export interface UpdateManagedSectionOptions {
   /** Section ID — required when mode is 'section'. */
   sectionId?: string;
   /** Custom markers. Defaults to TOOLS markers. */
-  markers?: {
-    /** BEGIN comment marker text. */
-    begin: string;
-    /** END comment marker text. */
-    end: string;
-    /** Optional H1 title prepended in section mode. */
-    title?: string;
-  };
+  markers?: ManagedMarkers;
   /** Core library version for version-stamp convergence. */
   coreVersion?: string;
   /** Staleness threshold in ms for version-stamp convergence. */
   stalenessThresholdMs?: number;
 }
-
-/** Default core version when none provided. */
-const DEFAULT_VERSION = '0.0.0';
-
-/** Stale lock threshold in ms (2 minutes). */
-const STALE_LOCK_MS = 120_000;
 
 /**
  * Update a managed section in a file.
@@ -73,7 +57,7 @@ export async function updateManagedSection(
     mode = 'block',
     sectionId,
     markers = TOOLS_MARKERS,
-    coreVersion = DEFAULT_VERSION,
+    coreVersion = DEFAULT_CORE_VERSION,
     stalenessThresholdMs,
   } = options;
 
@@ -91,102 +75,86 @@ export async function updateManagedSection(
     writeFileSync(filePath, '', 'utf-8');
   }
 
-  let release: (() => Promise<void>) | undefined;
   try {
-    release = await lock(filePath, {
-      stale: STALE_LOCK_MS,
-      retries: { retries: 5, minTimeout: 100, maxTimeout: 1000 },
-    });
+    await withFileLock(filePath, () => {
+      const fileContent = readFileSync(filePath, 'utf-8');
+      const parsed = parseManaged(fileContent, markers);
 
-    const fileContent = readFileSync(filePath, 'utf-8');
-    const parsed = parseManaged(fileContent, markers);
-
-    // Version-stamp convergence check (block mode only).
-    // In section mode, components always write their own sections — the version
-    // stamp governs shared content convergence, not component-specific sections.
-    if (
-      mode === 'block' &&
-      !shouldWrite(coreVersion, parsed.versionStamp, stalenessThresholdMs)
-    ) {
-      return;
-    }
-
-    let newManagedBody: string;
-
-    if (mode === 'block') {
-      // Prepend H1 title if markers specify one
-      newManagedBody = markers.title
-        ? `# ${markers.title}\n\n${content}`
-        : content;
-    } else {
-      // Section mode: upsert the named section
-      const sections = [...parsed.sections];
-      const existingIdx = sections.findIndex((s) => s.id === sectionId);
-      if (existingIdx >= 0) {
-        sections[existingIdx] = { id: sectionId!, content };
-      } else {
-        sections.push({ id: sectionId!, content });
+      // Version-stamp convergence check (block mode only).
+      // In section mode, components always write their own sections — the version
+      // stamp governs shared content convergence, not component-specific sections.
+      if (
+        mode === 'block' &&
+        !shouldWrite(coreVersion, parsed.versionStamp, stalenessThresholdMs)
+      ) {
+        return;
       }
 
-      sortSectionsByOrder(sections);
+      let newManagedBody: string;
 
-      const sectionText = sections
-        .map((s) => `## ${s.id}\n\n${s.content}`)
-        .join('\n\n');
+      if (mode === 'block') {
+        // Prepend H1 title if markers specify one
+        newManagedBody = markers.title
+          ? `# ${markers.title}\n\n${content}`
+          : content;
+      } else {
+        // Section mode: upsert the named section
+        const sections = [...parsed.sections];
+        const existingIdx = sections.findIndex((s) => s.id === sectionId);
+        if (existingIdx >= 0) {
+          sections[existingIdx] = { id: sectionId!, content };
+        } else {
+          sections.push({ id: sectionId!, content });
+        }
 
-      // Prepend H1 title if markers specify one (e.g., "# Jeeves Platform Tools")
-      newManagedBody = markers.title
-        ? `# ${markers.title}\n\n${sectionText}`
-        : sectionText;
-    }
+        sortSectionsByOrder(sections);
 
-    // Cleanup detection
-    const userContent = parsed.userContent;
-    const cleanupNeeded = needsCleanup(newManagedBody, userContent);
+        const sectionText = sections
+          .map((s) => `## ${s.id}\n\n${s.content}`)
+          .join('\n\n');
 
-    // Build the full managed block
-    const beginLine = formatBeginMarker(markers.begin, coreVersion);
-    const endLine = formatEndMarker(markers.end);
+        // Prepend H1 title if markers specify one
+        newManagedBody = markers.title
+          ? `# ${markers.title}\n\n${sectionText}`
+          : sectionText;
+      }
 
-    const parts: string[] = [];
-    if (parsed.beforeContent) {
-      parts.push(parsed.beforeContent);
+      // Cleanup detection
+      const userContent = parsed.userContent;
+      const cleanupNeeded = needsCleanup(newManagedBody, userContent);
+
+      // Build the full managed block
+      const beginLine = formatBeginMarker(markers.begin, coreVersion);
+      const endLine = formatEndMarker(markers.end);
+
+      const parts: string[] = [];
+      if (parsed.beforeContent) {
+        parts.push(parsed.beforeContent);
+        parts.push('');
+      }
+      parts.push(beginLine);
+      if (cleanupNeeded) {
+        parts.push('');
+        parts.push(CLEANUP_FLAG);
+      }
       parts.push('');
-    }
-    parts.push(beginLine);
-    if (cleanupNeeded) {
+      parts.push(newManagedBody);
       parts.push('');
-      parts.push(CLEANUP_FLAG);
-    }
-    parts.push('');
-    parts.push(newManagedBody);
-    parts.push('');
-    parts.push(endLine);
-    if (userContent) {
+      parts.push(endLine);
+      if (userContent) {
+        parts.push('');
+        parts.push(userContent);
+      }
       parts.push('');
-      parts.push(userContent);
-    }
-    parts.push('');
 
-    const newFileContent = parts.join('\n');
-
-    // Atomic write: write to temp file, then rename
-    const tempPath = join(dir, `.${String(Date.now())}.tmp`);
-    writeFileSync(tempPath, newFileContent, 'utf-8');
-    renameSync(tempPath, filePath);
+      const newFileContent = parts.join('\n');
+      atomicWrite(filePath, newFileContent);
+    });
   } catch (err: unknown) {
     // Log warning but don't throw — writer cycles are periodic
     const message = err instanceof Error ? err.message : String(err);
     console.warn(
       `jeeves-core: updateManagedSection failed for ${filePath}: ${message}`,
     );
-  } finally {
-    if (release) {
-      try {
-        await release();
-      } catch {
-        // Lock already released or file deleted — safe to ignore
-      }
-    }
   }
 }

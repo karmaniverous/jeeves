@@ -7,6 +7,9 @@
  * the primary integration point.
  */
 
+// Re-export PluginApiLike from plugin types for backward compatibility
+export type { PluginApiLike } from '../plugin/types.js';
+
 /** Service health status. */
 export interface ServiceStatus {
   /** Whether the service is running. */

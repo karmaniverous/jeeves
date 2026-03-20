@@ -10,7 +10,14 @@
  */
 
 export {
+  type ConfigQueryHandler,
+  type ConfigQueryResponse,
+  createConfigQueryHandler,
+} from './api/index.js';
+export {
   type AsyncContentCacheOptions,
+  type ComponentVersionEntry,
+  type ComponentVersionsState,
   ComponentWriter,
   createAsyncContentCache,
   createComponentWriter,
@@ -18,18 +25,23 @@ export {
   type JeevesComponent,
   type PluginApiLike,
   type PluginCommands,
+  readComponentVersions,
   resolveWorkspacePath,
   type ServiceCommands,
   type ServiceStatus,
+  writeComponentVersion,
+  type WriteComponentVersionOptions,
 } from './component/index.js';
 export {
   AGENTS_MARKERS,
   CLEANUP_FLAG,
   COMPONENT_CONFIG_PREFIX,
+  COMPONENT_VERSIONS_FILE,
   CONFIG_FILE,
   CORE_CONFIG_DIR,
   CORE_VERSION,
   DEFAULT_PORTS,
+  type ManagedMarkers,
   META_PORT,
   REGISTRY_CACHE_FILE,
   RUNNER_PORT,
@@ -66,6 +78,8 @@ export {
   resetInit,
 } from './init.js';
 export {
+  atomicWrite,
+  DEFAULT_CORE_VERSION,
   formatBeginMarker,
   formatEndMarker,
   jaccard,
@@ -73,11 +87,15 @@ export {
   needsCleanup,
   parseManaged,
   type ParseManagedResult,
+  removeManagedSection,
+  type RemoveManagedSectionOptions,
   shingles,
   shouldWrite,
+  STALE_LOCK_MS,
   updateManagedSection,
   type UpdateManagedSectionOptions,
   type VersionStamp,
+  withFileLock,
 } from './managed/index.js';
 export {
   refreshPlatformContent,
@@ -85,3 +103,18 @@ export {
   seedContent,
   type SeedContentOptions,
 } from './platform/index.js';
+export {
+  connectionFail,
+  fail,
+  fetchJson,
+  ok,
+  patchConfig,
+  type PluginApi,
+  postJson,
+  resolveConfigPath,
+  resolveOpenClawHome,
+  resolvePluginSetting,
+  type ToolDescriptor,
+  type ToolRegistrationOptions,
+  type ToolResult,
+} from './plugin/index.js';

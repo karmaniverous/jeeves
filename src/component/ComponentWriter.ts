@@ -95,6 +95,8 @@ export class ComponentWriter {
       });
 
       // Platform content maintenance: SOUL.md, AGENTS.md, Platform section
+      // refreshPlatformContent also writes the component version entry
+      // (with serviceVersion from probe) to the shared state file.
       await refreshPlatformContent({
         coreVersion: CORE_VERSION,
         componentName: this.component.name,

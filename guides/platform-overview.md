@@ -32,7 +32,13 @@ Knowledge synthesis engine that discovers `.meta/` directories in the filesystem
 
 ### @karmaniverous/jeeves (this package)
 
-Shared library and CLI that provides the substrate all components build on: managed workspace sections, service discovery, config resolution, version-stamp convergence, and content seeding.
+Shared library and CLI that provides the substrate all components build on:
+- **Managed content system** — maintains SOUL.md, AGENTS.md, TOOLS.md with version-stamp convergence, file locking, and cleanup detection
+- **Plugin SDK** — canonical types (`PluginApi`, `ToolResult`, `ToolDescriptor`), result formatters (`ok`/`fail`/`connectionFail`), HTTP helpers (`fetchJson`/`postJson`), resolution utilities (`resolveWorkspacePath`/`resolvePluginSetting`), and OpenClaw config patching (`patchConfig`)
+- **Config query handler** — transport-agnostic JSONPath query support for service `GET /config` endpoints
+- **Service discovery** — URL resolution, health probing, and npm registry version checks
+- **ComponentWriter** — timer-based orchestrator for managed content writes
+- **Content seeding** — CLI commands to bootstrap and tear down platform content
 
 ## How Components Interact
 
@@ -43,6 +49,80 @@ Shared library and CLI that provides the substrate all components build on: mana
 3. **Server** serves files via web UI for human browsing and sharing
 4. **Meta** queries the vector index, synthesizes knowledge, and writes output back to the filesystem
 5. **The AI assistant** (via OpenClaw) uses watcher's search and runner's job outputs to reason and respond
+
+## Content Lifecycle
+
+The platform maintains three workspace files that form the assistant's identity and operational context:
+
+### SOUL.md
+
+Professional discipline, hard gates, and genesis orientation. Written in block mode — core owns the entire managed block. The assistant reads this at session start to know who it is.
+
+### AGENTS.md
+
+Memory architecture, cost discipline, messaging protocols, and operational gates. Also written in block mode. The assistant reads this to know how to operate.
+
+### TOOLS.md
+
+Live platform state written in section mode. Multiple components each contribute an H2 section:
+
+| Section | Written By | Content |
+|---------|-----------|---------|
+| Platform | All (via `refreshPlatformContent`) | Service health table, version info, platform guidance |
+| Watcher | jeeves-watcher-openclaw | Index stats, search configuration, indexed paths |
+| Server | jeeves-server-openclaw | Export capabilities, connected services |
+| Runner | jeeves-runner-openclaw | Job status, active scripts |
+| Meta | jeeves-meta-openclaw | Synthesis entity summary, tools reference |
+
+Sections always appear in stable order (Platform → Watcher → Server → Runner → Meta) regardless of write sequence.
+
+## Version-Stamp Convergence
+
+Each component plugin bundles its own copy of `@karmaniverous/jeeves`. When plugins have different library versions, they independently write the same shared content (SOUL.md, AGENTS.md, Platform section). The version stamp in the BEGIN marker prevents oscillation:
+
+- **My version ≥ stamped version** → write (I'm current or newer)
+- **My version < stamped, stamp is fresh** → skip (a newer version is maintaining this)
+- **My version < stamped, stamp is stale (>5 min)** → write (the newer plugin was probably uninstalled)
+
+This means the highest-version plugin "wins" without any coordination protocol. See the [Managed Content System](./managed-content-system.md) guide for details.
+
+## Component Versions State File
+
+Each `ComponentWriter` cycle writes its component's version entry to `{coreConfigDir}/component-versions.json`. This shared state file tracks:
+
+```typescript
+interface ComponentVersionEntry {
+  serviceVersion?: string;   // From health probe response
+  pluginVersion?: string;    // The OpenClaw plugin package version
+  servicePackage?: string;   // npm package name for the service
+  pluginPackage?: string;    // npm package name for the plugin
+  updatedAt: string;         // ISO timestamp of last update
+}
+```
+
+The Platform section template reads this file to populate ALL rows in the service health table, not just the calling component's. This means any component's writer cycle produces a complete, up-to-date Platform section.
+
+## Service Health Probing
+
+On each writer cycle, `refreshPlatformContent` calls `probeAllServices()` which probes all four services by name (server, watcher, runner, meta):
+
+1. Resolve the service URL via `getServiceUrl`: consumer config → core config → default port (`DEFAULT_PORTS`)
+2. HTTP GET to `/status`, then `/health` as fallback
+3. Extract `version` from the JSON response body if available
+4. Return a `ProbeResult` with `name`, `port`, `healthy`, and optional `version`
+
+Probe timeout defaults to 3 seconds. Results are merged with component version entries and rendered into the Platform section's service health table.
+
+## Registry Version Checks
+
+The platform checks npm for newer versions of each component's service and plugin packages using `checkRegistryVersion()`:
+
+1. Check a local cache file (`registry-cache.json`) in the component's config directory
+2. If the cache is stale (default: 1-hour TTL), run `npm view {package} version`
+3. Compare using `semver.gt()` — only flag genuinely newer versions
+4. Display update arrows (⬆) in the Platform service health table
+
+This uses proper semver comparison, not string comparison, so pre-release versions and version ranges are handled correctly.
 
 ## The Team
 
@@ -67,19 +147,21 @@ Each component plugin bundles its own copy of `@karmaniverous/jeeves` as a regul
 
 ```
 {configRoot}/
-  jeeves-core/          ← Core config + templates
-    config.json         ← Service URLs, owners, registry cache
-    config.schema.json  ← JSON Schema for IDE autocomplete
-    templates/          ← Spec skeleton, dev practice guide
-  jeeves-watcher/       ← Watcher-specific config
-  jeeves-runner/        ← Runner-specific config
-  jeeves-server/        ← Server-specific config
-  jeeves-meta/          ← Meta-specific config
+  jeeves-core/                ← Core config + templates
+    config.json               ← Service URLs, owners
+    config.schema.json        ← JSON Schema for IDE autocomplete
+    component-versions.json   ← Shared version state (all components)
+    registry-cache.json       ← npm version cache
+    templates/                ← Spec skeleton, dev practice guide
+  jeeves-watcher/             ← Watcher-specific config
+  jeeves-runner/              ← Runner-specific config
+  jeeves-server/              ← Server-specific config
+  jeeves-meta/                ← Meta-specific config
 
 {workspace}/
-  SOUL.md               ← Professional discipline (managed + user sections)
-  AGENTS.md             ← Operational protocols (managed + user sections)
-  TOOLS.md              ← Live platform state (managed + user sections)
+  SOUL.md                     ← Professional discipline (managed + user sections)
+  AGENTS.md                   ← Operational protocols (managed + user sections)
+  TOOLS.md                    ← Live platform state (managed + user sections)
 ```
 
 ## Design Philosophy

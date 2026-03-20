@@ -26,3 +26,6 @@ export const REGISTRY_CACHE_FILE = 'registry-cache.json';
 
 /** Core config file name. */
 export const CONFIG_FILE = 'config.json';
+
+/** Component versions state file name. */
+export const COMPONENT_VERSIONS_FILE = 'component-versions.json';

@@ -6,11 +6,21 @@
 
 export { jaccard, needsCleanup, shingles } from './cleanupDetection.js';
 export {
+  atomicWrite,
+  DEFAULT_CORE_VERSION,
+  STALE_LOCK_MS,
+  withFileLock,
+} from './fileOps.js';
+export {
   type ManagedSection,
   parseManaged,
   type ParseManagedResult,
   type VersionStamp,
 } from './parseManaged.js';
+export {
+  removeManagedSection,
+  type RemoveManagedSectionOptions,
+} from './removeManagedSection.js';
 export { sortSectionsByOrder } from './sectionSort.js';
 export {
   updateManagedSection,

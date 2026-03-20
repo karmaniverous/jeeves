@@ -4,6 +4,13 @@
  * @packageDocumentation
  */
 
+export {
+  type ComponentVersionEntry,
+  type ComponentVersionsState,
+  readComponentVersions,
+  writeComponentVersion,
+  type WriteComponentVersionOptions,
+} from './componentVersions.js';
 export { ComponentWriter } from './ComponentWriter.js';
 export {
   type AsyncContentCacheOptions,
@@ -13,12 +20,10 @@ export {
   createComponentWriter,
   type CreateComponentWriterOptions,
 } from './createComponentWriter.js';
-export {
-  type PluginApiLike,
-  resolveWorkspacePath,
-} from './resolveWorkspacePath.js';
+export { resolveWorkspacePath } from './resolveWorkspacePath.js';
 export type {
   JeevesComponent,
+  PluginApiLike,
   PluginCommands,
   ServiceCommands,
   ServiceStatus,

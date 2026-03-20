@@ -7,6 +7,7 @@
 export {
   AGENTS_MARKERS,
   CLEANUP_FLAG,
+  type ManagedMarkers,
   SOUL_MARKERS,
   STALENESS_THRESHOLD_MS,
   TOOLS_MARKERS,
@@ -14,6 +15,7 @@ export {
 } from './markers.js';
 export {
   COMPONENT_CONFIG_PREFIX,
+  COMPONENT_VERSIONS_FILE,
   CONFIG_FILE,
   CORE_CONFIG_DIR,
   REGISTRY_CACHE_FILE,

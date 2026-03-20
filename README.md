@@ -16,7 +16,7 @@ That's it. I handle the rest.
 
 ## Who I Am
 
-My name is Jeeves. 
+My name is Jeeves.
 
 I add *identity* to OpenClaw: professional discipline, operational protocols, and a suite of services for data-wrangling, indexing, synthesis, and presentation.
 
@@ -60,19 +60,87 @@ I coordinate four service components. Each has its own repo, service, and OpenCl
 | [jeeves-runner](https://github.com/karmaniverous/jeeves-runner) | 1937 | Turing's paper in the *Proceedings* (1937) | Scheduled jobs, zero-LLM-cost scripts |
 | [jeeves-meta](https://github.com/karmaniverous/jeeves-meta) | 1938 | Shannon's switching circuits thesis (1938) | Three-step LLM synthesis |
 
-This package (`@karmaniverous/jeeves`) is the substrate they all share: managed workspace content, service discovery, config resolution, version-stamp convergence. It's a library and CLI. No daemon, no port, no tools registered with the gateway.
+This package (`@karmaniverous/jeeves`) is the substrate they all share: managed workspace content, service discovery, config resolution, version-stamp convergence, and a Plugin SDK for building component plugins. It's a library and CLI. No daemon, no port, no tools registered with the gateway.
 
-## For Platform Developers
+## Plugin SDK
 
-If you're building a component plugin, you implement one interface and call one factory:
+The Plugin SDK (`src/plugin/`) provides canonical types and utilities for building OpenClaw plugins that integrate with the Jeeves platform.
+
+### Core Types
+
+- **`PluginApi`** — the shape of the `api` object the OpenClaw gateway passes to plugins at registration time. Provides `config`, `resolvePath()`, and `registerTool()`.
+- **`ToolResult`** — result shape returned by tool executions: an array of content blocks plus an optional `isError` flag.
+- **`ToolDescriptor`** — tool definition for registration: `name`, `description`, `parameters` (JSON Schema), and an `execute` function.
+
+### Result Formatters
+
+- **`ok(data)`** — wraps arbitrary data as a successful `ToolResult` with JSON-stringified content.
+- **`fail(error)`** — wraps an error into a `ToolResult` with `isError: true`.
+- **`connectionFail(error, baseUrl, pluginId)`** — detects `ECONNREFUSED`, `ENOTFOUND`, and `ETIMEDOUT` from `error.cause.code` and returns a user-friendly message referencing the plugin's `config.apiUrl` setting. Falls back to `fail()` for non-connection errors.
+
+### HTTP Helpers
+
+- **`fetchJson(url, init?)`** — thin wrapper around `fetch` that throws on non-OK responses and returns parsed JSON.
+- **`postJson(url, body)`** — POST JSON to a URL and return parsed response.
+
+### Resolution Helpers
+
+- **`resolveWorkspacePath(api)`** — resolves the workspace root from the plugin API via a three-step chain: `api.config.agents.defaults.workspace` → `api.resolvePath('.')` → `process.cwd()`.
+- **`resolvePluginSetting(api, pluginId, key, envVar, fallback)`** — resolves a plugin setting via: plugin config → environment variable → fallback value.
+
+### OpenClaw Config Utilities
+
+- **`resolveOpenClawHome()`** — resolves the OpenClaw home directory: `OPENCLAW_CONFIG` env (dirname) → `OPENCLAW_HOME` env → `~/.openclaw`.
+- **`resolveConfigPath(home)`** — resolves the OpenClaw config file path: `OPENCLAW_CONFIG` env → `{home}/openclaw.json`.
+- **`patchConfig(config, pluginId, mode)`** — idempotent config patching for plugin install/uninstall. Manages `plugins.entries.{pluginId}` and `tools.alsoAllow`.
+
+## Config Query Handler
+
+The `createConfigQueryHandler(getConfig)` factory produces a transport-agnostic handler for `GET /config` endpoints. It accepts a `getConfig` callback that returns the current config object.
+
+- No `path` parameter → returns the full config document.
+- Valid JSONPath expression → returns matching results with count (powered by `jsonpath-plus`).
+- Invalid JSONPath → returns a 400 error.
+
+Component services wire this into their HTTP server to expose config for diagnostic queries.
+
+## Managed Content System
+
+The managed content system maintains SOUL.md, AGENTS.md, and TOOLS.md without destroying user-authored content.
+
+### Key Functions
+
+- **`updateManagedSection(filePath, content, options)`** — writes managed content in either block mode (replaces entire managed block) or section mode (upserts a named H2 section within the block). Handles file locking, version-stamp convergence, cleanup detection, and atomic writes.
+- **`removeManagedSection(filePath, options)`** — removes a specific section or the entire managed block. If the last section is removed, the entire block is removed.
+- **`parseManaged(fileContent, markers)`** — parses a file into its managed block, version stamp, sections, and user content.
+- **`atomicWrite(filePath, content)`** — writes via a temp file + rename to prevent partial writes.
+- **`withFileLock(filePath, fn)`** — executes a callback while holding a file-level lock (2-minute stale threshold, 5 retries).
+
+### ManagedMarkers Type
+
+```typescript
+interface ManagedMarkers {
+  begin: string;  // BEGIN comment marker text
+  end: string;    // END comment marker text
+  title?: string; // Optional H1 title prepended inside managed block
+}
+```
+
+Pre-defined marker sets: `TOOLS_MARKERS`, `SOUL_MARKERS`, `AGENTS_MARKERS`.
+
+See the [Managed Content System](https://docs.karmanivero.us/jeeves/documents/Managed_Content_System.html) guide for the full deep-dive.
+
+## ComponentWriter and JeevesComponent
+
+Component plugins implement the `JeevesComponent` interface and use `createComponentWriter()` to get a timer-based orchestrator:
 
 ```typescript
 import { init, createComponentWriter } from '@karmaniverous/jeeves';
 import type { JeevesComponent } from '@karmaniverous/jeeves';
 
 init({
-  workspacePath: api.resolvePath('.'),
-  configRoot: api.getConfig('configRoot'),
+  workspacePath: resolveWorkspacePath(api),
+  configRoot: resolvePluginSetting(api, pluginId, 'configRoot', 'JEEVES_CONFIG_ROOT', 'j:/config'),
 });
 
 const writer = createComponentWriter({
@@ -88,17 +156,28 @@ const writer = createComponentWriter({
 writer.start();
 ```
 
-The writer handles everything: your TOOLS.md section, platform content (SOUL/AGENTS/Platform), file locking, version stamps, cleanup detection.
+On each cycle the writer calls `generateToolsContent()`, writes the component's TOOLS.md section, and runs `refreshPlatformContent()` to maintain SOUL.md, AGENTS.md, and the Platform section with live service health data.
 
-See the [Building a Component Plugin](https://docs.karmanivero.us/jeeves/documents/guides_building-a-component-plugin.html) guide for the full walkthrough.
+The `createAsyncContentCache({ fetch, placeholder? })` utility bridges the sync `generateToolsContent` interface with async data sources — returns a sync `() => string` that serves cached content while refreshing in the background.
+
+See the [Building a Component Plugin](https://docs.karmanivero.us/jeeves/documents/Building_a_Component_Plugin.html) guide for the full walkthrough.
+
+## Service Discovery
+
+- **`getServiceUrl(serviceName, consumerName?)`** — resolves a service URL via: consumer config → core config → default port constants.
+- **`probeService(serviceName, consumerName?, timeoutMs?)`** — probes `/status` then `/health` endpoints, returns a `ProbeResult` with health status and version.
+- **`probeAllServices(consumerName?, timeoutMs?)`** — probes all known services (server, watcher, runner, meta).
+- **`checkRegistryVersion(packageName, cacheDir, ttlSeconds?)`** — checks npm registry for the latest version with local file caching (default 1-hour TTL).
 
 ## CLI
 
 ```bash
-jeeves install     # Bootstrap identity, protocols, platform content
-jeeves uninstall   # Remove managed sections and artifacts
-jeeves status      # Probe all service ports, report health
+jeeves install     # Seed identity, protocols, platform content; create core config
+jeeves uninstall   # Remove managed sections, templates, config schema
+jeeves status      # Probe all service ports, report health table
 ```
+
+All three commands accept `--workspace <path>` and `--config-root <path>` options.
 
 ## Configuration
 
