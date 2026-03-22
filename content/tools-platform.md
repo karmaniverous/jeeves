@@ -1,16 +1,6 @@
-| Component | Port | Status | Service | Plugin | Core |
-|-----------|------|--------|---------|--------|------|
-{{#each services}}
-| **{{name}}** | {{port}} | {{#if healthy}}✅ Running{{else}}{{#if error}}⚠️ {{error}}{{else}}❌ Down{{/if}}{{/if}} | {{#if version}}{{version}}{{#if availableServiceVersion}} (⬆ {{availableServiceVersion}}){{/if}}{{else}}—{{/if}} | {{#if pluginVersion}}{{pluginVersion}}{{#if availablePluginVersion}} (⬆ {{availablePluginVersion}}){{/if}}{{else}}—{{/if}} | {{../coreVersion}}{{#if ../availableCoreVersion}} (⬆ {{../availableCoreVersion}}){{/if}} |
-{{/each}}
-
-{{#if unhealthyServices}}
-> **ACTION REQUIRED:** {{#each unhealthyServices}}{{name}}{{#unless @last}}, {{/unless}}{{/each}} {{#if (gt unhealthyServices.length 1)}}are{{else}}is{{/if}} unreachable. Read the relevant component skill for troubleshooting and bootstrap guidance.
-{{/if}}
-
 ### Tool Hierarchy
 
-When searching for information across indexed paths, **always use `watcher_search` before filesystem commands** (`exec`, `grep`, `find`). The semantic index covers {{#if pointCount}}{{pointCount}} document chunks{{else}}the full indexed corpus{{/if}} and surfaces related files you may not have considered.
+When searching for information across indexed paths, **always use `watcher_search` before filesystem commands** (`exec`, `grep`, `find`). The semantic index covers the full indexed corpus and surfaces related files you may not have considered.
 
 Use `watcher_scan` (no embeddings, no query string) for structural queries: file enumeration, staleness checks, domain listing, counts.
 
@@ -54,8 +44,8 @@ Never manually edit `~/.openclaw/extensions/`. Always use the CLI commands above
 
 ### Reference Templates
 
-{{#if templatesAvailable}}
-Reference templates are available at `{{templatePath}}`:
+<!-- IF_TEMPLATES -->
+Reference templates are available at `__TEMPLATE_PATH__`:
 
 | Template | Purpose |
 |----------|---------|
@@ -63,6 +53,6 @@ Reference templates are available at `{{templatePath}}`:
 | `spec-to-code-guide.md` | The spec-to-code development practice — 7-stage iterative process, convergence loops, release gates |
 
 Read these templates when creating new specs, onboarding to new projects, or when asked about the development process.
-{{else}}
+<!-- ELSE_TEMPLATES -->
 > Reference templates not yet installed. Run `npx @karmaniverous/jeeves install` to seed templates.
-{{/if}}
+<!-- ENDIF_TEMPLATES -->

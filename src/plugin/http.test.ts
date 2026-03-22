@@ -1,6 +1,86 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { fetchJson, postJson } from './http.js';
+import { fetchJson, fetchWithTimeout, postJson } from './http.js';
+
+describe('fetchWithTimeout', () => {
+  const originalFetch = globalThis.fetch;
+
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn());
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it('returns response on success', async () => {
+    const mockResponse = { ok: true, status: 200 };
+    vi.mocked(fetch).mockResolvedValue(mockResponse as Response);
+
+    const result = await fetchWithTimeout('http://localhost:1234/status', 3000);
+
+    expect(result).toBe(mockResponse);
+    expect(fetch).toHaveBeenCalledWith(
+      'http://localhost:1234/status',
+      expect.objectContaining({
+        signal: expect.any(AbortSignal) as AbortSignal,
+      }),
+    );
+  });
+
+  it('passes init options merged with signal', async () => {
+    const mockResponse = { ok: true, status: 200 };
+    vi.mocked(fetch).mockResolvedValue(mockResponse as Response);
+
+    await fetchWithTimeout('http://localhost:1234/api', 5000, {
+      method: 'POST',
+      headers: { 'X-Custom': 'value' },
+    });
+
+    expect(fetch).toHaveBeenCalledWith(
+      'http://localhost:1234/api',
+      expect.objectContaining({
+        method: 'POST',
+        headers: { 'X-Custom': 'value' },
+        signal: expect.any(AbortSignal) as AbortSignal,
+      }),
+    );
+  });
+
+  it('aborts on timeout', async () => {
+    vi.useFakeTimers();
+
+    vi.mocked(fetch).mockImplementation(
+      (_url: string | URL | Request, init?: RequestInit) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => {
+            reject(
+              new DOMException('The operation was aborted.', 'AbortError'),
+            );
+          });
+        }),
+    );
+
+    const promise = fetchWithTimeout('http://localhost:1234/slow', 1000);
+
+    vi.advanceTimersByTime(1000);
+
+    await expect(promise).rejects.toThrow('aborted');
+
+    vi.useRealTimers();
+  });
+
+  it('clears timeout after successful fetch', async () => {
+    const clearTimeoutSpy = vi.spyOn(globalThis, 'clearTimeout');
+    const mockResponse = { ok: true, status: 200 };
+    vi.mocked(fetch).mockResolvedValue(mockResponse as Response);
+
+    await fetchWithTimeout('http://localhost:1234/api', 3000);
+
+    expect(clearTimeoutSpy).toHaveBeenCalled();
+    clearTimeoutSpy.mockRestore();
+  });
+});
 
 describe('fetchJson', () => {
   const originalFetch = globalThis.fetch;

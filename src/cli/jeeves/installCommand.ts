@@ -43,7 +43,6 @@ export function registerInstallCommand(program: Command): void {
 
       await seedContent({
         coreVersion: CORE_VERSION,
-        skipRegistryCheck: true,
       });
 
       console.log('✅ Platform content seeded successfully.');

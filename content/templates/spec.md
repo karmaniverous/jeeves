@@ -25,6 +25,12 @@ previous: "{previous-spec-filename}"
 3. When Next Version is implemented: freeze the spec, run the checklist
 4. On green: archive spec as `spec-v{next}.md`, update Current Version to match reality, promote backlog items to Next Version
 
+## Spec Hygiene
+
+- **Frontmatter is mandatory.** Every spec must have `version`, `date`, and `status` fields in the YAML frontmatter. The `status` field tracks the spec lifecycle: `Pre-version (design)`, `In progress`, `Complete`, `Archived`.
+- **Decisions are numbered.** Use sequential numbering (`Decision 1`, `Decision 2`, ...) so they can be cross-referenced from dev plan tasks, other decisions, and external documents. Never renumber — append only.
+- **Dev plan tasks have dependency ordering.** Every task in the dev plan table must have a `Depends On` column referencing prerequisite task numbers (or `—` for none). Tasks should be ordered so dependencies come first. This enforces implementation sequencing and makes parallel work visible.
+
 ## 1. Overview
 
 <!-- What is this package? What problem does it solve? What are its boundaries?

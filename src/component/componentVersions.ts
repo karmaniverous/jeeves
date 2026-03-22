@@ -16,8 +16,6 @@ import { atomicWrite } from '../managed/fileOps.js';
 
 /** Version entry for a single component. */
 export interface ComponentVersionEntry {
-  /** Service version from health probe. */
-  serviceVersion?: string;
   /** Plugin version (the OpenClaw plugin package version). */
   pluginVersion?: string;
   /** npm package name for the service. */
@@ -55,8 +53,6 @@ export function readComponentVersions(
 export interface WriteComponentVersionOptions {
   /** Component name. */
   componentName: string;
-  /** Service version from probe, if available. */
-  serviceVersion?: string;
   /** Plugin version. */
   pluginVersion?: string;
   /** Service npm package name. */
@@ -81,7 +77,6 @@ export function writeComponentVersion(
   const existing = readComponentVersions(coreConfigDir);
 
   existing[options.componentName] = {
-    serviceVersion: options.serviceVersion,
     pluginVersion: options.pluginVersion,
     servicePackage: options.servicePackage,
     pluginPackage: options.pluginPackage,

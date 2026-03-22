@@ -37,7 +37,6 @@ describe('componentVersions', () => {
     it('reads existing state file', () => {
       const state: ComponentVersionsState = {
         watcher: {
-          serviceVersion: '1.0.0',
           pluginVersion: '0.2.0',
           updatedAt: '2026-01-01T00:00:00.000Z',
         },
@@ -47,7 +46,7 @@ describe('componentVersions', () => {
 
       const result = readComponentVersions(TEST_DIR);
       expect(result.watcher).toBeDefined();
-      expect(result.watcher.serviceVersion).toBe('1.0.0');
+      expect(result.watcher.pluginVersion).toBe('0.2.0');
     });
 
     it('returns empty object on corrupt JSON', () => {
@@ -62,7 +61,6 @@ describe('componentVersions', () => {
     it('creates file with component entry', () => {
       writeComponentVersion(TEST_DIR, {
         componentName: 'watcher',
-        serviceVersion: '1.2.0',
         pluginVersion: '0.3.0',
         servicePackage: '@karmaniverous/jeeves-watcher',
         pluginPackage: '@karmaniverous/jeeves-watcher-openclaw',
@@ -75,7 +73,6 @@ describe('componentVersions', () => {
         readFileSync(filePath, 'utf-8'),
       ) as ComponentVersionsState;
       expect(content.watcher).toBeDefined();
-      expect(content.watcher.serviceVersion).toBe('1.2.0');
       expect(content.watcher.pluginVersion).toBe('0.3.0');
       expect(content.watcher.updatedAt).toBeDefined();
     });
@@ -83,32 +80,32 @@ describe('componentVersions', () => {
     it('merges with existing entries', () => {
       writeComponentVersion(TEST_DIR, {
         componentName: 'watcher',
-        serviceVersion: '1.0.0',
+        pluginVersion: '1.0.0',
       });
 
       writeComponentVersion(TEST_DIR, {
         componentName: 'runner',
-        serviceVersion: '2.0.0',
+        pluginVersion: '2.0.0',
       });
 
       const content = readComponentVersions(TEST_DIR);
-      expect(content.watcher.serviceVersion).toBe('1.0.0');
-      expect(content.runner.serviceVersion).toBe('2.0.0');
+      expect(content.watcher.pluginVersion).toBe('1.0.0');
+      expect(content.runner.pluginVersion).toBe('2.0.0');
     });
 
     it('overwrites same component entry', () => {
       writeComponentVersion(TEST_DIR, {
         componentName: 'watcher',
-        serviceVersion: '1.0.0',
+        pluginVersion: '1.0.0',
       });
 
       writeComponentVersion(TEST_DIR, {
         componentName: 'watcher',
-        serviceVersion: '1.1.0',
+        pluginVersion: '1.1.0',
       });
 
       const content = readComponentVersions(TEST_DIR);
-      expect(content.watcher.serviceVersion).toBe('1.1.0');
+      expect(content.watcher.pluginVersion).toBe('1.1.0');
     });
 
     it('creates directory if needed', () => {

@@ -19,10 +19,6 @@ import { refreshPlatformContent } from './refreshPlatformContent.js';
 export interface SeedContentOptions {
   /** Core library version for version-stamp convergence. */
   coreVersion: string;
-  /** Timeout for health probes in ms. */
-  probeTimeoutMs?: number;
-  /** Skip registry version check. */
-  skipRegistryCheck?: boolean;
 }
 
 /**
@@ -71,7 +67,5 @@ export async function seedContent(options: SeedContentOptions): Promise<void> {
   // Seed content via the same code path as writer cycles
   await refreshPlatformContent({
     coreVersion: options.coreVersion,
-    probeTimeoutMs: options.probeTimeoutMs ?? 3000,
-    skipRegistryCheck: options.skipRegistryCheck ?? true,
   });
 }

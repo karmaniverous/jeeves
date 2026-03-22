@@ -28,13 +28,11 @@ export class ComponentWriter {
   private timer: ReturnType<typeof setInterval> | undefined;
   private readonly component: JeevesComponent;
   private readonly configDir: string;
-  private readonly probeTimeoutMs: number;
 
   /** @internal */
-  constructor(component: JeevesComponent, probeTimeoutMs = 3000) {
+  constructor(component: JeevesComponent) {
     this.component = component;
     this.configDir = getComponentConfigDir(component.name);
-    this.probeTimeoutMs = probeTimeoutMs;
   }
 
   /** The component's config directory path. */
@@ -95,16 +93,12 @@ export class ComponentWriter {
       });
 
       // Platform content maintenance: SOUL.md, AGENTS.md, Platform section
-      // refreshPlatformContent also writes the component version entry
-      // (with serviceVersion from probe) to the shared state file.
       await refreshPlatformContent({
         coreVersion: CORE_VERSION,
         componentName: this.component.name,
         componentVersion: this.component.version,
         servicePackage: this.component.servicePackage,
         pluginPackage: this.component.pluginPackage,
-        skipRegistryCheck: false,
-        probeTimeoutMs: this.probeTimeoutMs,
       });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);

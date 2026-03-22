@@ -12,11 +12,13 @@ import { dirname, join } from 'node:path';
 
 import { lock } from 'proper-lockfile';
 
+import { CORE_VERSION } from '../constants/version.js';
+
 /** Stale lock threshold in ms (2 minutes). */
 export const STALE_LOCK_MS = 120_000;
 
 /** Default core version when none provided. */
-export const DEFAULT_CORE_VERSION = '0.0.0';
+export const DEFAULT_CORE_VERSION = CORE_VERSION;
 
 /** Lock retry options. */
 const LOCK_RETRIES = { retries: 5, minTimeout: 100, maxTimeout: 1000 };

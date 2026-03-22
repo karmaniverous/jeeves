@@ -75,10 +75,3 @@ export interface PluginApi {
    */
   registerTool(tool: ToolDescriptor, options?: ToolRegistrationOptions): void;
 }
-
-/**
- * Alias for `PluginApi`, retained for backward compatibility.
- *
- * Prefer `PluginApi` for new code. This alias will be removed in v0.3.0.
- */
-export type PluginApiLike = PluginApi;

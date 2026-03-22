@@ -177,7 +177,11 @@ No stranded local branches. Push immediately after commit. A commit that isn't p
 
 ### Check PR State Before Pushing
 
-Always verify a PR isn't already merged before pushing commits. Pushing to a merged branch creates orphaned work.
+**Before EVERY `git push`**, verify the PR is not already merged. Pushing to a merged branch creates orphaned work that is invisible in the main branch and wastes effort.
+
+Sequence: `gh pr view --json state` → confirm state is `OPEN` → push. If no PR exists yet, pushing is safe. If the PR is `MERGED` or `CLOSED`, **STOP** and report to the user.
+
+This is not optional. It applies to every push, every branch, every time.
 
 ## Managed Content Self-Maintenance
 

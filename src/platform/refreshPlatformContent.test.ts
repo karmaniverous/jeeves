@@ -40,8 +40,6 @@ describe('refreshPlatformContent', () => {
   it('should create SOUL.md with managed section', async () => {
     await refreshPlatformContent({
       coreVersion: '0.1.0',
-      skipRegistryCheck: true,
-      probeTimeoutMs: 100,
     });
 
     const soulPath = join(workspaceDir, 'SOUL.md');
@@ -57,8 +55,6 @@ describe('refreshPlatformContent', () => {
   it('should create AGENTS.md with managed section', async () => {
     await refreshPlatformContent({
       coreVersion: '0.1.0',
-      skipRegistryCheck: true,
-      probeTimeoutMs: 100,
     });
 
     const agentsPath = join(workspaceDir, 'AGENTS.md');
@@ -74,8 +70,6 @@ describe('refreshPlatformContent', () => {
   it('should write TOOLS.md Platform section', async () => {
     await refreshPlatformContent({
       coreVersion: '0.1.0',
-      skipRegistryCheck: true,
-      probeTimeoutMs: 100,
     });
 
     const toolsPath = join(workspaceDir, 'TOOLS.md');
@@ -87,14 +81,12 @@ describe('refreshPlatformContent', () => {
     expect(parsed.sections.some((s) => s.id === 'Platform')).toBe(true);
 
     const platform = parsed.sections.find((s) => s.id === 'Platform');
-    expect(platform?.content).toContain('Status');
+    expect(platform?.content).toContain('Tool Hierarchy');
   }, 15_000);
 
   it('should include version stamp in markers', async () => {
     await refreshPlatformContent({
       coreVersion: '0.1.0',
-      skipRegistryCheck: true,
-      probeTimeoutMs: 100,
     });
 
     const soulPath = join(workspaceDir, 'SOUL.md');
@@ -105,14 +97,65 @@ describe('refreshPlatformContent', () => {
   it('should copy templates to config directory', async () => {
     await refreshPlatformContent({
       coreVersion: '0.1.0',
-      skipRegistryCheck: true,
-      probeTimeoutMs: 100,
     });
 
     const templatesDir = join(configDir, 'jeeves-core', TEMPLATES_DIR);
     expect(existsSync(templatesDir)).toBe(true);
     expect(existsSync(join(templatesDir, 'spec.md'))).toBe(true);
     expect(existsSync(join(templatesDir, 'spec-to-code-guide.md'))).toBe(true);
+  }, 15_000);
+
+  it('should render ELSE branch when templates dir does not exist', async () => {
+    // On first call, the templates dir doesn't exist yet when renderPlatformTemplate runs
+    // (it's created afterwards by copyTemplates). Verify the fallback message is used.
+    // We simulate this by calling refreshPlatformContent with a config dir that
+    // won't have templates copied (by removing templates after the call).
+    await refreshPlatformContent({
+      coreVersion: '0.1.0',
+    });
+
+    // Now remove the templates dir so the next call sees no templates
+    const templatesDir = join(configDir, 'jeeves-core', TEMPLATES_DIR);
+    rmSync(templatesDir, { recursive: true, force: true });
+
+    // Call again — this time renderPlatformTemplate sees no templates dir
+    await refreshPlatformContent({
+      coreVersion: '0.1.0',
+    });
+
+    const toolsPath = join(workspaceDir, 'TOOLS.md');
+    const content = readFileSync(toolsPath, 'utf-8');
+    const parsed = parseManaged(content, TOOLS_MARKERS);
+    const platform = parsed.sections.find((s) => s.id === 'Platform');
+    expect(platform?.content).toContain(
+      'Reference templates not yet installed',
+    );
+    // Should NOT contain the templates table
+    expect(platform?.content).not.toContain('spec.md');
+  }, 15_000);
+
+  it('should render IF branch when templates dir exists', async () => {
+    // First call seeds everything including templates
+    await refreshPlatformContent({
+      coreVersion: '0.1.0',
+    });
+
+    // Second call — templates dir exists now, so IF branch is taken
+    await refreshPlatformContent({
+      coreVersion: '0.1.0',
+    });
+
+    const toolsPath = join(workspaceDir, 'TOOLS.md');
+    const content = readFileSync(toolsPath, 'utf-8');
+    const parsed = parseManaged(content, TOOLS_MARKERS);
+    const platform = parsed.sections.find((s) => s.id === 'Platform');
+    // IF branch shows the templates table
+    expect(platform?.content).toContain('spec.md');
+    expect(platform?.content).toContain('spec-to-code-guide.md');
+    // Should NOT contain the fallback message
+    expect(platform?.content).not.toContain(
+      'Reference templates not yet installed',
+    );
   }, 15_000);
 
   it('should preserve user content in SOUL.md', async () => {
@@ -130,8 +173,6 @@ describe('refreshPlatformContent', () => {
 
     await refreshPlatformContent({
       coreVersion: '0.1.0',
-      skipRegistryCheck: true,
-      probeTimeoutMs: 100,
     });
 
     const content = readFileSync(soulPath, 'utf-8');

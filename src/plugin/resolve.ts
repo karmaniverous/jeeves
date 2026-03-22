@@ -60,3 +60,29 @@ export function resolvePluginSetting(
 
   return fallback;
 }
+
+/**
+ * Resolve an optional plugin setting via the two-step fallback chain:
+ * plugin config → environment variable. Returns `undefined` if neither
+ * source provides a value.
+ *
+ * @param api - Plugin API object.
+ * @param pluginId - Plugin identifier (e.g., 'jeeves-watcher-openclaw').
+ * @param key - Config key within the plugin's config object.
+ * @param envVar - Environment variable name.
+ * @returns The resolved setting value, or `undefined`.
+ */
+export function resolveOptionalPluginSetting(
+  api: PluginApi,
+  pluginId: string,
+  key: string,
+  envVar: string,
+): string | undefined {
+  const fromPlugin = api.config?.plugins?.entries?.[pluginId]?.config?.[key];
+  if (typeof fromPlugin === 'string') return fromPlugin;
+
+  const fromEnv = process.env[envVar];
+  if (fromEnv) return fromEnv;
+
+  return undefined;
+}

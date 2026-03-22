@@ -4,17 +4,20 @@
  * @packageDocumentation
  */
 
-export { fetchJson, postJson } from './http.js';
+export { fetchJson, fetchWithTimeout, postJson } from './http.js';
 export {
   patchConfig,
   resolveConfigPath,
   resolveOpenClawHome,
 } from './openclawConfig.js';
-export { resolvePluginSetting, resolveWorkspacePath } from './resolve.js';
+export {
+  resolveOptionalPluginSetting,
+  resolvePluginSetting,
+  resolveWorkspacePath,
+} from './resolve.js';
 export { connectionFail, fail, ok } from './results.js';
 export type {
   PluginApi,
-  PluginApiLike,
   ToolDescriptor,
   ToolRegistrationOptions,
   ToolResult,
