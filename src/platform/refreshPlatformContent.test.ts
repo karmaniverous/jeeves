@@ -40,7 +40,6 @@ describe('refreshPlatformContent', () => {
   it('should create SOUL.md with managed section', async () => {
     await refreshPlatformContent({
       coreVersion: '0.1.0',
-      skipRegistryCheck: true,
     });
 
     const soulPath = join(workspaceDir, 'SOUL.md');
@@ -56,7 +55,6 @@ describe('refreshPlatformContent', () => {
   it('should create AGENTS.md with managed section', async () => {
     await refreshPlatformContent({
       coreVersion: '0.1.0',
-      skipRegistryCheck: true,
     });
 
     const agentsPath = join(workspaceDir, 'AGENTS.md');
@@ -72,7 +70,6 @@ describe('refreshPlatformContent', () => {
   it('should write TOOLS.md Platform section', async () => {
     await refreshPlatformContent({
       coreVersion: '0.1.0',
-      skipRegistryCheck: true,
     });
 
     const toolsPath = join(workspaceDir, 'TOOLS.md');
@@ -90,7 +87,6 @@ describe('refreshPlatformContent', () => {
   it('should include version stamp in markers', async () => {
     await refreshPlatformContent({
       coreVersion: '0.1.0',
-      skipRegistryCheck: true,
     });
 
     const soulPath = join(workspaceDir, 'SOUL.md');
@@ -101,7 +97,6 @@ describe('refreshPlatformContent', () => {
   it('should copy templates to config directory', async () => {
     await refreshPlatformContent({
       coreVersion: '0.1.0',
-      skipRegistryCheck: true,
     });
 
     const templatesDir = join(configDir, 'jeeves-core', TEMPLATES_DIR);
@@ -125,7 +120,6 @@ describe('refreshPlatformContent', () => {
 
     await refreshPlatformContent({
       coreVersion: '0.1.0',
-      skipRegistryCheck: true,
     });
 
     const content = readFileSync(soulPath, 'utf-8');

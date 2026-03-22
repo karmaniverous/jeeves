@@ -19,8 +19,6 @@ import { refreshPlatformContent } from './refreshPlatformContent.js';
 export interface SeedContentOptions {
   /** Core library version for version-stamp convergence. */
   coreVersion: string;
-  /** Skip registry version check. */
-  skipRegistryCheck?: boolean;
 }
 
 /**
@@ -69,6 +67,5 @@ export async function seedContent(options: SeedContentOptions): Promise<void> {
   // Seed content via the same code path as writer cycles
   await refreshPlatformContent({
     coreVersion: options.coreVersion,
-    skipRegistryCheck: options.skipRegistryCheck ?? true,
   });
 }

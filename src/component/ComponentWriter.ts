@@ -99,7 +99,6 @@ export class ComponentWriter {
         componentVersion: this.component.version,
         servicePackage: this.component.servicePackage,
         pluginPackage: this.component.pluginPackage,
-        skipRegistryCheck: false,
       });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);

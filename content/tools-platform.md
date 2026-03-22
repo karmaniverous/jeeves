@@ -44,8 +44,8 @@ Never manually edit `~/.openclaw/extensions/`. Always use the CLI commands above
 
 ### Reference Templates
 
-{{#if templatesAvailable}}
-Reference templates are available at `{{templatePath}}`:
+<!-- IF_TEMPLATES -->
+Reference templates are available at `__TEMPLATE_PATH__`:
 
 | Template | Purpose |
 |----------|---------|
@@ -53,6 +53,6 @@ Reference templates are available at `{{templatePath}}`:
 | `spec-to-code-guide.md` | The spec-to-code development practice — 7-stage iterative process, convergence loops, release gates |
 
 Read these templates when creating new specs, onboarding to new projects, or when asked about the development process.
-{{else}}
+<!-- ELSE_TEMPLATES -->
 > Reference templates not yet installed. Run `npx @karmaniverous/jeeves install` to seed templates.
-{{/if}}
+<!-- ENDIF_TEMPLATES -->

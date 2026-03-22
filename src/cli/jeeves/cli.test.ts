@@ -51,7 +51,6 @@ describe('CLI commands', () => {
     it('should seed SOUL.md with managed section', async () => {
       await seedContent({
         coreVersion: '0.1.0',
-        skipRegistryCheck: true,
       });
 
       const soulPath = join(workspaceDir, 'SOUL.md');
@@ -66,7 +65,6 @@ describe('CLI commands', () => {
     it('should seed AGENTS.md with managed section', async () => {
       await seedContent({
         coreVersion: '0.1.0',
-        skipRegistryCheck: true,
       });
 
       const agentsPath = join(workspaceDir, 'AGENTS.md');
@@ -81,7 +79,6 @@ describe('CLI commands', () => {
     it('should seed TOOLS.md Platform section', async () => {
       await seedContent({
         coreVersion: '0.1.0',
-        skipRegistryCheck: true,
       });
 
       const toolsPath = join(workspaceDir, 'TOOLS.md');
@@ -96,7 +93,6 @@ describe('CLI commands', () => {
     it('should create core config with defaults', async () => {
       await seedContent({
         coreVersion: '0.1.0',
-        skipRegistryCheck: true,
       });
 
       const configPath = join(configDir, 'jeeves-core', 'config.json');
@@ -111,7 +107,6 @@ describe('CLI commands', () => {
     it('should copy templates to config directory', async () => {
       await seedContent({
         coreVersion: '0.1.0',
-        skipRegistryCheck: true,
       });
 
       const templatesDir = join(configDir, 'jeeves-core', TEMPLATES_DIR);
@@ -131,7 +126,6 @@ describe('CLI commands', () => {
 
       await seedContent({
         coreVersion: '0.1.0',
-        skipRegistryCheck: true,
       });
 
       const raw = readFileSync(configPath, 'utf-8');
@@ -144,7 +138,6 @@ describe('CLI commands', () => {
 
       await seedContent({
         coreVersion: '0.1.0',
-        skipRegistryCheck: true,
       });
 
       const content = readFileSync(soulPath, 'utf-8');
@@ -173,7 +166,6 @@ describe('CLI commands', () => {
 
       await seedContent({
         coreVersion: '0.1.0',
-        skipRegistryCheck: true,
       });
 
       const content = readFileSync(soulPath, 'utf-8');
@@ -186,7 +178,6 @@ describe('CLI commands', () => {
       // First install
       await seedContent({
         coreVersion: '0.1.0',
-        skipRegistryCheck: true,
       });
 
       // Verify install worked

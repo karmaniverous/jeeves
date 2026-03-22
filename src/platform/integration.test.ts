@@ -65,7 +65,6 @@ describe('end-to-end integration', () => {
     // Step 1: CLI seeds content
     await seedContent({
       coreVersion: '0.1.0',
-      skipRegistryCheck: true,
     });
 
     // Verify seed
@@ -109,7 +108,6 @@ describe('end-to-end integration', () => {
     // Step 3: Refresh platform content again (simulating another cycle)
     await refreshPlatformContent({
       coreVersion: '0.1.0',
-      skipRegistryCheck: true,
     });
 
     // SOUL.md and AGENTS.md should still be intact

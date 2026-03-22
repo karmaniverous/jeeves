@@ -17,10 +17,7 @@ import { packageDirectorySync } from 'package-directory';
 import agentsSectionContent from '../../content/agents-section.md';
 import soulSectionContent from '../../content/soul-section.md';
 import toolsPlatformTemplate from '../../content/tools-platform.md';
-import {
-  readComponentVersions,
-  writeComponentVersion,
-} from '../component/componentVersions.js';
+import { writeComponentVersion } from '../component/componentVersions.js';
 import {
   AGENTS_MARKERS,
   SOUL_MARKERS,
@@ -45,8 +42,6 @@ export interface RefreshPlatformContentOptions {
   pluginPackage?: string;
   /** Staleness threshold override in ms. */
   stalenessThresholdMs?: number;
-  /** Skip registry version check (useful for testing). */
-  skipRegistryCheck?: boolean;
 }
 
 /**
@@ -103,9 +98,9 @@ function renderPlatformTemplate(templatePath: string): string {
 
   let content = toolsPlatformTemplate;
 
-  // Handle {{#if templatesAvailable}} ... {{else}} ... {{/if}} block
+  // Handle <!-- IF_TEMPLATES --> ... <!-- ELSE_TEMPLATES --> ... <!-- ENDIF_TEMPLATES --> block
   const ifRegex =
-    /\{\{#if templatesAvailable\}\}([\s\S]*?)\{\{else\}\}([\s\S]*?)\{\{\/if\}\}/;
+    /<!-- IF_TEMPLATES -->([\s\S]*?)<!-- ELSE_TEMPLATES -->([\s\S]*?)<!-- ENDIF_TEMPLATES -->/;
   const match = ifRegex.exec(content);
   if (match) {
     content = content.replace(
@@ -114,8 +109,8 @@ function renderPlatformTemplate(templatePath: string): string {
     );
   }
 
-  // Replace {{templatePath}} with the actual path
-  content = content.replace(/\{\{templatePath\}\}/g, templatePath);
+  // Replace __TEMPLATE_PATH__ with the actual path
+  content = content.replace(/__TEMPLATE_PATH__/g, templatePath);
 
   return content;
 }
@@ -150,10 +145,7 @@ export async function refreshPlatformContent(
     });
   }
 
-  // 2. Read all component versions from the shared state file
-  readComponentVersions(coreConfigDir);
-
-  // 3. Render Platform template
+  // 2. Render Platform template
   const templatePath = join(coreConfigDir, TEMPLATES_DIR);
   const platformContent = renderPlatformTemplate(templatePath);
 
