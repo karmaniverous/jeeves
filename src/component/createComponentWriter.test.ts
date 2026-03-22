@@ -85,9 +85,8 @@ describe('createComponentWriter', () => {
     ).toThrow('non-empty string');
   });
 
-  it('should return a ComponentWriter instance', () => {
+  it('should derive componentConfigDir from component name', () => {
     const writer = createComponentWriter(makeComponent());
-    expect(writer).toBeDefined();
     expect(writer.componentConfigDir).toMatch(/jeeves-watcher$/);
   });
 

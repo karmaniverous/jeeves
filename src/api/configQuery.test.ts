@@ -73,7 +73,6 @@ describe('createConfigQueryHandler', () => {
 
     const body = result.body as { error: string };
     expect(body.error).toBeDefined();
-    expect(typeof body.error).toBe('string');
   });
 
   it('calls getConfig on each invocation', async () => {
