@@ -149,7 +149,7 @@ export async function refreshPlatformContent(
   const templatePath = join(coreConfigDir, TEMPLATES_DIR);
   const platformContent = renderPlatformTemplate(templatePath);
 
-  // 4. Write TOOLS.md Platform section
+  // 3. Write TOOLS.md Platform section
   const toolsPath = join(workspacePath, WORKSPACE_FILES.tools);
   await updateManagedSection(toolsPath, platformContent, {
     mode: 'section',
@@ -159,7 +159,7 @@ export async function refreshPlatformContent(
     stalenessThresholdMs,
   });
 
-  // 5. Write SOUL.md managed block
+  // 4. Write SOUL.md managed block
   const soulPath = join(workspacePath, WORKSPACE_FILES.soul);
   await updateManagedSection(soulPath, soulSectionContent, {
     mode: 'block',
@@ -168,7 +168,7 @@ export async function refreshPlatformContent(
     stalenessThresholdMs,
   });
 
-  // 6. Write AGENTS.md managed block
+  // 5. Write AGENTS.md managed block
   const agentsPath = join(workspacePath, WORKSPACE_FILES.agents);
   await updateManagedSection(agentsPath, agentsSectionContent, {
     mode: 'block',
@@ -177,6 +177,6 @@ export async function refreshPlatformContent(
     stalenessThresholdMs,
   });
 
-  // 7. Copy templates to config dir
+  // 6. Copy templates to config dir
   copyTemplates(coreConfigDir);
 }

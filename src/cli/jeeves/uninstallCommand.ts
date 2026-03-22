@@ -22,6 +22,7 @@ import {
 } from '../../constants/index.js';
 import { getServiceUrl } from '../../discovery/getServiceUrl.js';
 import { getCoreConfigDir, getWorkspacePath } from '../../init.js';
+import { fetchWithTimeout } from '../../plugin/http.js';
 import {
   DEFAULT_CONFIG_ROOT,
   DEFAULT_WORKSPACE,
@@ -93,14 +94,7 @@ export function registerUninstallCommand(program: Command): void {
         for (const name of componentNames) {
           try {
             const url = getServiceUrl(name);
-            const controller = new AbortController();
-            const timeout = setTimeout(() => {
-              controller.abort();
-            }, 2000);
-            const response = await fetch(`${url}/status`, {
-              signal: controller.signal,
-            });
-            clearTimeout(timeout);
+            const response = await fetchWithTimeout(`${url}/status`, 2000);
             if (response.ok) {
               running.push(name);
             }

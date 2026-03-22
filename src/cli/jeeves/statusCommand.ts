@@ -11,6 +11,7 @@ import type { Command } from '@commander-js/extra-typings';
 
 import { readComponentVersions } from '../../component/componentVersions.js';
 import { getServiceUrl } from '../../discovery/getServiceUrl.js';
+import { fetchWithTimeout } from '../../plugin/http.js';
 import {
   DEFAULT_CONFIG_ROOT,
   DEFAULT_WORKSPACE,
@@ -77,15 +78,7 @@ export function registerStatusCommand(program: Command): void {
 
         try {
           const url = getServiceUrl(name);
-          const controller = new AbortController();
-          const timeout = setTimeout(() => {
-            controller.abort();
-          }, timeoutMs);
-
-          const response = await fetch(`${url}/status`, {
-            signal: controller.signal,
-          });
-          clearTimeout(timeout);
+          const response = await fetchWithTimeout(`${url}/status`, timeoutMs);
 
           if (response.ok) {
             status = '✅ Running';

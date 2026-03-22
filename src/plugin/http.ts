@@ -7,6 +7,31 @@
  */
 
 /**
+ * Fetch a URL with an automatic abort timeout.
+ *
+ * @param url - URL to fetch.
+ * @param timeoutMs - Timeout in milliseconds before aborting.
+ * @param init - Optional `fetch` init options.
+ * @returns The fetch Response object.
+ */
+export async function fetchWithTimeout(
+  url: string,
+  timeoutMs: number,
+  init?: RequestInit,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => {
+    controller.abort();
+  }, timeoutMs);
+
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+/**
  * Fetch JSON from a URL, throwing on non-OK responses.
  *
  * @param url - URL to fetch.

@@ -17,7 +17,6 @@ export {
   createAsyncContentCache,
 } from './createAsyncContentCache.js';
 export { createComponentWriter } from './createComponentWriter.js';
-export { resolveWorkspacePath } from './resolveWorkspacePath.js';
 export type {
   JeevesComponent,
   PluginCommands,
