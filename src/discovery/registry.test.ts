@@ -61,20 +61,24 @@ describe('checkRegistryVersion', () => {
     expect(result).toBeUndefined();
   });
 
-  it('should write cache after successful registry query', () => {
-    // Query a real package — commander is a dependency
-    const result = checkRegistryVersion('commander', testDir, 3600);
-    // npm is available in CI, so this should return a version
-    expect(result).toBeTruthy();
-    const cacheContent = readFileSync(
-      join(testDir, 'registry-cache.json'),
-      'utf-8',
-    );
-    const cache = JSON.parse(cacheContent) as {
-      version: string;
-      checkedAt: string;
-    };
-    expect(cache.version).toBe(result);
-    expect(cache.checkedAt).toBeTruthy();
-  });
+  it(
+    'should write cache after successful registry query',
+    { timeout: 15_000 },
+    () => {
+      // Query a real package — commander is a dependency
+      const result = checkRegistryVersion('commander', testDir, 3600);
+      // npm is available in CI, so this should return a version
+      expect(result).toBeTruthy();
+      const cacheContent = readFileSync(
+        join(testDir, 'registry-cache.json'),
+        'utf-8',
+      );
+      const cache = JSON.parse(cacheContent) as {
+        version: string;
+        checkedAt: string;
+      };
+      expect(cache.version).toBe(result);
+      expect(cache.checkedAt).toBeTruthy();
+    },
+  );
 });
