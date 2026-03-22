@@ -1,15 +1,16 @@
 /**
- * CLI status command: probe all service ports and report health summary.
+ * CLI status command: discover components and probe their health.
  *
  * @remarks
- * Displays a table of all Jeeves platform services with port and
- * health status. Exits with code 0 if all services are healthy,
- * code 1 if any are unreachable.
+ * Uses `readComponentVersions()` to discover registered components,
+ * then probes each one via GET /status. Exits with code 0 if all
+ * services are healthy, code 1 if any are unreachable.
  */
 
 import type { Command } from '@commander-js/extra-typings';
 
-import { probeAllServices } from '../../discovery/probe.js';
+import { readComponentVersions } from '../../component/componentVersions.js';
+import { getServiceUrl } from '../../discovery/getServiceUrl.js';
 import {
   DEFAULT_CONFIG_ROOT,
   DEFAULT_WORKSPACE,
@@ -24,7 +25,7 @@ import {
 export function registerStatusCommand(program: Command): void {
   program
     .command('status')
-    .description('Probe all Jeeves service ports and report health summary')
+    .description('Discover Jeeves components and probe their health')
     .option('-w, --workspace <path>', 'Workspace root path', DEFAULT_WORKSPACE)
     .option(
       '-c, --config-root <path>',
@@ -41,48 +42,86 @@ export function registerStatusCommand(program: Command): void {
       console.log('='.repeat(60));
       console.log();
 
-      const probeResults = await probeAllServices(undefined, timeoutMs);
+      const { getCoreConfigDir } = await import('../../init.js');
+      const coreConfigDir = getCoreConfigDir();
+      const componentVersions = readComponentVersions(coreConfigDir);
+      const componentNames = Object.keys(componentVersions);
+
+      if (componentNames.length === 0) {
+        console.log('No components registered.');
+        return;
+      }
 
       const nameWidth = 10;
-      const portWidth = 6;
       const statusWidth = 30;
+      const versionWidth = 12;
       const header = [
-        'Service'.padEnd(nameWidth),
-        'Port'.padEnd(portWidth),
+        'Component'.padEnd(nameWidth),
         'Status'.padEnd(statusWidth),
+        'Version'.padEnd(versionWidth),
       ].join('  ');
       const separator = [
         '-'.repeat(nameWidth),
-        '-'.repeat(portWidth),
         '-'.repeat(statusWidth),
+        '-'.repeat(versionWidth),
       ].join('  ');
 
       console.log(header);
       console.log(separator);
 
       let allHealthy = true;
-      for (const r of probeResults) {
+
+      for (const name of componentNames) {
         let status: string;
-        if (r.healthy) {
-          status = r.version ? `✅ Running (v${r.version})` : '✅ Running';
-        } else {
-          status = r.error ? `❌ ${r.error}` : '❌ Down';
+        let version = '—';
+
+        try {
+          const url = getServiceUrl(name);
+          const controller = new AbortController();
+          const timeout = setTimeout(() => {
+            controller.abort();
+          }, timeoutMs);
+
+          const response = await fetch(`${url}/status`, {
+            signal: controller.signal,
+          });
+          clearTimeout(timeout);
+
+          if (response.ok) {
+            status = '✅ Running';
+            try {
+              const body: unknown = await response.json();
+              if (
+                typeof body === 'object' &&
+                body !== null &&
+                'version' in body &&
+                typeof (body as Record<string, unknown>)['version'] === 'string'
+              ) {
+                version = (body as Record<string, unknown>)[
+                  'version'
+                ] as string;
+              }
+            } catch {
+              // Non-JSON response — version stays unknown
+            }
+          } else {
+            status = `❌ HTTP ${String(response.status)}`;
+            allHealthy = false;
+          }
+        } catch {
+          status = '❌ Down';
           allHealthy = false;
         }
 
         const row = [
-          r.name.padEnd(nameWidth),
-          String(r.port).padEnd(portWidth),
+          name.padEnd(nameWidth),
           status.padEnd(statusWidth),
+          version.padEnd(versionWidth),
         ].join('  ');
         console.log(row);
       }
 
       console.log();
-
-      const healthy = probeResults.filter((r) => r.healthy).length;
-      const total = probeResults.length;
-      console.log(`${String(healthy)}/${String(total)} services healthy`);
 
       if (!allHealthy) {
         process.exitCode = 1;

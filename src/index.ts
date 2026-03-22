@@ -21,9 +21,7 @@ export {
   ComponentWriter,
   createAsyncContentCache,
   createComponentWriter,
-  type CreateComponentWriterOptions,
   type JeevesComponent,
-  type PluginApiLike,
   type PluginCommands,
   readComponentVersions,
   resolveWorkspacePath,
@@ -63,9 +61,6 @@ export {
   coreConfigSchema,
   generateJsonSchema,
   getServiceUrl,
-  probeAllServices,
-  type ProbeResult,
-  probeService,
 } from './discovery/index.js';
 export {
   getComponentConfigDir,
@@ -113,6 +108,7 @@ export {
   postJson,
   resolveConfigPath,
   resolveOpenClawHome,
+  resolveOptionalPluginSetting,
   resolvePluginSetting,
   type ToolDescriptor,
   type ToolRegistrationOptions,

@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { resolvePluginSetting, resolveWorkspacePath } from './resolve.js';
+import {
+  resolveOptionalPluginSetting,
+  resolvePluginSetting,
+  resolveWorkspacePath,
+} from './resolve.js';
 import type { PluginApi } from './types.js';
 
 describe('resolveWorkspacePath', () => {
@@ -124,5 +128,72 @@ describe('resolvePluginSetting', () => {
         'http://fallback:9999',
       ),
     ).toBe('http://fallback:9999');
+  });
+});
+
+describe('resolveOptionalPluginSetting', () => {
+  const ENV_KEY = 'TEST_RESOLVE_OPTIONAL_PLUGIN_SETTING_VAR';
+
+  beforeEach(() => {
+    Reflect.deleteProperty(process.env, ENV_KEY);
+  });
+
+  afterEach(() => {
+    Reflect.deleteProperty(process.env, ENV_KEY);
+    vi.restoreAllMocks();
+  });
+
+  it('resolves from plugin config first', () => {
+    const api: PluginApi = {
+      config: {
+        plugins: {
+          entries: {
+            'my-plugin': { config: { apiUrl: 'http://configured:1234' } },
+          },
+        },
+      },
+      registerTool: vi.fn(),
+    };
+
+    process.env[ENV_KEY] = 'http://env:5678';
+
+    expect(
+      resolveOptionalPluginSetting(api, 'my-plugin', 'apiUrl', ENV_KEY),
+    ).toBe('http://configured:1234');
+  });
+
+  it('falls back to env var when config is absent', () => {
+    const api: PluginApi = { registerTool: vi.fn() };
+
+    process.env[ENV_KEY] = 'http://env:5678';
+
+    expect(
+      resolveOptionalPluginSetting(api, 'my-plugin', 'apiUrl', ENV_KEY),
+    ).toBe('http://env:5678');
+  });
+
+  it('returns undefined when nothing is set', () => {
+    const api: PluginApi = { registerTool: vi.fn() };
+
+    expect(
+      resolveOptionalPluginSetting(api, 'my-plugin', 'apiUrl', ENV_KEY),
+    ).toBeUndefined();
+  });
+
+  it('skips non-string config values', () => {
+    const api: PluginApi = {
+      config: {
+        plugins: {
+          entries: {
+            'my-plugin': { config: { apiUrl: 12345 } },
+          },
+        },
+      },
+      registerTool: vi.fn(),
+    };
+
+    expect(
+      resolveOptionalPluginSetting(api, 'my-plugin', 'apiUrl', ENV_KEY),
+    ).toBeUndefined();
   });
 });

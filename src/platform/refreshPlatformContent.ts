@@ -3,18 +3,16 @@
  *
  * @remarks
  * Called by `ComponentWriter` on each cycle. Not directly exposed to components.
- * Probes service ports for health, reads content files from the package's
- * `content/` directory, renders the Platform template with live service data,
- * and writes managed sections using `updateManagedSection`.
+ * Reads content files from the package's `content/` directory, renders the
+ * Platform template with live data, and writes managed sections using
+ * `updateManagedSection`.
  */
 
 import { cpSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import Handlebars from 'handlebars';
 import { packageDirectorySync } from 'package-directory';
-import semver from 'semver';
 
 import agentsSectionContent from '../../content/agents-section.md';
 import soulSectionContent from '../../content/soul-section.md';
@@ -30,15 +28,8 @@ import {
   TOOLS_MARKERS,
   WORKSPACE_FILES,
 } from '../constants/index.js';
-import { probeAllServices } from '../discovery/probe.js';
-import { checkRegistryVersion } from '../discovery/registry.js';
-import {
-  getComponentConfigDir,
-  getCoreConfigDir,
-  getWorkspacePath,
-} from '../init.js';
+import { getCoreConfigDir, getWorkspacePath } from '../init.js';
 import { updateManagedSection } from '../managed/updateManagedSection.js';
-import { buildServiceRows, type ServiceRow } from './buildServiceRows.js';
 
 /** Options for refreshPlatformContent. */
 export interface RefreshPlatformContentOptions {
@@ -54,20 +45,8 @@ export interface RefreshPlatformContentOptions {
   pluginPackage?: string;
   /** Staleness threshold override in ms. */
   stalenessThresholdMs?: number;
-  /** Timeout for health probes in ms. */
-  probeTimeoutMs?: number;
   /** Skip registry version check (useful for testing). */
   skipRegistryCheck?: boolean;
-}
-
-/** Data passed to the Handlebars Platform template. */
-interface PlatformTemplateData {
-  services: ServiceRow[];
-  unhealthyServices: ServiceRow[];
-  coreVersion: string;
-  availableCoreVersion?: string;
-  templatesAvailable: boolean;
-  templatePath: string;
 }
 
 /**
@@ -113,43 +92,32 @@ function copyTemplates(coreConfigDir: string): void {
   cpSync(sourceDir, destDir, { recursive: true });
 }
 
-/** Whether Handlebars helpers have been registered. */
-let helpersRegistered = false;
-
-/** Register Handlebars helpers used in the Platform template. */
-function registerHelpers(): void {
-  if (helpersRegistered) return;
-  helpersRegistered = true;
-
-  Handlebars.registerHelper(
-    'gt',
-    (a: unknown, b: unknown) =>
-      typeof a === 'number' && typeof b === 'number' && a > b,
-  );
-}
-
 /**
- * Check if a newer core version is available on npm.
+ * Render the Platform template using simple string replacement.
  *
- * @returns The newer version string, or undefined.
+ * @param templatePath - Path to the templates directory.
+ * @returns Rendered platform content string.
  */
-function checkCoreUpdate(
-  coreVersion: string,
-  cacheDir: string,
-): string | undefined {
-  const registryVersion = checkRegistryVersion(
-    '@karmaniverous/jeeves',
-    cacheDir,
-  );
-  if (
-    registryVersion &&
-    semver.valid(registryVersion) &&
-    semver.valid(coreVersion) &&
-    semver.gt(registryVersion, coreVersion)
-  ) {
-    return registryVersion;
+function renderPlatformTemplate(templatePath: string): string {
+  const templatesAvailable = existsSync(templatePath);
+
+  let content = toolsPlatformTemplate;
+
+  // Handle {{#if templatesAvailable}} ... {{else}} ... {{/if}} block
+  const ifRegex =
+    /\{\{#if templatesAvailable\}\}([\s\S]*?)\{\{else\}\}([\s\S]*?)\{\{\/if\}\}/;
+  const match = ifRegex.exec(content);
+  if (match) {
+    content = content.replace(
+      match[0],
+      templatesAvailable ? match[1] : match[2],
+    );
   }
-  return undefined;
+
+  // Replace {{templatePath}} with the actual path
+  content = content.replace(/\{\{templatePath\}\}/g, templatePath);
+
+  return content;
 }
 
 /**
@@ -167,62 +135,29 @@ export async function refreshPlatformContent(
     servicePackage,
     pluginPackage,
     stalenessThresholdMs,
-    probeTimeoutMs = 3000,
-    skipRegistryCheck = false,
   } = options;
 
   const workspacePath = getWorkspacePath();
   const coreConfigDir = getCoreConfigDir();
 
-  // 1. Probe all services
-  const probeResults = await probeAllServices(undefined, probeTimeoutMs);
-
-  // 2. Write calling component's version entry (with serviceVersion from probe)
+  // 1. Write calling component's version entry
   if (componentName) {
-    const callerProbe = probeResults.find((r) => r.name === componentName);
     writeComponentVersion(coreConfigDir, {
       componentName,
-      serviceVersion: callerProbe?.version,
       pluginVersion: componentVersion,
       servicePackage,
       pluginPackage,
     });
   }
 
-  // 3. Read all component versions from the shared state file
-  const componentVersions = readComponentVersions(coreConfigDir);
+  // 2. Read all component versions from the shared state file
+  readComponentVersions(coreConfigDir);
 
-  // 4. Build enriched service rows with registry checks
-  const cacheDir = componentName
-    ? getComponentConfigDir(componentName)
-    : coreConfigDir;
-
-  const availableCoreVersion = skipRegistryCheck
-    ? undefined
-    : checkCoreUpdate(coreVersion, cacheDir);
-
-  const serviceRows = buildServiceRows({
-    probeResults,
-    componentVersions,
-    cacheDir,
-    skipRegistryCheck,
-  });
-
-  // 5. Render Platform template
+  // 3. Render Platform template
   const templatePath = join(coreConfigDir, TEMPLATES_DIR);
-  registerHelpers();
-  const template = Handlebars.compile(toolsPlatformTemplate);
-  const templateData: PlatformTemplateData = {
-    services: serviceRows,
-    unhealthyServices: serviceRows.filter((r) => !r.healthy),
-    coreVersion,
-    availableCoreVersion,
-    templatesAvailable: existsSync(templatePath),
-    templatePath,
-  };
-  const platformContent = template(templateData);
+  const platformContent = renderPlatformTemplate(templatePath);
 
-  // 6. Write TOOLS.md Platform section
+  // 4. Write TOOLS.md Platform section
   const toolsPath = join(workspacePath, WORKSPACE_FILES.tools);
   await updateManagedSection(toolsPath, platformContent, {
     mode: 'section',
@@ -232,7 +167,7 @@ export async function refreshPlatformContent(
     stalenessThresholdMs,
   });
 
-  // 7. Write SOUL.md managed block
+  // 5. Write SOUL.md managed block
   const soulPath = join(workspacePath, WORKSPACE_FILES.soul);
   await updateManagedSection(soulPath, soulSectionContent, {
     mode: 'block',
@@ -241,7 +176,7 @@ export async function refreshPlatformContent(
     stalenessThresholdMs,
   });
 
-  // 8. Write AGENTS.md managed block
+  // 6. Write AGENTS.md managed block
   const agentsPath = join(workspacePath, WORKSPACE_FILES.agents);
   await updateManagedSection(agentsPath, agentsSectionContent, {
     mode: 'block',
@@ -250,6 +185,6 @@ export async function refreshPlatformContent(
     stalenessThresholdMs,
   });
 
-  // 9. Copy templates to config dir
+  // 7. Copy templates to config dir
   copyTemplates(coreConfigDir);
 }

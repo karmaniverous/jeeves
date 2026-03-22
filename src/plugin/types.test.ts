@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import type { PluginApi, PluginApiLike, ToolResult } from './types.js';
+import type { PluginApi, ToolResult } from './types.js';
 
 describe('plugin/types', () => {
   it('PluginApi accepts a full API object', () => {
@@ -51,15 +51,5 @@ describe('plugin/types', () => {
 
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain('Error');
-  });
-
-  it('PluginApiLike is assignable to PluginApi', () => {
-    const api: PluginApiLike = {
-      registerTool: vi.fn(),
-    };
-
-    // PluginApiLike should be usable wherever PluginApi is expected
-    const accepted: PluginApi = api;
-    expect(accepted).toBe(api);
   });
 });

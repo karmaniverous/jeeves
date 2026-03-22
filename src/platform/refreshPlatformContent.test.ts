@@ -41,7 +41,6 @@ describe('refreshPlatformContent', () => {
     await refreshPlatformContent({
       coreVersion: '0.1.0',
       skipRegistryCheck: true,
-      probeTimeoutMs: 100,
     });
 
     const soulPath = join(workspaceDir, 'SOUL.md');
@@ -58,7 +57,6 @@ describe('refreshPlatformContent', () => {
     await refreshPlatformContent({
       coreVersion: '0.1.0',
       skipRegistryCheck: true,
-      probeTimeoutMs: 100,
     });
 
     const agentsPath = join(workspaceDir, 'AGENTS.md');
@@ -75,7 +73,6 @@ describe('refreshPlatformContent', () => {
     await refreshPlatformContent({
       coreVersion: '0.1.0',
       skipRegistryCheck: true,
-      probeTimeoutMs: 100,
     });
 
     const toolsPath = join(workspaceDir, 'TOOLS.md');
@@ -87,14 +84,13 @@ describe('refreshPlatformContent', () => {
     expect(parsed.sections.some((s) => s.id === 'Platform')).toBe(true);
 
     const platform = parsed.sections.find((s) => s.id === 'Platform');
-    expect(platform?.content).toContain('Status');
+    expect(platform?.content).toContain('Tool Hierarchy');
   }, 15_000);
 
   it('should include version stamp in markers', async () => {
     await refreshPlatformContent({
       coreVersion: '0.1.0',
       skipRegistryCheck: true,
-      probeTimeoutMs: 100,
     });
 
     const soulPath = join(workspaceDir, 'SOUL.md');
@@ -106,7 +102,6 @@ describe('refreshPlatformContent', () => {
     await refreshPlatformContent({
       coreVersion: '0.1.0',
       skipRegistryCheck: true,
-      probeTimeoutMs: 100,
     });
 
     const templatesDir = join(configDir, 'jeeves-core', TEMPLATES_DIR);
@@ -131,7 +126,6 @@ describe('refreshPlatformContent', () => {
     await refreshPlatformContent({
       coreVersion: '0.1.0',
       skipRegistryCheck: true,
-      probeTimeoutMs: 100,
     });
 
     const content = readFileSync(soulPath, 'utf-8');

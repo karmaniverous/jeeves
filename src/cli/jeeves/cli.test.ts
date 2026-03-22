@@ -52,7 +52,6 @@ describe('CLI commands', () => {
       await seedContent({
         coreVersion: '0.1.0',
         skipRegistryCheck: true,
-        probeTimeoutMs: 100,
       });
 
       const soulPath = join(workspaceDir, 'SOUL.md');
@@ -68,7 +67,6 @@ describe('CLI commands', () => {
       await seedContent({
         coreVersion: '0.1.0',
         skipRegistryCheck: true,
-        probeTimeoutMs: 100,
       });
 
       const agentsPath = join(workspaceDir, 'AGENTS.md');
@@ -84,7 +82,6 @@ describe('CLI commands', () => {
       await seedContent({
         coreVersion: '0.1.0',
         skipRegistryCheck: true,
-        probeTimeoutMs: 100,
       });
 
       const toolsPath = join(workspaceDir, 'TOOLS.md');
@@ -100,7 +97,6 @@ describe('CLI commands', () => {
       await seedContent({
         coreVersion: '0.1.0',
         skipRegistryCheck: true,
-        probeTimeoutMs: 100,
       });
 
       const configPath = join(configDir, 'jeeves-core', 'config.json');
@@ -116,7 +112,6 @@ describe('CLI commands', () => {
       await seedContent({
         coreVersion: '0.1.0',
         skipRegistryCheck: true,
-        probeTimeoutMs: 100,
       });
 
       const templatesDir = join(configDir, 'jeeves-core', TEMPLATES_DIR);
@@ -137,7 +132,6 @@ describe('CLI commands', () => {
       await seedContent({
         coreVersion: '0.1.0',
         skipRegistryCheck: true,
-        probeTimeoutMs: 100,
       });
 
       const raw = readFileSync(configPath, 'utf-8');
@@ -151,7 +145,6 @@ describe('CLI commands', () => {
       await seedContent({
         coreVersion: '0.1.0',
         skipRegistryCheck: true,
-        probeTimeoutMs: 100,
       });
 
       const content = readFileSync(soulPath, 'utf-8');
@@ -181,7 +174,6 @@ describe('CLI commands', () => {
       await seedContent({
         coreVersion: '0.1.0',
         skipRegistryCheck: true,
-        probeTimeoutMs: 100,
       });
 
       const content = readFileSync(soulPath, 'utf-8');
@@ -195,7 +187,6 @@ describe('CLI commands', () => {
       await seedContent({
         coreVersion: '0.1.0',
         skipRegistryCheck: true,
-        probeTimeoutMs: 100,
       });
 
       // Verify install worked

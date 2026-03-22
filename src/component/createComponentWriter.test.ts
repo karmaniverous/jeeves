@@ -113,7 +113,6 @@ describe('createComponentWriter', () => {
       const genFn = vi.fn().mockReturnValue('Generated content.');
       const writer = createComponentWriter(
         makeComponent({ generateToolsContent: genFn }),
-        { probeTimeoutMs: 100 },
       );
 
       // Create the TOOLS.md file
@@ -128,9 +127,7 @@ describe('createComponentWriter', () => {
     }, 15_000);
 
     it('should write component section to TOOLS.md', async () => {
-      const writer = createComponentWriter(makeComponent(), {
-        probeTimeoutMs: 100,
-      });
+      const writer = createComponentWriter(makeComponent());
 
       const toolsPath = join(workspaceDir, 'TOOLS.md');
       writeFileSync(toolsPath, '');

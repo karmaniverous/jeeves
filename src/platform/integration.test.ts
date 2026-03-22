@@ -66,7 +66,6 @@ describe('end-to-end integration', () => {
     await seedContent({
       coreVersion: '0.1.0',
       skipRegistryCheck: true,
-      probeTimeoutMs: 100,
     });
 
     // Verify seed
@@ -94,9 +93,7 @@ describe('end-to-end integration', () => {
     ).toBe(true);
 
     // Step 2: Component writer runs a cycle
-    const writer = createComponentWriter(makeTestComponent(), {
-      probeTimeoutMs: 100,
-    });
+    const writer = createComponentWriter(makeTestComponent());
     await writer.cycle();
 
     // Verify TOOLS.md has both Platform and Watcher sections
@@ -113,7 +110,6 @@ describe('end-to-end integration', () => {
     await refreshPlatformContent({
       coreVersion: '0.1.0',
       skipRegistryCheck: true,
-      probeTimeoutMs: 100,
     });
 
     // SOUL.md and AGENTS.md should still be intact

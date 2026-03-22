@@ -12,6 +12,7 @@ import { join } from 'node:path';
 
 import type { Command } from '@commander-js/extra-typings';
 
+import { readComponentVersions } from '../../component/componentVersions.js';
 import {
   AGENTS_MARKERS,
   SOUL_MARKERS,
@@ -19,7 +20,7 @@ import {
   TOOLS_MARKERS,
   WORKSPACE_FILES,
 } from '../../constants/index.js';
-import { probeAllServices } from '../../discovery/probe.js';
+import { getServiceUrl } from '../../discovery/getServiceUrl.js';
 import { getCoreConfigDir, getWorkspacePath } from '../../init.js';
 import {
   DEFAULT_CONFIG_ROOT,
@@ -85,13 +86,33 @@ export function registerUninstallCommand(program: Command): void {
 
       // Warn if services still responding
       try {
-        const probeResults = await probeAllServices(undefined, 2000);
-        const running = probeResults.filter((r) => r.healthy);
+        const componentVersions = readComponentVersions(coreConfigDir);
+        const componentNames = Object.keys(componentVersions);
+        const running: string[] = [];
+
+        for (const name of componentNames) {
+          try {
+            const url = getServiceUrl(name);
+            const controller = new AbortController();
+            const timeout = setTimeout(() => {
+              controller.abort();
+            }, 2000);
+            const response = await fetch(`${url}/status`, {
+              signal: controller.signal,
+            });
+            clearTimeout(timeout);
+            if (response.ok) {
+              running.push(name);
+            }
+          } catch {
+            // Not running — expected during uninstall
+          }
+        }
+
         if (running.length > 0) {
           console.log('⚠️  The following services are still responding:');
-          for (const r of running) {
-            const ver = r.version ? ` (v${r.version})` : '';
-            console.log(`    - ${r.name} on port ${String(r.port)}${ver}`);
+          for (const name of running) {
+            console.log(`    - ${name}`);
           }
           console.log(
             '   Consider stopping them before fully removing Jeeves.',
