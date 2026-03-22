@@ -2,7 +2,19 @@
 
 All notable changes to this project will be documented in this file. Dates are displayed in UTC.
 
+#### [0.3.0](https://github.com/karmaniverous/jeeves/compare/0.2.0...0.3.0)
+
+- feat: v0.3.0 — remove cross-service probing, SDK cleanup, content updates [`#36`](https://github.com/karmaniverous/jeeves/pull/36)
+- [V0-3] feat: implement v0.3.0 dev plan — remove probing, SDK cleanup, content updates [`e0766a7`](https://github.com/karmaniverous/jeeves/commit/e0766a7cb5620a7edd412a89c85c22a16ab7772d)
+- [V0-3] test: close coverage gaps — fetchWithTimeout, statusCommand, template branches [`60a08b0`](https://github.com/karmaniverous/jeeves/commit/60a08b0664f9526974aca454ff6b3881f1399d99)
+- [V0-3] refactor: SOLID/DRY cleanup — extract fetchWithTimeout, remove deprecated re-export [`92a5932`](https://github.com/karmaniverous/jeeves/commit/92a59322242c3fcbfd24650722e8f205cb2740b2)
+- [V0-3] fix: remove dead code, replace Handlebars markers with HTML comments [`445be09`](https://github.com/karmaniverous/jeeves/commit/445be096bbb7585449f84d76c0a29ae99dad51ae)
+- [V0-3] test: remove trivial tests — type-assignability checks, tautological assertions [`bbb244c`](https://github.com/karmaniverous/jeeves/commit/bbb244c1dab279ac2de0d477b260badbf74e7304)
+- [V0-3] chore: remove temp script [`188d5c1`](https://github.com/karmaniverous/jeeves/commit/188d5c17522ef9e12f9d74179d70baa46844eeca)
+
 #### [0.2.0](https://github.com/karmaniverous/jeeves/compare/0.1.6...0.2.0)
+
+> 20 March 2026
 
 - feat: v0.2.0 Plugin SDK, managed content, config query [`#6`](https://github.com/karmaniverous/jeeves/pull/6)
 - [V0-2] feat: Phase 1 — Plugin SDK types and utilities [`bd9b3c1`](https://github.com/karmaniverous/jeeves/commit/bd9b3c1742378a7f5825d99f01b397b29148a607)
@@ -14,6 +26,7 @@ All notable changes to this project will be documented in this file. Dates are d
 - [V0-2] feat: Phase 3 — Config query handler with JSONPath support [`c1e80a9`](https://github.com/karmaniverous/jeeves/commit/c1e80a9d1901cd142dca3296d9b643d2e3131737)
 - npm audit fix [`0393220`](https://github.com/karmaniverous/jeeves/commit/0393220510cf9e91217ed8940aa5327951805502)
 - [V0-2] refactor: extract ManagedMarkers interface from inline types [`502eba4`](https://github.com/karmaniverous/jeeves/commit/502eba478fcf3bc99b312e5af37fbeec4595d36b)
+- chore: release v0.2.0 [`a270358`](https://github.com/karmaniverous/jeeves/commit/a2703585d2e115a25cb1287664d1b4d73881df1f)
 - [V0-2] chore: remove stray _push.cjs helper script [`6c0c1d8`](https://github.com/karmaniverous/jeeves/commit/6c0c1d8f2d54a955bf522c2d7c9f72409f671852)
 - [V0-2] test: add 400 error path test for invalid JSONPath in configQuery [`57c9b63`](https://github.com/karmaniverous/jeeves/commit/57c9b63a9f66e4afb545c7032e055b0d5c0fb4c0)
 
