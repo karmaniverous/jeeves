@@ -22,6 +22,7 @@ export {
   type RemoveManagedSectionOptions,
 } from './removeManagedSection.js';
 export { sortSectionsByOrder } from './sectionSort.js';
+export { stripForeignMarkers } from './stripForeignMarkers.js';
 export {
   updateManagedSection,
   type UpdateManagedSectionOptions,
