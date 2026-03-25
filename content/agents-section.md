@@ -177,11 +177,17 @@ No stranded local branches. Push immediately after commit. A commit that isn't p
 
 ### Check PR State Before Pushing
 
-**Before EVERY `git push`**, verify the PR is not already merged. Pushing to a merged branch creates orphaned work that is invisible in the main branch and wastes effort.
+**Before EVERY `git push`**, run `gh pr list --head <branch> --repo <repo> --json number,state` to check whether a PR exists on that branch and whether it's merged.
 
-Sequence: `gh pr view --json state` → confirm state is `OPEN` → push. If no PR exists yet, pushing is safe. If the PR is `MERGED` or `CLOSED`, **STOP** and report to the user.
+- **No PR exists:** Safe to push.
+- **PR is `OPEN`:** Safe to push.
+- **PR is `MERGED` or `CLOSED`:** **STOP** and report to the user. Do not push to a merged PR branch.
 
-This is not optional. It applies to every push, every branch, every time.
+This is not optional. It applies to every push, every branch, every time. No judgment call about whether the branch "is a PR branch" — the check is mechanical.
+
+### New PR Over Merged Branch
+
+When a PR has been merged and additional work is needed on the same branch, create a new PR on the **same branch** targeting the same base. Do not create new branches, cherry-pick, or start over. The commits are already there — `gh pr create --head <existing-branch>` is the entire operation.
 
 ## Managed Content Self-Maintenance
 
