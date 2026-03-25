@@ -10,10 +10,7 @@
  * @packageDocumentation
  */
 
-import {
-  ALL_MARKERS,
-  type ManagedMarkers,
-} from '../constants/index.js';
+import { ALL_MARKERS, type ManagedMarkers } from '../constants/index.js';
 
 /**
  * Build a regex that matches an entire managed block (BEGIN marker through END marker).
