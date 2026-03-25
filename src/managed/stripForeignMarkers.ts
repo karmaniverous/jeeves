@@ -11,18 +11,9 @@
  */
 
 import {
-  AGENTS_MARKERS,
+  ALL_MARKERS,
   type ManagedMarkers,
-  SOUL_MARKERS,
-  TOOLS_MARKERS,
 } from '../constants/index.js';
-
-/** All known marker sets. */
-const ALL_MARKERS: ManagedMarkers[] = [
-  TOOLS_MARKERS,
-  SOUL_MARKERS,
-  AGENTS_MARKERS,
-];
 
 /**
  * Build a regex that matches an entire managed block (BEGIN marker through END marker).
