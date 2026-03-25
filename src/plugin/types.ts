@@ -10,7 +10,12 @@
 /** Result shape returned by tool executions. */
 export interface ToolResult {
   /** Content blocks — typically a single text block. */
-  content: Array<{ type: string; text: string }>;
+  content: Array<{
+    /** MIME type identifier (e.g. `"text"`). */
+    type: string;
+    /** Text content of the block. */
+    text: string;
+  }>;
   /** Whether this result represents an error. */
   isError?: boolean;
 }
@@ -55,7 +60,13 @@ export interface PluginApi {
     /** Installed plugin configuration. */
     plugins?: {
       /** Plugin entries keyed by plugin ID. */
-      entries?: Record<string, { config?: Record<string, unknown> }>;
+      entries?: Record<
+        string,
+        {
+          /** Plugin-specific configuration key-value pairs. */
+          config?: Record<string, unknown>;
+        }
+      >;
     };
   };
 

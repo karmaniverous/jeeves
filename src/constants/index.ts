@@ -6,6 +6,7 @@
 
 export {
   AGENTS_MARKERS,
+  ALL_MARKERS,
   CLEANUP_FLAG,
   type ManagedMarkers,
   SOUL_MARKERS,

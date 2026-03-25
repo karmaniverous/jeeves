@@ -48,6 +48,13 @@ export const AGENTS_MARKERS: ManagedMarkers = {
   title: 'Jeeves Platform Agents',
 } as const;
 
+/** All known marker sets — single source of truth for cross-contamination detection. */
+export const ALL_MARKERS: readonly ManagedMarkers[] = [
+  TOOLS_MARKERS,
+  SOUL_MARKERS,
+  AGENTS_MARKERS,
+] as const;
+
 /**
  * Regex pattern to extract version stamp from a BEGIN marker comment.
  *

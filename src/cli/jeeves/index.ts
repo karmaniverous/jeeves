@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 /**
  * Jeeves CLI — platform content seeding, teardown, and status.
  *

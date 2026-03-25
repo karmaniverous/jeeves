@@ -21,6 +21,7 @@ import { needsCleanup } from './cleanupDetection.js';
 import { atomicWrite, DEFAULT_CORE_VERSION, withFileLock } from './fileOps.js';
 import { parseManaged } from './parseManaged.js';
 import { sortSectionsByOrder } from './sectionSort.js';
+import { stripForeignMarkers } from './stripForeignMarkers.js';
 import {
   formatBeginMarker,
   formatEndMarker,
@@ -119,8 +120,8 @@ export async function updateManagedSection(
           : sectionText;
       }
 
-      // Cleanup detection
-      const userContent = parsed.userContent;
+      // Strip foreign managed blocks from user content (cross-contamination fix)
+      const userContent = stripForeignMarkers(parsed.userContent, markers);
       const cleanupNeeded = needsCleanup(newManagedBody, userContent);
 
       // Build the full managed block
