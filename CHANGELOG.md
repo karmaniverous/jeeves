@@ -2,7 +2,17 @@
 
 All notable changes to this project will be documented in this file. Dates are displayed in UTC.
 
+#### [0.3.1](https://github.com/karmaniverous/jeeves/compare/0.3.0...0.3.1)
+
+- fix: double shebang, CORE_VERSION stamp, cross-contamination [`#39`](https://github.com/karmaniverous/jeeves/pull/39)
+- fix: remove double shebang from CLI entry point [`#32`](https://github.com/karmaniverous/jeeves/issues/32)
+- docs: add TSDoc to inline type properties in PluginApi and ToolResult [`03ac1e4`](https://github.com/karmaniverous/jeeves/commit/03ac1e45e812b609b7c6c485a74dd5c9a919729b)
+- refactor: move ALL_MARKERS to constants/markers.ts as single source of truth [`13bbc6c`](https://github.com/karmaniverous/jeeves/commit/13bbc6c7a8f0a0979ec9fd152a12f4cd8de9bbf0)
+- content: strengthen managed section content for 0.3.1 [`8560a03`](https://github.com/karmaniverous/jeeves/commit/8560a03c524e21a5e29fb01a585103d34c766f71)
+
 #### [0.3.0](https://github.com/karmaniverous/jeeves/compare/0.2.0...0.3.0)
+
+> 22 March 2026
 
 - feat: v0.3.0 — remove cross-service probing, SDK cleanup, content updates [`#36`](https://github.com/karmaniverous/jeeves/pull/36)
 - [V0-3] feat: implement v0.3.0 dev plan — remove probing, SDK cleanup, content updates [`e0766a7`](https://github.com/karmaniverous/jeeves/commit/e0766a7cb5620a7edd412a89c85c22a16ab7772d)
@@ -10,6 +20,7 @@ All notable changes to this project will be documented in this file. Dates are d
 - [V0-3] refactor: SOLID/DRY cleanup — extract fetchWithTimeout, remove deprecated re-export [`92a5932`](https://github.com/karmaniverous/jeeves/commit/92a59322242c3fcbfd24650722e8f205cb2740b2)
 - [V0-3] fix: remove dead code, replace Handlebars markers with HTML comments [`445be09`](https://github.com/karmaniverous/jeeves/commit/445be096bbb7585449f84d76c0a29ae99dad51ae)
 - [V0-3] test: remove trivial tests — type-assignability checks, tautological assertions [`bbb244c`](https://github.com/karmaniverous/jeeves/commit/bbb244c1dab279ac2de0d477b260badbf74e7304)
+- chore: release v0.3.0 [`dd07a46`](https://github.com/karmaniverous/jeeves/commit/dd07a46e1cdf3ebbe7b147e886ef04ff92b76025)
 - [V0-3] chore: remove temp script [`188d5c1`](https://github.com/karmaniverous/jeeves/commit/188d5c17522ef9e12f9d74179d70baa46844eeca)
 
 #### [0.2.0](https://github.com/karmaniverous/jeeves/compare/0.1.6...0.2.0)
