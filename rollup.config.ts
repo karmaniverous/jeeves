@@ -43,7 +43,7 @@ const commonPlugins = [
     __JEEVES_CORE_VERSION__: (pkg as unknown as { version: string }).version,
     preventAssignment: true,
   }),
-  commonjsPlugin({ esmExternals: true }),
+  commonjsPlugin({ esmExternals: ['commander'] }),
   jsonPlugin(),
   mdPlugin(),
   nodeResolve(),
