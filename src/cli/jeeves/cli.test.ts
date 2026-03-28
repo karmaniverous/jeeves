@@ -143,7 +143,8 @@ describe('CLI commands', () => {
       const content = readFileSync(soulPath, 'utf-8');
       const parsed = parseManaged(content, SOUL_MARKERS);
       expect(parsed.found).toBe(true);
-      expect(parsed.userContent).toContain('I am unique.');
+      // With position: 'bottom', user content is before the managed block
+      expect(parsed.beforeContent).toContain('I am unique.');
     }, 15_000);
 
     it('should trigger cleanup flag for duplicated content', async () => {

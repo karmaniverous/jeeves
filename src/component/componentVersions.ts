@@ -91,3 +91,31 @@ export function writeComponentVersion(
 
   atomicWrite(filePath, JSON.stringify(existing, null, 2) + '\n');
 }
+
+/**
+ * Remove a component's version entry from the shared state file.
+ *
+ * @remarks
+ * Called during plugin uninstall to prevent the HEARTBEAT writer from
+ * probing a service that's intentionally gone. If the component isn't
+ * in the file, this is a no-op.
+ *
+ * @param coreConfigDir - Path to the core config directory.
+ * @param componentName - The component name to remove.
+ */
+export function removeComponentVersion(
+  coreConfigDir: string,
+  componentName: string,
+): void {
+  const existing = readComponentVersions(coreConfigDir);
+
+  if (!(componentName in existing)) return;
+
+  const updated: ComponentVersionsState = {};
+  for (const [key, value] of Object.entries(existing)) {
+    if (key !== componentName) updated[key] = value;
+  }
+
+  const filePath = join(coreConfigDir, COMPONENT_VERSIONS_FILE);
+  atomicWrite(filePath, JSON.stringify(updated, null, 2) + '\n');
+}

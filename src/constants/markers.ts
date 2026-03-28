@@ -16,6 +16,14 @@ export interface ManagedMarkers {
   end: string;
   /** Optional H1 title prepended inside the managed block. */
   title?: string;
+  /**
+   * Position of the managed block within the file.
+   * - `'top'`: managed block first, user content below (current default).
+   * - `'bottom'`: user content first, managed block at end.
+   *
+   * @defaultValue `'top'`
+   */
+  position?: 'top' | 'bottom';
 }
 
 /** Default markers for TOOLS.md managed block. */
@@ -26,6 +34,8 @@ export const TOOLS_MARKERS: ManagedMarkers = {
   end: 'END JEEVES PLATFORM TOOLS',
   /** H1 title prepended in section mode. */
   title: 'Jeeves Platform Tools',
+  /** Managed block at bottom of file. */
+  position: 'bottom',
 } as const;
 
 /** Default markers for SOUL.md managed block. */
@@ -36,6 +46,8 @@ export const SOUL_MARKERS: ManagedMarkers = {
   end: 'END JEEVES SOUL',
   /** H1 title prepended in the managed block. */
   title: 'Jeeves Platform Soul',
+  /** Managed block at bottom of file. */
+  position: 'bottom',
 } as const;
 
 /** Default markers for AGENTS.md managed block. */
@@ -46,6 +58,8 @@ export const AGENTS_MARKERS: ManagedMarkers = {
   end: 'END JEEVES AGENTS',
   /** H1 title prepended in the managed block. */
   title: 'Jeeves Platform Agents',
+  /** Managed block at bottom of file. */
+  position: 'bottom',
 } as const;
 
 /** All known marker sets — single source of truth for cross-contamination detection. */

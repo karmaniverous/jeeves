@@ -178,7 +178,7 @@ describe('refreshPlatformContent', () => {
     const content = readFileSync(soulPath, 'utf-8');
     const parsed = parseManaged(content, SOUL_MARKERS);
     expect(parsed.found).toBe(true);
-    // User content should be preserved below the managed block
-    expect(parsed.userContent).toContain('I am a unique personality.');
+    // User content should be preserved (above the managed block with position: 'bottom')
+    expect(parsed.beforeContent).toContain('I am a unique personality.');
   }, 15_000);
 });

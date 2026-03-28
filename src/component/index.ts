@@ -8,6 +8,7 @@ export {
   type ComponentVersionEntry,
   type ComponentVersionsState,
   readComponentVersions,
+  removeComponentVersion,
   writeComponentVersion,
   type WriteComponentVersionOptions,
 } from './componentVersions.js';
@@ -18,6 +19,7 @@ export {
 } from './createAsyncContentCache.js';
 export { createComponentWriter } from './createComponentWriter.js';
 export type {
+  ComponentDependencies,
   JeevesComponent,
   PluginCommands,
   ServiceCommands,

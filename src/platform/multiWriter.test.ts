@@ -144,7 +144,8 @@ describe('multi-writer convergence', () => {
 
     let content = readFileSync(filePath, 'utf-8');
     let parsed = parseManaged(content, SOUL_MARKERS);
-    expect(parsed.userContent).toContain('I am unique and creative.');
+    // With position: 'bottom', user content is before the managed block
+    expect(parsed.beforeContent).toContain('I am unique and creative.');
 
     // Writer B writes (newer version)
     await updateManagedSection(filePath, 'Managed content B', {
@@ -155,7 +156,7 @@ describe('multi-writer convergence', () => {
 
     content = readFileSync(filePath, 'utf-8');
     parsed = parseManaged(content, SOUL_MARKERS);
-    expect(parsed.userContent).toContain('I am unique and creative.');
+    expect(parsed.beforeContent).toContain('I am unique and creative.');
     expect(parsed.managedContent).toContain('Managed content B');
   });
 
