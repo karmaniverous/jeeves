@@ -22,12 +22,23 @@ const serviceEntrySchema = z.object({
   url: z.string().url().describe('Service URL'),
 });
 
+/** Default bind address for all Jeeves services. */
+export const DEFAULT_BIND_ADDRESS = '0.0.0.0';
+
 /** Zod schema for the core config file. */
 export const coreConfigSchema = z.object({
   /** JSON Schema pointer for IDE autocomplete. */
   $schema: z.string().optional().describe('JSON Schema pointer'),
   /** Owner identity keys (canonical identityLinks references). */
   owners: z.array(z.string()).default([]).describe('Owner identity keys'),
+  /**
+   * Bind address for all Jeeves services. Default: `0.0.0.0` (all interfaces).
+   * Individual components can override in their own config.
+   */
+  bindAddress: z
+    .string()
+    .default(DEFAULT_BIND_ADDRESS)
+    .describe('Bind address for all Jeeves services'),
   /** Service URL overrides keyed by service name. */
   services: z
     .record(z.string(), serviceEntrySchema)
@@ -67,6 +78,11 @@ export function generateJsonSchema(): Record<string, unknown> {
         type: 'array',
         items: { type: 'string' },
         default: [],
+      },
+      bindAddress: {
+        type: 'string',
+        default: '0.0.0.0',
+        description: 'Bind address for all Jeeves services',
       },
       services: {
         type: 'object',
