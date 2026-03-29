@@ -2,7 +2,22 @@
 
 All notable changes to this project will be documented in this file. Dates are displayed in UTC.
 
+#### [0.4.1](https://github.com/karmaniverous/jeeves/compare/0.4.0...0.4.1)
+
+- feat: v0.5.0 — Component SDK (factory-driven CLI, plugin tools, HTTP handlers) [`#45`](https://github.com/karmaniverous/jeeves/pull/45)
+- feat: phase 1 - descriptor schema, status handler, plugin CLI [`362236e`](https://github.com/karmaniverous/jeeves/commit/362236ef8d255768750ad39593054dcbb3fe1e54)
+- feat: phase 2 - service manager, config apply handler, writer migration [`0cd10ed`](https://github.com/karmaniverous/jeeves/commit/0cd10ed86ae631f3a40194f2f76b07dcfdd5b68c)
+- feat: phase 3 - service CLI factory, plugin toolset factory [`4f50567`](https://github.com/karmaniverous/jeeves/commit/4f50567755fb501c07a2cb7623feaf92a746de0e)
+- refactor: remove dead JeevesComponent types and extract shared test helper [`24cc305`](https://github.com/karmaniverous/jeeves/commit/24cc305d1c8e10f035d6a4e220b7257a06898926)
+- feat: phase 4 - unified CLI with dynamic subcommand discovery [`9e541b1`](https://github.com/karmaniverous/jeeves/commit/9e541b1daaf8ad9e57b10462af7c659112dab599)
+- test: add CLI integration tests for createServiceCli [`56b6b8e`](https://github.com/karmaniverous/jeeves/commit/56b6b8e8ac873c6c1731def01013a18ce5243953)
+- fix: address Gemini review comments [`686aff1`](https://github.com/karmaniverous/jeeves/commit/686aff1bb0fd16137599f0c931537a5408be9340)
+- chore: remove temp commit script [`7e8c484`](https://github.com/karmaniverous/jeeves/commit/7e8c484cc2cfb9877c51e4512cddfbe28e385b51)
+- fix: increase timeout for discoverComponents tests [`7bda59c`](https://github.com/karmaniverous/jeeves/commit/7bda59ce7b5264364c9cdc46c9fa8f5c8265b977)
+
 #### [0.4.0](https://github.com/karmaniverous/jeeves/compare/0.3.1...0.4.0)
+
+> 29 March 2026
 
 - feat: v0.4.0 — HEARTBEAT bootstrap, bind address, position, CLI fix [`#44`](https://github.com/karmaniverous/jeeves/pull/44)
 - fix: resolve commander ESM import failure in published CLI build [`#41`](https://github.com/karmaniverous/jeeves/pull/41)
@@ -18,6 +33,7 @@ All notable changes to this project will be documented in this file. Dates are d
 - feat: C11 CLI writes initial HEARTBEAT + C12 AGENTS content update [`bfb399c`](https://github.com/karmaniverous/jeeves/commit/bfb399cd4b906cc78cdcd78e9cac51ad498cccc9)
 - fix: address Gemini review comments [`781446a`](https://github.com/karmaniverous/jeeves/commit/781446a960a035211113ffcb07afd1d698a122c9)
 - feat: proactive update alerts in HEARTBEAT [`8cff4be`](https://github.com/karmaniverous/jeeves/commit/8cff4be03d80e4ec95ad2e24067866411158d6b0)
+- chore: release v0.4.0 [`9ae5ac6`](https://github.com/karmaniverous/jeeves/commit/9ae5ac6d45b5bebc01a7a612c12a06df3184f720)
 - fix: export all new v0.4.0 public API from src/index.ts [`a3bab50`](https://github.com/karmaniverous/jeeves/commit/a3bab5063dfbffec107af6d15b2d1d46694c4a72)
 - feat: proactive session-start bootstrap via AGENTS directive [`627f067`](https://github.com/karmaniverous/jeeves/commit/627f067b69d04b8a84f18957698938f1b15b8bef)
 
