@@ -2,12 +2,34 @@
 
 All notable changes to this project will be documented in this file. Dates are displayed in UTC.
 
+#### [0.4.0](https://github.com/karmaniverous/jeeves/compare/0.3.1...0.4.0)
+
+- feat: v0.4.0 — HEARTBEAT bootstrap, bind address, position, CLI fix [`#44`](https://github.com/karmaniverous/jeeves/pull/44)
+- fix: resolve commander ESM import failure in published CLI build [`#41`](https://github.com/karmaniverous/jeeves/pull/41)
+- feat: C9 heading-based HEARTBEAT section writer [`9acc940`](https://github.com/karmaniverous/jeeves/commit/9acc9400f6dd644060033b642301cbd2d7ac3e6f)
+- feat: C10 HEARTBEAT health orchestration [`055469c`](https://github.com/karmaniverous/jeeves/commit/055469c97fe51fcf66b03f458c9e03c0a30031da)
+- feat: C3 getBindAddress + C7 getServiceState [`e92c75c`](https://github.com/karmaniverous/jeeves/commit/e92c75c1ea68fad62a5d4d7cea1003b637aeb733)
+- test: orchestrator unit tests (10 cases) [`ba5f07e`](https://github.com/karmaniverous/jeeves/commit/ba5f07eb722444ac55a86899a32a520f66eb1dcd)
+- feat: v0.4.0 infrastructure (C2-C6, C8) [`22bd62d`](https://github.com/karmaniverous/jeeves/commit/22bd62d735e53d31ff0af4fb1eebcf75b4b711b0)
+- chore: pass all quality gates (lint, knip, typecheck) [`134a1b9`](https://github.com/karmaniverous/jeeves/commit/134a1b91584126e46f2df1ae12620f2c8226f193)
+- refactor: SOLID/DRY cleanup [`c50fefe`](https://github.com/karmaniverous/jeeves/commit/c50fefe3eb6c2c5ac266c88d6adc8f2c161a6189)
+- test: fill coverage gaps [`c570ecc`](https://github.com/karmaniverous/jeeves/commit/c570ecca91b33e2e90865e4deb148d300094e60c)
+- npm audit fix [`166d157`](https://github.com/karmaniverous/jeeves/commit/166d157ff13643064d0767f2afb92bdaa8abd739)
+- feat: C11 CLI writes initial HEARTBEAT + C12 AGENTS content update [`bfb399c`](https://github.com/karmaniverous/jeeves/commit/bfb399cd4b906cc78cdcd78e9cac51ad498cccc9)
+- fix: address Gemini review comments [`781446a`](https://github.com/karmaniverous/jeeves/commit/781446a960a035211113ffcb07afd1d698a122c9)
+- feat: proactive update alerts in HEARTBEAT [`8cff4be`](https://github.com/karmaniverous/jeeves/commit/8cff4be03d80e4ec95ad2e24067866411158d6b0)
+- fix: export all new v0.4.0 public API from src/index.ts [`a3bab50`](https://github.com/karmaniverous/jeeves/commit/a3bab5063dfbffec107af6d15b2d1d46694c4a72)
+- feat: proactive session-start bootstrap via AGENTS directive [`627f067`](https://github.com/karmaniverous/jeeves/commit/627f067b69d04b8a84f18957698938f1b15b8bef)
+
 #### [0.3.1](https://github.com/karmaniverous/jeeves/compare/0.3.0...0.3.1)
+
+> 25 March 2026
 
 - fix: double shebang, CORE_VERSION stamp, cross-contamination [`#39`](https://github.com/karmaniverous/jeeves/pull/39)
 - fix: remove double shebang from CLI entry point [`#32`](https://github.com/karmaniverous/jeeves/issues/32)
 - docs: add TSDoc to inline type properties in PluginApi and ToolResult [`03ac1e4`](https://github.com/karmaniverous/jeeves/commit/03ac1e45e812b609b7c6c485a74dd5c9a919729b)
 - refactor: move ALL_MARKERS to constants/markers.ts as single source of truth [`13bbc6c`](https://github.com/karmaniverous/jeeves/commit/13bbc6c7a8f0a0979ec9fd152a12f4cd8de9bbf0)
+- chore: release v0.3.1 [`e684b64`](https://github.com/karmaniverous/jeeves/commit/e684b646f4352eba49e7af2da5f34200f3015257)
 - content: strengthen managed section content for 0.3.1 [`8560a03`](https://github.com/karmaniverous/jeeves/commit/8560a03c524e21a5e29fb01a585103d34c766f71)
 
 #### [0.3.0](https://github.com/karmaniverous/jeeves/compare/0.2.0...0.3.0)
