@@ -11,9 +11,16 @@ import { join } from 'node:path';
 
 import { CORE_VERSION, TOOLS_MARKERS } from '../constants/index.js';
 import { WORKSPACE_FILES } from '../constants/paths.js';
-import { getComponentConfigDir, getWorkspacePath } from '../init.js';
+import {
+  getComponentConfigDir,
+  getConfigRoot,
+  getCoreConfigDir,
+  getWorkspacePath,
+} from '../init.js';
+import { parseHeartbeat, writeHeartbeatSection } from '../managed/heartbeat.js';
 import { updateManagedSection } from '../managed/updateManagedSection.js';
 import { refreshPlatformContent } from '../platform/refreshPlatformContent.js';
+import { orchestrateHeartbeat } from './heartbeatOrchestrator.js';
 import type { JeevesComponent } from './types.js';
 
 /**
@@ -100,6 +107,38 @@ export class ComponentWriter {
         servicePackage: this.component.servicePackage,
         pluginPackage: this.component.pluginPackage,
       });
+
+      // HEARTBEAT health orchestration
+      const heartbeatPath = join(workspacePath, WORKSPACE_FILES.heartbeat);
+      try {
+        const { readFileSync } = await import('node:fs');
+        const existingContent = (() => {
+          try {
+            return readFileSync(heartbeatPath, 'utf-8');
+          } catch {
+            return '';
+          }
+        })();
+        const parsed = parseHeartbeat(existingContent);
+        const declinedNames = new Set(
+          parsed.entries
+            .filter((e) => e.declined)
+            .map((e) => e.name),
+        );
+
+        const entries = await orchestrateHeartbeat({
+          coreConfigDir: getCoreConfigDir(),
+          configRoot: getConfigRoot(),
+          declinedNames,
+        });
+
+        await writeHeartbeatSection(heartbeatPath, entries);
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn(
+          `jeeves-core: HEARTBEAT orchestration failed: ${msg}`,
+        );
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       console.warn(

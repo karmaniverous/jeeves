@@ -14,6 +14,11 @@ export {
 } from './componentVersions.js';
 export { ComponentWriter } from './ComponentWriter.js';
 export {
+  type ComponentState,
+  orchestrateHeartbeat,
+  type OrchestrateHeartbeatOptions,
+} from './heartbeatOrchestrator.js';
+export {
   type AsyncContentCacheOptions,
   createAsyncContentCache,
 } from './createAsyncContentCache.js';
