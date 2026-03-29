@@ -7,10 +7,9 @@ import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createComponentWriter } from '../component/createComponentWriter.js';
-import type { JeevesComponent } from '../component/types.js';
 import {
   SOUL_MARKERS,
   TEMPLATES_DIR,
@@ -18,29 +17,9 @@ import {
 } from '../constants/index.js';
 import { init, resetInit } from '../init.js';
 import { parseManaged } from '../managed/parseManaged.js';
+import { makeTestDescriptor } from '../test/makeTestDescriptor.js';
 import { refreshPlatformContent } from './refreshPlatformContent.js';
 import { seedContent } from './seedContent.js';
-
-function makeTestComponent(
-  overrides: Partial<JeevesComponent> = {},
-): JeevesComponent {
-  return {
-    name: 'watcher',
-    version: '0.10.1',
-    sectionId: 'Watcher',
-    refreshIntervalSeconds: 71,
-    generateToolsContent: () => 'Watcher search index: 464,230 chunks.',
-    serviceCommands: {
-      stop: vi.fn().mockResolvedValue(undefined),
-      uninstall: vi.fn().mockResolvedValue(undefined),
-      status: vi.fn().mockResolvedValue({ running: true, version: '0.10.1' }),
-    },
-    pluginCommands: {
-      uninstall: vi.fn().mockResolvedValue(undefined),
-    },
-    ...overrides,
-  };
-}
 
 describe('end-to-end integration', () => {
   let testDir: string;
@@ -92,7 +71,11 @@ describe('end-to-end integration', () => {
     ).toBe(true);
 
     // Step 2: Component writer runs a cycle
-    const writer = createComponentWriter(makeTestComponent());
+    const writer = createComponentWriter(
+      makeTestDescriptor({
+        generateToolsContent: () => 'Watcher search index: 464,230 chunks.',
+      }),
+    );
     await writer.cycle();
 
     // Verify TOOLS.md has both Platform and Watcher sections

@@ -3,17 +3,31 @@
  *
  * @remarks
  * Provides managed content writing, service discovery, config resolution,
- * and the `JeevesComponent` / `ComponentWriter` integration point for
+ * and the `JeevesComponentDescriptor` / `ComponentWriter` integration point for
  * Jeeves platform component plugins.
  *
  * @packageDocumentation
  */
 
 export {
+  type ConfigApplyHandler,
+  type ConfigApplyRequest,
+  type ConfigApplyResult,
   type ConfigQueryHandler,
   type ConfigQueryResponse,
+  createConfigApplyHandler,
   createConfigQueryHandler,
+  createStatusHandler,
+  type CreateStatusHandlerOptions,
+  type StatusHandler,
+  type StatusHandlerResult,
+  type StatusResponse,
 } from './api/index.js';
+export {
+  createPluginCli,
+  type CreatePluginCliOptions,
+} from './cli/plugin/index.js';
+export { createServiceCli } from './cli/service/index.js';
 export {
   type AsyncContentCacheOptions,
   type ComponentDependencies,
@@ -23,14 +37,14 @@ export {
   ComponentWriter,
   createAsyncContentCache,
   createComponentWriter,
-  type JeevesComponent,
+  getEffectiveServiceName,
+  isPrime,
+  type JeevesComponentDescriptor,
+  jeevesComponentDescriptorSchema,
   orchestrateHeartbeat,
   type OrchestrateHeartbeatOptions,
-  type PluginCommands,
   readComponentVersions,
   removeComponentVersion,
-  type ServiceCommands,
-  type ServiceStatus,
   writeComponentVersion,
   type WriteComponentVersionOptions,
 } from './component/index.js';
@@ -116,6 +130,7 @@ export {
 } from './platform/index.js';
 export {
   connectionFail,
+  createPluginToolset,
   fail,
   fetchJson,
   fetchWithTimeout,
@@ -132,3 +147,8 @@ export {
   type ToolRegistrationOptions,
   type ToolResult,
 } from './plugin/index.js';
+export {
+  createServiceManager,
+  type ServiceManager,
+  type ServiceManagerOptions,
+} from './service/index.js';

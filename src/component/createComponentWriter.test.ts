@@ -6,28 +6,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { init, resetInit } from '../init';
 import { parseManaged } from '../managed/parseManaged';
+import { makeTestDescriptor } from '../test/makeTestDescriptor';
 import { createComponentWriter } from './createComponentWriter';
-import type { JeevesComponent } from './types';
 
-function makeComponent(
-  overrides: Partial<JeevesComponent> = {},
-): JeevesComponent {
-  return {
-    name: 'watcher',
-    version: '0.10.1',
-    sectionId: 'Watcher',
-    refreshIntervalSeconds: 71,
+function makeDescriptor(
+  overrides: Parameters<typeof makeTestDescriptor>[0] = {},
+) {
+  return makeTestDescriptor({
     generateToolsContent: () => 'Watcher content.',
-    serviceCommands: {
-      stop: vi.fn().mockResolvedValue(undefined),
-      uninstall: vi.fn().mockResolvedValue(undefined),
-      status: vi.fn().mockResolvedValue({ running: true, version: '0.10.1' }),
-    },
-    pluginCommands: {
-      uninstall: vi.fn().mockResolvedValue(undefined),
-    },
     ...overrides,
-  };
+  });
 }
 
 describe('createComponentWriter', () => {
@@ -51,48 +39,48 @@ describe('createComponentWriter', () => {
 
   it('should reject non-prime interval', () => {
     expect(() =>
-      createComponentWriter(makeComponent({ refreshIntervalSeconds: 60 })),
-    ).toThrow('prime number');
+      createComponentWriter(makeDescriptor({ refreshIntervalSeconds: 60 })),
+    ).toThrow('prime');
   });
 
   it('should reject interval of 1', () => {
     expect(() =>
-      createComponentWriter(makeComponent({ refreshIntervalSeconds: 1 })),
-    ).toThrow('prime number');
+      createComponentWriter(makeDescriptor({ refreshIntervalSeconds: 1 })),
+    ).toThrow(/prime/);
   });
 
   it('should accept prime interval', () => {
     expect(() =>
-      createComponentWriter(makeComponent({ refreshIntervalSeconds: 67 })),
+      createComponentWriter(makeDescriptor({ refreshIntervalSeconds: 67 })),
     ).not.toThrow();
   });
 
   it('should reject empty name', () => {
-    expect(() => createComponentWriter(makeComponent({ name: '' }))).toThrow(
+    expect(() => createComponentWriter(makeDescriptor({ name: '' }))).toThrow(
       'non-empty string',
     );
   });
 
   it('should reject empty version', () => {
-    expect(() => createComponentWriter(makeComponent({ version: '' }))).toThrow(
-      'non-empty string',
-    );
+    expect(() =>
+      createComponentWriter(makeDescriptor({ version: '' })),
+    ).toThrow('non-empty string');
   });
 
   it('should reject empty sectionId', () => {
     expect(() =>
-      createComponentWriter(makeComponent({ sectionId: '' })),
+      createComponentWriter(makeDescriptor({ sectionId: '' })),
     ).toThrow('non-empty string');
   });
 
   it('should derive componentConfigDir from component name', () => {
-    const writer = createComponentWriter(makeComponent());
+    const writer = createComponentWriter(makeDescriptor());
     expect(writer.componentConfigDir).toMatch(/jeeves-watcher$/);
   });
 
   describe('ComponentWriter lifecycle', () => {
     it('should start and stop', () => {
-      const writer = createComponentWriter(makeComponent());
+      const writer = createComponentWriter(makeDescriptor());
       expect(writer.isRunning).toBe(false);
       writer.start();
       expect(writer.isRunning).toBe(true);
@@ -101,7 +89,7 @@ describe('createComponentWriter', () => {
     });
 
     it('should not start twice', () => {
-      const writer = createComponentWriter(makeComponent());
+      const writer = createComponentWriter(makeDescriptor());
       writer.start();
       writer.start(); // Should be a no-op
       expect(writer.isRunning).toBe(true);
@@ -111,7 +99,7 @@ describe('createComponentWriter', () => {
     it('should call generateToolsContent on cycle', async () => {
       const genFn = vi.fn().mockReturnValue('Generated content.');
       const writer = createComponentWriter(
-        makeComponent({ generateToolsContent: genFn }),
+        makeDescriptor({ generateToolsContent: genFn }),
       );
 
       // Create the TOOLS.md file
@@ -126,7 +114,7 @@ describe('createComponentWriter', () => {
     }, 15_000);
 
     it('should write component section to TOOLS.md', async () => {
-      const writer = createComponentWriter(makeComponent());
+      const writer = createComponentWriter(makeDescriptor());
 
       const toolsPath = join(workspaceDir, 'TOOLS.md');
       writeFileSync(toolsPath, '');

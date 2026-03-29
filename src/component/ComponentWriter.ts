@@ -21,8 +21,8 @@ import {
 import { parseHeartbeat, writeHeartbeatSection } from '../managed/heartbeat.js';
 import { updateManagedSection } from '../managed/updateManagedSection.js';
 import { refreshPlatformContent } from '../platform/refreshPlatformContent.js';
+import type { JeevesComponentDescriptor } from './descriptor.js';
 import { orchestrateHeartbeat } from './heartbeatOrchestrator.js';
-import type { JeevesComponent } from './types.js';
 
 /**
  * Orchestrates managed content writing for a single Jeeves component.
@@ -34,11 +34,11 @@ import type { JeevesComponent } from './types.js';
  */
 export class ComponentWriter {
   private timer: ReturnType<typeof setInterval> | undefined;
-  private readonly component: JeevesComponent;
+  private readonly component: JeevesComponentDescriptor;
   private readonly configDir: string;
 
   /** @internal */
-  constructor(component: JeevesComponent) {
+  constructor(component: JeevesComponentDescriptor) {
     this.component = component;
     this.configDir = getComponentConfigDir(component.name);
   }

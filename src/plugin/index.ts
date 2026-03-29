@@ -4,6 +4,7 @@
  * @packageDocumentation
  */
 
+export { createPluginToolset } from './createPluginToolset.js';
 export { fetchJson, fetchWithTimeout, postJson } from './http.js';
 export {
   patchConfig,
