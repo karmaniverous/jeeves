@@ -143,7 +143,8 @@ describe('CLI commands', () => {
       const content = readFileSync(soulPath, 'utf-8');
       const parsed = parseManaged(content, SOUL_MARKERS);
       expect(parsed.found).toBe(true);
-      expect(parsed.userContent).toContain('I am unique.');
+      // With position: 'bottom', user content is before the managed block
+      expect(parsed.beforeContent).toContain('I am unique.');
     }, 15_000);
 
     it('should trigger cleanup flag for duplicated content', async () => {
@@ -170,6 +171,23 @@ describe('CLI commands', () => {
 
       const content = readFileSync(soulPath, 'utf-8');
       expect(content).toContain('CLEANUP NEEDED');
+    }, 15_000);
+
+    it('should seed HEARTBEAT.md with platform status for all components', async () => {
+      await seedContent({
+        coreVersion: '0.1.0',
+      });
+
+      const heartbeatPath = join(workspaceDir, 'HEARTBEAT.md');
+      expect(existsSync(heartbeatPath)).toBe(true);
+
+      const content = readFileSync(heartbeatPath, 'utf-8');
+      expect(content).toContain('# Jeeves Platform Status');
+      expect(content).toContain('## jeeves-runner');
+      expect(content).toContain('## jeeves-watcher');
+      expect(content).toContain('## jeeves-server');
+      expect(content).toContain('## jeeves-meta');
+      expect(content).toContain('Not installed');
     }, 15_000);
   });
 

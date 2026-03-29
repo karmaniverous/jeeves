@@ -120,35 +120,56 @@ export async function updateManagedSection(
           : sectionText;
       }
 
+      // Combine beforeContent + userContent for the user zone.
+      // When migrating from top→bottom, beforeContent is empty and
+      // userContent has the real content. When already at bottom,
+      // beforeContent has the user content and userContent is empty.
+      const rawUserContent = [parsed.beforeContent, parsed.userContent]
+        .filter(Boolean)
+        .join('\n\n')
+        .trim();
+
       // Strip foreign managed blocks from user content (cross-contamination fix)
-      const userContent = stripForeignMarkers(parsed.userContent, markers);
+      const userContent = stripForeignMarkers(rawUserContent, markers);
       const cleanupNeeded = needsCleanup(newManagedBody, userContent);
 
       // Build the full managed block
       const beginLine = formatBeginMarker(markers.begin, coreVersion);
       const endLine = formatEndMarker(markers.end);
 
-      const parts: string[] = [];
-      if (parsed.beforeContent) {
-        parts.push(parsed.beforeContent);
-        parts.push('');
-      }
-      parts.push(beginLine);
+      const managedParts: string[] = [];
+      managedParts.push(beginLine);
       if (cleanupNeeded) {
-        parts.push('');
-        parts.push(CLEANUP_FLAG);
+        managedParts.push('');
+        managedParts.push(CLEANUP_FLAG);
       }
-      parts.push('');
-      parts.push(newManagedBody);
-      parts.push('');
-      parts.push(endLine);
-      if (userContent) {
-        parts.push('');
-        parts.push(userContent);
-      }
-      parts.push('');
+      managedParts.push('');
+      managedParts.push(newManagedBody);
+      managedParts.push('');
+      managedParts.push(endLine);
 
-      const newFileContent = parts.join('\n');
+      const managedBlock = managedParts.join('\n');
+      const position = markers.position ?? 'top';
+
+      const fileParts: string[] = [];
+      if (position === 'bottom') {
+        // User content first, managed block at end
+        if (userContent) {
+          fileParts.push(userContent);
+          fileParts.push('');
+        }
+        fileParts.push(managedBlock);
+      } else {
+        // Managed block first (legacy default), user content below
+        fileParts.push(managedBlock);
+        if (userContent) {
+          fileParts.push('');
+          fileParts.push(userContent);
+        }
+      }
+      fileParts.push('');
+
+      const newFileContent = fileParts.join('\n');
       atomicWrite(filePath, newFileContent);
     });
   } catch (err: unknown) {

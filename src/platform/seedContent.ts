@@ -10,9 +10,18 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { CONFIG_FILE } from '../constants/paths.js';
+import {
+  NOT_INSTALLED_ALERTS,
+  toServiceName,
+} from '../component/heartbeatOrchestrator.js';
+import { CONFIG_FILE, WORKSPACE_FILES } from '../constants/paths.js';
+import { PLATFORM_COMPONENTS } from '../constants/sections.js';
 import { coreConfigSchema, generateJsonSchema } from '../discovery/config.js';
-import { getCoreConfigDir } from '../init.js';
+import { getCoreConfigDir, getWorkspacePath } from '../init.js';
+import {
+  type HeartbeatEntry,
+  writeHeartbeatSection,
+} from '../managed/heartbeat.js';
 import { refreshPlatformContent } from './refreshPlatformContent.js';
 
 /** Options for seeding content. */
@@ -54,6 +63,7 @@ function ensureCoreConfig(coreConfigDir: string): void {
  * @remarks
  * Uses the same `updateManagedSection()` code path as writer cycles.
  * Creates core config with defaults if missing. Copies templates.
+ * Writes initial HEARTBEAT with "Not installed" alerts for all platform components.
  * Jaccard cleanup detection runs automatically via `updateManagedSection`.
  *
  * @param options - Seeding configuration.
@@ -64,8 +74,17 @@ export async function seedContent(options: SeedContentOptions): Promise<void> {
   // Ensure core config exists
   ensureCoreConfig(coreConfigDir);
 
-  // Seed content via the same code path as writer cycles
+  // Seed SOUL.md, AGENTS.md, TOOLS.md Platform section
   await refreshPlatformContent({
     coreVersion: options.coreVersion,
   });
+
+  // Seed HEARTBEAT.md with "Not installed" alerts for all platform components
+  const heartbeatPath = join(getWorkspacePath(), WORKSPACE_FILES.heartbeat);
+  const entries: HeartbeatEntry[] = PLATFORM_COMPONENTS.map((name) => ({
+    name: toServiceName(name),
+    declined: false,
+    content: `- ${NOT_INSTALLED_ALERTS[name]}`,
+  }));
+  await writeHeartbeatSection(heartbeatPath, entries);
 }

@@ -12,6 +12,14 @@ export {
   withFileLock,
 } from './fileOps.js';
 export {
+  buildHeartbeatSection,
+  HEARTBEAT_HEADING,
+  type HeartbeatEntry,
+  type ParsedHeartbeat,
+  parseHeartbeat,
+  writeHeartbeatSection,
+} from './heartbeat.js';
+export {
   type ManagedSection,
   parseManaged,
   type ParseManagedResult,

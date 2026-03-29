@@ -14,6 +14,7 @@ import { COMPONENT_VERSIONS_FILE } from '../constants/paths.js';
 import {
   type ComponentVersionsState,
   readComponentVersions,
+  removeComponentVersion,
   writeComponentVersion,
 } from './componentVersions.js';
 
@@ -106,6 +107,37 @@ describe('componentVersions', () => {
 
       const content = readComponentVersions(TEST_DIR);
       expect(content.watcher.pluginVersion).toBe('1.1.0');
+    });
+
+    it('removes a component entry', () => {
+      writeComponentVersion(TEST_DIR, {
+        componentName: 'watcher',
+        pluginVersion: '1.0.0',
+      });
+      writeComponentVersion(TEST_DIR, {
+        componentName: 'runner',
+        pluginVersion: '2.0.0',
+      });
+
+      removeComponentVersion(TEST_DIR, 'watcher');
+
+      const content = readComponentVersions(TEST_DIR);
+      expect(content.watcher).toBeUndefined();
+      expect(content.runner).toBeDefined();
+      expect(content.runner.pluginVersion).toBe('2.0.0');
+    });
+
+    it('no-ops when removing non-existent component', () => {
+      writeComponentVersion(TEST_DIR, {
+        componentName: 'runner',
+        pluginVersion: '1.0.0',
+      });
+
+      // Should not throw
+      removeComponentVersion(TEST_DIR, 'watcher');
+
+      const content = readComponentVersions(TEST_DIR);
+      expect(content.runner).toBeDefined();
     });
 
     it('creates directory if needed', () => {

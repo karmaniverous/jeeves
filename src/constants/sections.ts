@@ -1,5 +1,5 @@
 /**
- * Managed section IDs and their stable ordering for TOOLS.md.
+ * Managed section IDs, stable ordering, and platform component registry.
  *
  * @remarks
  * Section ordering is fixed to prevent diff churn regardless of which
@@ -34,3 +34,23 @@ export const SECTION_ORDER: readonly string[] = [
   SECTION_IDS.Runner,
   SECTION_IDS.Meta,
 ] as const;
+
+/**
+ * The four essential platform components.
+ *
+ * @remarks
+ * These components constitute the Jeeves platform. `jeeves install` writes
+ * initial HEARTBEAT "Not installed" alerts for all of them. The HEARTBEAT
+ * writer generates "Not installed" alerts only for platform components not
+ * in `component-versions.json`. Optional future components (not in this list)
+ * appear in HEARTBEAT only after explicit install.
+ */
+export const PLATFORM_COMPONENTS = [
+  'runner',
+  'watcher',
+  'server',
+  'meta',
+] as const;
+
+/** A platform component name. */
+export type PlatformComponent = (typeof PLATFORM_COMPONENTS)[number];

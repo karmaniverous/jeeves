@@ -16,6 +16,8 @@ export const WORKSPACE_FILES = {
   soul: 'SOUL.md',
   /** AGENTS.md — operational protocols and memory architecture. */
   agents: 'AGENTS.md',
+  /** HEARTBEAT.md — platform status and health alerts. */
+  heartbeat: 'HEARTBEAT.md',
 } as const;
 
 /** Templates directory name within core config. */

@@ -349,4 +349,59 @@ describe('updateManagedSection', () => {
       expect(content).not.toContain('CLEANUP NEEDED');
     });
   });
+
+  describe('position', () => {
+    it('position bottom: user content before managed block', async () => {
+      writeFileSync(testFile, '# User Content\n\nMy notes.\n');
+
+      await updateManagedSection(testFile, 'Managed body.', {
+        mode: 'block',
+        markers: SOUL_MARKERS, // position: 'bottom'
+        coreVersion: '0.1.0',
+      });
+
+      const content = readFileSync(testFile, 'utf-8');
+      const managedIdx = content.indexOf(SOUL_MARKERS.begin);
+      const userIdx = content.indexOf('# User Content');
+      expect(userIdx).toBeLessThan(managedIdx);
+      expect(content).toContain('My notes.');
+      expect(content).toContain('Managed body.');
+    });
+
+    it('position bottom: migrates existing top-positioned block to bottom', async () => {
+      // Simulate a file with managed block at the top (old format)
+      const oldContent = [
+        begin(SOUL_MARKERS, '0.0.9'),
+        '',
+        '# Jeeves Platform Soul',
+        '',
+        'Old managed content.',
+        '',
+        end(SOUL_MARKERS),
+        '',
+        '# My Soul',
+        '',
+        'User personality.',
+      ].join('\n');
+      writeFileSync(testFile, oldContent);
+
+      await updateManagedSection(testFile, 'New managed content.', {
+        mode: 'block',
+        markers: SOUL_MARKERS, // position: 'bottom'
+        coreVersion: '0.1.0',
+      });
+
+      const content = readFileSync(testFile, 'utf-8');
+      const parsed = parseManaged(content, SOUL_MARKERS);
+
+      // User content should be above the managed block
+      expect(parsed.beforeContent).toContain('User personality.');
+      expect(parsed.managedContent).toContain('New managed content.');
+
+      // Verify ordering in raw file
+      const managedIdx = content.indexOf(SOUL_MARKERS.begin);
+      const userIdx = content.indexOf('User personality.');
+      expect(userIdx).toBeLessThan(managedIdx);
+    });
+  });
 });

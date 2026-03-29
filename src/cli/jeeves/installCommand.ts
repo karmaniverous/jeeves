@@ -49,6 +49,7 @@ export function registerInstallCommand(program: Command): void {
       console.log('  - SOUL.md managed section written');
       console.log('  - AGENTS.md managed section written');
       console.log('  - TOOLS.md Platform section written');
+      console.log('  - HEARTBEAT.md platform status written');
       console.log('  - Templates copied to config directory');
       console.log('  - Core config created (if not present)');
     });
