@@ -1,8 +1,15 @@
-import { mkdirSync, rmSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
 
 import { init, resetInit } from '../../init';
 import { makeTestDescriptor } from '../../test/makeTestDescriptor';
@@ -21,6 +28,8 @@ describe('createServiceCli', () => {
   afterEach(() => {
     resetInit();
     rmSync(testDir, { recursive: true, force: true });
+    vi.restoreAllMocks();
+    process.exitCode = undefined;
   });
 
   it('should create a CLI program with standard commands', () => {
@@ -79,5 +88,146 @@ describe('createServiceCli', () => {
     // service status subcommand defaults to the descriptor's service name
     const serviceCmd = program.commands.find((c) => c.name() === 'service');
     expect(serviceCmd).toBeDefined();
+  });
+
+  // --- Integration tests: command execution ---
+
+  describe('init command execution', () => {
+    it('should write config file to output directory', async () => {
+      const descriptor = makeTestDescriptor();
+      const program = createServiceCli(descriptor);
+      const outputDir = join(testDir, 'init-output');
+
+      vi.spyOn(console, 'log').mockImplementation(() => undefined);
+
+      await program.parseAsync(['node', 'test', 'init', '-o', outputDir]);
+
+      const configPath = join(outputDir, descriptor.configFileName);
+      expect(existsSync(configPath)).toBe(true);
+
+      const written = JSON.parse(readFileSync(configPath, 'utf-8')) as unknown;
+      expect(written).toEqual(descriptor.initTemplate());
+    });
+
+    it('should skip existing config file', async () => {
+      const descriptor = makeTestDescriptor();
+      const program = createServiceCli(descriptor);
+      const outputDir = join(testDir, 'init-existing');
+      mkdirSync(outputDir, { recursive: true });
+
+      const configPath = join(outputDir, descriptor.configFileName);
+      const existingContent = '{"existing": true}\n';
+      writeFileSync(configPath, existingContent);
+
+      const logSpy = vi
+        .spyOn(console, 'log')
+        .mockImplementation(() => undefined);
+
+      await program.parseAsync(['node', 'test', 'init', '-o', outputDir]);
+
+      expect(readFileSync(configPath, 'utf-8')).toBe(existingContent);
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringContaining('already exists'),
+      );
+    });
+  });
+
+  describe('config validate command execution', () => {
+    const strictSchema = z.object({
+      port: z.number().int().positive(),
+      watchPaths: z.array(z.string()).default([]),
+    });
+
+    it('should accept a valid config file', async () => {
+      const descriptor = makeTestDescriptor({ configSchema: strictSchema });
+      const program = createServiceCli(descriptor);
+
+      const validConfigPath = join(testDir, 'valid-config.json');
+      writeFileSync(validConfigPath, JSON.stringify({ port: 1936 }));
+
+      const logSpy = vi
+        .spyOn(console, 'log')
+        .mockImplementation(() => undefined);
+
+      await program.parseAsync([
+        'node',
+        'test',
+        'config',
+        'validate',
+        '-c',
+        validConfigPath,
+      ]);
+
+      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('valid'));
+      expect(process.exitCode).toBeUndefined();
+    });
+
+    it('should reject an invalid config file', async () => {
+      const descriptor = makeTestDescriptor({ configSchema: strictSchema });
+      const program = createServiceCli(descriptor);
+
+      const invalidConfigPath = join(testDir, 'invalid-config.json');
+      writeFileSync(invalidConfigPath, JSON.stringify({ port: -1 }));
+
+      vi.spyOn(console, 'log').mockImplementation(() => undefined);
+      const errorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => undefined);
+
+      await program.parseAsync([
+        'node',
+        'test',
+        'config',
+        'validate',
+        '-c',
+        invalidConfigPath,
+      ]);
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Validation failed'),
+      );
+      expect(process.exitCode).toBe(1);
+    });
+  });
+
+  describe('status command execution', () => {
+    it('should return error for unreachable service', async () => {
+      const program = createServiceCli(makeTestDescriptor());
+
+      vi.spyOn(console, 'log').mockImplementation(() => undefined);
+      const errorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => undefined);
+
+      await program.parseAsync(['node', 'test', 'status', '-p', '19999']);
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Service unreachable'),
+      );
+      expect(process.exitCode).toBe(1);
+    });
+  });
+
+  describe('service status command execution', () => {
+    it('should return not_installed for nonexistent service', async () => {
+      const program = createServiceCli(makeTestDescriptor());
+
+      const logSpy = vi
+        .spyOn(console, 'log')
+        .mockImplementation(() => undefined);
+
+      await program.parseAsync([
+        'node',
+        'test',
+        'service',
+        'status',
+        '-n',
+        'nonexistent-jeeves-test-12345',
+      ]);
+
+      expect(logSpy).toHaveBeenCalledWith(
+        expect.stringContaining('not_installed'),
+      );
+    });
   });
 });
