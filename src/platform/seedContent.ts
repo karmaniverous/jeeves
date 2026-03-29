@@ -10,14 +10,14 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { CONFIG_FILE, WORKSPACE_FILES } from '../constants/paths.js';
-import { PLATFORM_COMPONENTS } from '../constants/sections.js';
-import { coreConfigSchema, generateJsonSchema } from '../discovery/config.js';
-import { getCoreConfigDir, getWorkspacePath } from '../init.js';
 import {
   NOT_INSTALLED_ALERTS,
   toServiceName,
 } from '../component/heartbeatOrchestrator.js';
+import { CONFIG_FILE, WORKSPACE_FILES } from '../constants/paths.js';
+import { PLATFORM_COMPONENTS } from '../constants/sections.js';
+import { coreConfigSchema, generateJsonSchema } from '../discovery/config.js';
+import { getCoreConfigDir, getWorkspacePath } from '../init.js';
 import {
   type HeartbeatEntry,
   writeHeartbeatSection,

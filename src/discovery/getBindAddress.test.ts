@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -13,7 +13,7 @@ describe('getBindAddress', () => {
   beforeEach(() => {
     const base = join(
       tmpdir(),
-      `jeeves-bind-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      `jeeves-bind-test-${Date.now().toString()}-${Math.random().toString(36).slice(2, 8)}`,
     );
     configRoot = join(base, 'config');
     const workspace = join(base, 'workspace');

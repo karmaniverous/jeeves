@@ -14,17 +14,17 @@ export {
 } from './componentVersions.js';
 export { ComponentWriter } from './ComponentWriter.js';
 export {
+  type AsyncContentCacheOptions,
+  createAsyncContentCache,
+} from './createAsyncContentCache.js';
+export { createComponentWriter } from './createComponentWriter.js';
+export {
   type ComponentState,
   NOT_INSTALLED_ALERTS,
   orchestrateHeartbeat,
   type OrchestrateHeartbeatOptions,
   toServiceName,
 } from './heartbeatOrchestrator.js';
-export {
-  type AsyncContentCacheOptions,
-  createAsyncContentCache,
-} from './createAsyncContentCache.js';
-export { createComponentWriter } from './createComponentWriter.js';
 export type {
   ComponentDependencies,
   JeevesComponent,

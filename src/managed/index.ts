@@ -6,19 +6,19 @@
 
 export { jaccard, needsCleanup, shingles } from './cleanupDetection.js';
 export {
-  buildHeartbeatSection,
-  type HeartbeatEntry,
-  HEARTBEAT_HEADING,
-  parseHeartbeat,
-  type ParsedHeartbeat,
-  writeHeartbeatSection,
-} from './heartbeat.js';
-export {
   atomicWrite,
   DEFAULT_CORE_VERSION,
   STALE_LOCK_MS,
   withFileLock,
 } from './fileOps.js';
+export {
+  buildHeartbeatSection,
+  HEARTBEAT_HEADING,
+  type HeartbeatEntry,
+  type ParsedHeartbeat,
+  parseHeartbeat,
+  writeHeartbeatSection,
+} from './heartbeat.js';
 export {
   type ManagedSection,
   parseManaged,

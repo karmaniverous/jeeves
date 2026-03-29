@@ -68,20 +68,20 @@ export function parseHeartbeat(fileContent: string): ParsedHeartbeat {
 
   while ((match = h2Re.exec(sectionContent)) !== null) {
     const fullHeading = match[0];
-    const name = match[1]!;
+    const name = match[1];
     const declined = fullHeading.endsWith(': declined');
     h2Positions.push({ name, declined, start: match.index });
   }
 
   for (let i = 0; i < h2Positions.length; i++) {
-    const pos = h2Positions[i]!;
+    const pos = h2Positions[i];
     const headingLine = pos.declined
       ? `## ${pos.name}: declined`
       : `## ${pos.name}`;
     const contentStart = pos.start + headingLine.length;
     const contentEnd =
       i + 1 < h2Positions.length
-        ? h2Positions[i + 1]!.start
+        ? h2Positions[i + 1].start
         : sectionContent.length;
     const content = sectionContent.slice(contentStart, contentEnd).trim();
 

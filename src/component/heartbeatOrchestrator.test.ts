@@ -1,6 +1,6 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -30,7 +30,7 @@ describe('heartbeatOrchestrator', () => {
   beforeEach(() => {
     const base = join(
       tmpdir(),
-      `jeeves-orch-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      `jeeves-orch-test-${Date.now().toString()}-${Math.random().toString(36).slice(2, 8)}`,
     );
     configRoot = join(base, 'config');
     coreConfigDir = join(configRoot, 'jeeves-core');
@@ -209,9 +209,10 @@ describe('heartbeatOrchestrator', () => {
     writeFileSync(join(serverConfigDir, 'config.json'), '{}');
 
     // Server HTTP probe succeeds, others fail
-    mockFetch.mockImplementation(async (url: string) => {
-      if (url.includes('1934')) return new Response('OK', { status: 200 });
-      throw new Error('ECONNREFUSED');
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('1934'))
+        return Promise.resolve(new Response('OK', { status: 200 }));
+      return Promise.reject(new Error('ECONNREFUSED'));
     });
 
     const entries = await orchestrateHeartbeat({
@@ -233,9 +234,10 @@ describe('heartbeatOrchestrator', () => {
     mkdirSync(serverConfigDir, { recursive: true });
     writeFileSync(join(serverConfigDir, 'config.json'), '{}');
 
-    mockFetch.mockImplementation(async (url: string) => {
-      if (url.includes('1934')) return new Response('OK', { status: 200 });
-      throw new Error('ECONNREFUSED');
+    mockFetch.mockImplementation((url: string) => {
+      if (url.includes('1934'))
+        return Promise.resolve(new Response('OK', { status: 200 }));
+      return Promise.reject(new Error('ECONNREFUSED'));
     });
 
     // All soft deps declined

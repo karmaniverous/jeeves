@@ -1,13 +1,13 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   buildHeartbeatSection,
-  type HeartbeatEntry,
   HEARTBEAT_HEADING,
+  type HeartbeatEntry,
   parseHeartbeat,
   writeHeartbeatSection,
 } from './heartbeat.js';
@@ -32,10 +32,10 @@ describe('parseHeartbeat', () => {
     expect(result.found).toBe(true);
     expect(result.userContent).toBe('');
     expect(result.entries).toHaveLength(2);
-    expect(result.entries[0]!.name).toBe('jeeves-runner');
-    expect(result.entries[0]!.declined).toBe(false);
-    expect(result.entries[0]!.content).toContain('Not installed');
-    expect(result.entries[1]!.name).toBe('jeeves-watcher');
+    expect(result.entries[0].name).toBe('jeeves-runner');
+    expect(result.entries[0].declined).toBe(false);
+    expect(result.entries[0].content).toContain('Not installed');
+    expect(result.entries[1].name).toBe('jeeves-watcher');
   });
 
   it('parses declined headings', () => {
@@ -47,10 +47,10 @@ describe('parseHeartbeat', () => {
     ].join('\n');
     const result = parseHeartbeat(content);
     expect(result.entries).toHaveLength(2);
-    expect(result.entries[0]!.name).toBe('jeeves-runner');
-    expect(result.entries[0]!.declined).toBe(true);
-    expect(result.entries[0]!.content).toBe('');
-    expect(result.entries[1]!.declined).toBe(false);
+    expect(result.entries[0].name).toBe('jeeves-runner');
+    expect(result.entries[0].declined).toBe(true);
+    expect(result.entries[0].content).toBe('');
+    expect(result.entries[1].declined).toBe(false);
   });
 
   it('preserves user content above heading', () => {
@@ -123,7 +123,7 @@ describe('writeHeartbeatSection', () => {
   beforeEach(() => {
     testDir = join(
       tmpdir(),
-      `jeeves-hb-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      `jeeves-hb-test-${Date.now().toString()}-${Math.random().toString(36).slice(2, 8)}`,
     );
     mkdirSync(testDir, { recursive: true });
     filePath = join(testDir, 'HEARTBEAT.md');

@@ -17,8 +17,8 @@ import { getServiceUrl } from '../discovery/getServiceUrl.js';
 import type { HeartbeatEntry } from '../managed/heartbeat.js';
 import { fetchWithTimeout } from '../plugin/http.js';
 import {
-  readComponentVersions,
   type ComponentVersionsState,
+  readComponentVersions,
 } from './componentVersions.js';
 import type { ComponentDependencies } from './types.js';
 
@@ -55,15 +55,13 @@ export const NOT_INSTALLED_ALERTS: Record<string, string> = {
     'Not installed. The watcher indexes documents into a vector store for semantic search. Ask the user for consent to install. On approval, execute: `npx @karmaniverous/jeeves-watcher-openclaw install`.',
   server:
     'Not installed. The server provides a web UI for document browsing, rendering, sharing, and search. Ask the user for consent to install. On approval, execute: `npx @karmaniverous/jeeves-server-openclaw install`.',
-  meta:
-    'Not installed. Meta is the knowledge synthesis engine. Requires jeeves-watcher. Ask the user for consent to install. On approval, install watcher first if needed, then execute: `npx @karmaniverous/jeeves-meta-openclaw install`.',
+  meta: 'Not installed. Meta is the knowledge synthesis engine. Requires jeeves-watcher. Ask the user for consent to install. On approval, install watcher first if needed, then execute: `npx @karmaniverous/jeeves-meta-openclaw install`.',
 };
 
 /** Alert text generators by state. */
 const ALERT_TEXT: Record<string, Record<string, AlertTextValue>> = {
   runner: {
-    not_installed:
-      NOT_INSTALLED_ALERTS['runner'],
+    not_installed: NOT_INSTALLED_ALERTS['runner'],
     config_missing: (configRoot: string) =>
       `Plugin installed but no configuration file found at \`${configRoot}/jeeves-runner/config.json\`. The plugin installer should have created a default config. Ask the user for consent to re-run the installer: \`npx @karmaniverous/jeeves-runner-openclaw install\`.`,
     service_not_installed:
@@ -72,8 +70,7 @@ const ALERT_TEXT: Record<string, Record<string, AlertTextValue>> = {
       'Service installed but not running. Ask the user for consent. On approval, execute: `jeeves-runner service start`. Verify via `GET http://127.0.0.1:1937/status`.',
   },
   watcher: {
-    not_installed:
-      NOT_INSTALLED_ALERTS['watcher'],
+    not_installed: NOT_INSTALLED_ALERTS['watcher'],
     deps_missing:
       'Plugin installed but Qdrant is not responding on `http://127.0.0.1:6333`. Qdrant is the vector database required for semantic search. Ask the user for consent to set up Qdrant. Guide them through installation for their platform — Docker is simplest: `docker run -p 6333:6333 qdrant/qdrant`. Verify via `GET http://127.0.0.1:6333/collections`.',
     config_missing: (configRoot: string) =>
@@ -84,8 +81,7 @@ const ALERT_TEXT: Record<string, Record<string, AlertTextValue>> = {
       'Service installed but not running. Ask the user for consent. On approval, execute: `jeeves-watcher service start`. Verify via `GET http://127.0.0.1:1936/status`.',
   },
   server: {
-    not_installed:
-      NOT_INSTALLED_ALERTS['server'],
+    not_installed: NOT_INSTALLED_ALERTS['server'],
     config_missing: (configRoot: string) =>
       `Plugin installed but config file missing or invalid at \`${configRoot}/jeeves-server/config.json\`. The plugin installer should have created a default config. If missing, re-run: \`npx @karmaniverous/jeeves-server-openclaw install\`.`,
     service_not_installed:
@@ -94,8 +90,7 @@ const ALERT_TEXT: Record<string, Record<string, AlertTextValue>> = {
       'Service installed but not running. Ask the user for consent. On approval, execute: `jeeves-server service start`. Verify via `GET http://127.0.0.1:1934/status`.',
   },
   meta: {
-    not_installed:
-      NOT_INSTALLED_ALERTS['meta'],
+    not_installed: NOT_INSTALLED_ALERTS['meta'],
     deps_missing:
       'Plugin installed but required dependency jeeves-watcher is not available. The watcher must be installed and running before meta can function. Do not attempt to set up meta until jeeves-watcher is healthy.',
     config_missing: (configRoot: string) =>
@@ -147,10 +142,8 @@ async function determineComponentState(
 
   // Check hard dependencies
   const deps = COMPONENT_DEPS[name];
-  if (deps) {
-    for (const hardDep of deps.hard) {
-      if (!healthySet.has(hardDep)) return 'deps_missing';
-    }
+  for (const hardDep of deps.hard) {
+    if (!healthySet.has(hardDep)) return 'deps_missing';
   }
 
   // Watcher-specific: check Qdrant
@@ -193,8 +186,6 @@ function generateAlertText(
   if (state === 'healthy') return '';
 
   const componentAlerts = ALERT_TEXT[name];
-  if (!componentAlerts) return '';
-
   const alertOrFn = componentAlerts[state];
   if (!alertOrFn) return '';
 
@@ -262,14 +253,12 @@ export async function orchestrateHeartbeat(
 
     // Auto-decline if hard dep is declined
     const deps = COMPONENT_DEPS[name];
-    if (deps) {
-      const hardDepDeclined = deps.hard.some((d) =>
-        declinedNames.has(toServiceName(d)),
-      );
-      if (hardDepDeclined) {
-        entries.push({ name: fullName, declined: true, content: '' });
-        continue;
-      }
+    const hardDepDeclined = deps.hard.some((d) =>
+      declinedNames.has(toServiceName(d)),
+    );
+    if (hardDepDeclined) {
+      entries.push({ name: fullName, declined: true, content: '' });
+      continue;
     }
 
     const alertText = generateAlertText(name, state, configRoot);
@@ -283,7 +272,7 @@ export async function orchestrateHeartbeat(
     // Entry is healthy (no alert, not declined) — check for soft deps
     const shortName = entry.name.replace(/^jeeves-/, '');
     const deps = COMPONENT_DEPS[shortName];
-    if (!deps?.soft.length) continue;
+    if (!deps.soft.length) continue;
 
     const softAlerts: string[] = [];
     for (const dep of deps.soft) {

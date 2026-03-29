@@ -111,7 +111,9 @@ export function removeComponentVersion(
 
   if (!(componentName in existing)) return;
 
-  const { [componentName]: _, ...updated } = existing;
+  const updated = Object.fromEntries(
+    Object.entries(existing).filter(([key]) => key !== componentName),
+  ) as ComponentVersionsState;
 
   const filePath = join(coreConfigDir, COMPONENT_VERSIONS_FILE);
   atomicWrite(filePath, JSON.stringify(updated, null, 2) + '\n');

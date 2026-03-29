@@ -129,9 +129,7 @@ export class ComponentWriter {
         })();
         const parsed = parseHeartbeat(existingContent);
         const declinedNames = new Set(
-          parsed.entries
-            .filter((e) => e.declined)
-            .map((e) => e.name),
+          parsed.entries.filter((e) => e.declined).map((e) => e.name),
         );
 
         const entries = await orchestrateHeartbeat({
@@ -143,9 +141,7 @@ export class ComponentWriter {
         await writeHeartbeatSection(heartbeatPath, entries);
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
-        console.warn(
-          `jeeves-core: HEARTBEAT orchestration failed: ${msg}`,
-        );
+        console.warn(`jeeves-core: HEARTBEAT orchestration failed: ${msg}`);
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);

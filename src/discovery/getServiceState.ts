@@ -107,9 +107,7 @@ function getServiceStateMacOS(serviceName: string): ServiceState {
     const tableMatch = /^(\d+|-)\s/m.exec(output);
     if (tableMatch) {
       const pid = tableMatch[1];
-      return pid !== undefined && pid !== '-' && Number(pid) > 0
-        ? 'running'
-        : 'stopped';
+      return pid !== '-' && Number(pid) > 0 ? 'running' : 'stopped';
     }
 
     // Try plist-style: "PID" = <number>;
