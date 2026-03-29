@@ -15,8 +15,10 @@ export {
 export { ComponentWriter } from './ComponentWriter.js';
 export {
   type ComponentState,
+  NOT_INSTALLED_ALERTS,
   orchestrateHeartbeat,
   type OrchestrateHeartbeatOptions,
+  toServiceName,
 } from './heartbeatOrchestrator.js';
 export {
   type AsyncContentCacheOptions,

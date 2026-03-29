@@ -10,8 +10,8 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { PLATFORM_COMPONENTS } from '../constants/sections.js';
 import { CONFIG_FILE } from '../constants/paths.js';
+import { PLATFORM_COMPONENTS } from '../constants/sections.js';
 import { getServiceState } from '../discovery/getServiceState.js';
 import { getServiceUrl } from '../discovery/getServiceUrl.js';
 import type { HeartbeatEntry } from '../managed/heartbeat.js';
@@ -21,6 +21,11 @@ import {
   type ComponentVersionsState,
 } from './componentVersions.js';
 import type { ComponentDependencies } from './types.js';
+
+/** Derive the full service name from a component name. */
+export function toServiceName(name: string): string {
+  return `jeeves-${name}`;
+}
 
 /** Component state as determined by the orchestrator. */
 export type ComponentState =
@@ -42,11 +47,23 @@ const COMPONENT_DEPS: Record<string, ComponentDependencies> = {
 /** Alert text — string or function that receives configRoot. */
 type AlertTextValue = string | ((configRoot: string) => string);
 
+/** "Not installed" alert text for each platform component. Shared with seedContent. */
+export const NOT_INSTALLED_ALERTS: Record<string, string> = {
+  runner:
+    'Not installed. The runner is the job execution engine — it runs scheduled scripts for data fetching, transformation, and maintenance. Ask the user for consent to install. On approval, execute: `npx @karmaniverous/jeeves-runner-openclaw install`.',
+  watcher:
+    'Not installed. The watcher indexes documents into a vector store for semantic search. Ask the user for consent to install. On approval, execute: `npx @karmaniverous/jeeves-watcher-openclaw install`.',
+  server:
+    'Not installed. The server provides a web UI for document browsing, rendering, sharing, and search. Ask the user for consent to install. On approval, execute: `npx @karmaniverous/jeeves-server-openclaw install`.',
+  meta:
+    'Not installed. Meta is the knowledge synthesis engine. Requires jeeves-watcher. Ask the user for consent to install. On approval, install watcher first if needed, then execute: `npx @karmaniverous/jeeves-meta-openclaw install`.',
+};
+
 /** Alert text generators by state. */
 const ALERT_TEXT: Record<string, Record<string, AlertTextValue>> = {
   runner: {
     not_installed:
-      'Not installed. The runner is the job execution engine — it runs scheduled scripts for data fetching, transformation, and maintenance. Ask the user for consent to install. On approval, execute: `npx @karmaniverous/jeeves-runner-openclaw install`.',
+      NOT_INSTALLED_ALERTS['runner'] ?? '',
     config_missing: (configRoot: string) =>
       `Plugin installed but no configuration file found at \`${configRoot}/jeeves-runner/config.json\`. The plugin installer should have created a default config. Ask the user for consent to re-run the installer: \`npx @karmaniverous/jeeves-runner-openclaw install\`.`,
     service_not_installed:
@@ -56,7 +73,7 @@ const ALERT_TEXT: Record<string, Record<string, AlertTextValue>> = {
   },
   watcher: {
     not_installed:
-      'Not installed. The watcher indexes documents into a vector store for semantic search. Ask the user for consent to install. On approval, execute: `npx @karmaniverous/jeeves-watcher-openclaw install`.',
+      NOT_INSTALLED_ALERTS['watcher'] ?? '',
     deps_missing:
       'Plugin installed but Qdrant is not responding on `http://127.0.0.1:6333`. Qdrant is the vector database required for semantic search. Ask the user for consent to set up Qdrant. Guide them through installation for their platform — Docker is simplest: `docker run -p 6333:6333 qdrant/qdrant`. Verify via `GET http://127.0.0.1:6333/collections`.',
     config_missing: (configRoot: string) =>
@@ -68,7 +85,7 @@ const ALERT_TEXT: Record<string, Record<string, AlertTextValue>> = {
   },
   server: {
     not_installed:
-      'Not installed. The server provides a web UI for document browsing, rendering, sharing, and search. Ask the user for consent to install. On approval, execute: `npx @karmaniverous/jeeves-server-openclaw install`.',
+      NOT_INSTALLED_ALERTS['server'] ?? '',
     config_missing: (configRoot: string) =>
       `Plugin installed but config file missing or invalid at \`${configRoot}/jeeves-server/config.json\`. The plugin installer should have created a default config. If missing, re-run: \`npx @karmaniverous/jeeves-server-openclaw install\`.`,
     service_not_installed:
@@ -78,7 +95,7 @@ const ALERT_TEXT: Record<string, Record<string, AlertTextValue>> = {
   },
   meta: {
     not_installed:
-      'Not installed. Meta is the knowledge synthesis engine — it produces per-domain analysis documents from indexed content. Ask the user for consent to install. On approval, execute: `npx @karmaniverous/jeeves-meta-openclaw install`.',
+      NOT_INSTALLED_ALERTS['meta'] ?? '',
     deps_missing:
       'Plugin installed but required dependency jeeves-watcher is not available. The watcher must be installed and running before meta can function. Do not attempt to set up meta until jeeves-watcher is healthy.',
     config_missing: (configRoot: string) =>
@@ -90,14 +107,20 @@ const ALERT_TEXT: Record<string, Record<string, AlertTextValue>> = {
   },
 };
 
+/** Default Qdrant URL for watcher dependency check. */
+const QDRANT_URL = 'http://127.0.0.1:6333';
+
+/** Health probe timeout in milliseconds. */
+const PROBE_TIMEOUT_MS = 3000;
+
 /**
  * Check if Qdrant is reachable (watcher dependency).
  *
- * @returns True if Qdrant responds on port 6333.
+ * @returns True if Qdrant responds.
  */
 async function isQdrantAvailable(): Promise<boolean> {
   try {
-    await fetchWithTimeout('http://127.0.0.1:6333/collections', 3000);
+    await fetchWithTimeout(`${QDRANT_URL}/collections`, PROBE_TIMEOUT_MS);
     return true;
   } catch {
     return false;
@@ -142,11 +165,11 @@ async function determineComponentState(
   // Fast path: probe HTTP health endpoint
   try {
     const url = getServiceUrl(name);
-    await fetchWithTimeout(`${url}/status`, 3000);
+    await fetchWithTimeout(`${url}/status`, PROBE_TIMEOUT_MS);
     return 'healthy';
   } catch {
     // Service not responding — classify sub-state
-    const serviceState = getServiceState(`jeeves-${name}`);
+    const serviceState = getServiceState(toServiceName(name));
     if (serviceState === 'not_installed') return 'service_not_installed';
     if (serviceState === 'stopped') return 'service_stopped';
     // serviceState === 'running' but HTTP failed — still treat as stopped
@@ -205,12 +228,12 @@ export async function orchestrateHeartbeat(
   // First pass: determine which components are healthy (for dep resolution)
   const healthySet = new Set<string>();
   for (const name of PLATFORM_COMPONENTS) {
-    if (declinedNames.has(`jeeves-${name}`)) continue;
+    if (declinedNames.has(toServiceName(name))) continue;
     if (!(name in registry)) continue;
 
     try {
       const url = getServiceUrl(name);
-      await fetchWithTimeout(`${url}/status`, 3000);
+      await fetchWithTimeout(`${url}/status`, PROBE_TIMEOUT_MS);
       healthySet.add(name);
     } catch {
       // Not healthy — will be classified in second pass
@@ -221,7 +244,7 @@ export async function orchestrateHeartbeat(
   const entries: HeartbeatEntry[] = [];
 
   for (const name of PLATFORM_COMPONENTS) {
-    const fullName = `jeeves-${name}`;
+    const fullName = toServiceName(name);
 
     // Declined
     if (declinedNames.has(fullName)) {
@@ -241,7 +264,7 @@ export async function orchestrateHeartbeat(
     const deps = COMPONENT_DEPS[name];
     if (deps) {
       const hardDepDeclined = deps.hard.some((d) =>
-        declinedNames.has(`jeeves-${d}`),
+        declinedNames.has(toServiceName(d)),
       );
       if (hardDepDeclined) {
         entries.push({ name: fullName, declined: true, content: '' });
@@ -253,25 +276,27 @@ export async function orchestrateHeartbeat(
     entries.push({ name: fullName, declined: false, content: alertText });
   }
 
-  // Add soft-dep informational alerts for healthy server
-  const serverEntry = entries.find((e) => e.name === 'jeeves-server');
-  if (serverEntry && !serverEntry.declined && !serverEntry.content) {
-    // Server is healthy — check soft deps
-    const serverDeps = COMPONENT_DEPS['server'];
-    if (serverDeps) {
-      const softAlerts: string[] = [];
-      for (const dep of serverDeps.soft) {
-        const depFullName = `jeeves-${dep}`;
-        if (declinedNames.has(depFullName)) continue;
-        if (!healthySet.has(dep)) {
-          softAlerts.push(
-            `- Server is running. Some features are unavailable because ${depFullName} is not installed/running.`,
-          );
-        }
+  // Add soft-dep informational alerts for any healthy component with soft deps
+  for (const entry of entries) {
+    if (entry.declined || entry.content) continue;
+
+    // Entry is healthy (no alert, not declined) — check for soft deps
+    const shortName = entry.name.replace(/^jeeves-/, '');
+    const deps = COMPONENT_DEPS[shortName];
+    if (!deps?.soft.length) continue;
+
+    const softAlerts: string[] = [];
+    for (const dep of deps.soft) {
+      const depFullName = toServiceName(dep);
+      if (declinedNames.has(depFullName)) continue;
+      if (!healthySet.has(dep)) {
+        softAlerts.push(
+          `- ${entry.name} is running. Some features are unavailable because ${depFullName} is not installed/running.`,
+        );
       }
-      if (softAlerts.length > 0) {
-        serverEntry.content = softAlerts.join('\n');
-      }
+    }
+    if (softAlerts.length > 0) {
+      entry.content = softAlerts.join('\n');
     }
   }
 

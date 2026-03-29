@@ -7,6 +7,7 @@
  * on a configurable prime-interval timer cycle.
  */
 
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { CORE_VERSION, TOOLS_MARKERS } from '../constants/index.js';
@@ -111,7 +112,6 @@ export class ComponentWriter {
       // HEARTBEAT health orchestration
       const heartbeatPath = join(workspacePath, WORKSPACE_FILES.heartbeat);
       try {
-        const { readFileSync } = await import('node:fs');
         const existingContent = (() => {
           try {
             return readFileSync(heartbeatPath, 'utf-8');
