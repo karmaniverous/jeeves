@@ -10,10 +10,13 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { gt as semverGt } from 'semver';
+
 import { CONFIG_FILE } from '../constants/paths.js';
 import { PLATFORM_COMPONENTS } from '../constants/sections.js';
 import { getServiceState } from '../discovery/getServiceState.js';
 import { getServiceUrl } from '../discovery/getServiceUrl.js';
+import { checkRegistryVersion } from '../discovery/registry.js';
 import type { HeartbeatEntry } from '../managed/heartbeat.js';
 import { fetchWithTimeout } from '../plugin/http.js';
 import {
@@ -34,7 +37,8 @@ export type ComponentState =
   | 'config_missing'
   | 'service_not_installed'
   | 'service_stopped'
-  | 'healthy';
+  | 'healthy'
+  | 'update_available';
 
 /** Known dependency declarations for platform components. */
 const COMPONENT_DEPS: Record<string, ComponentDependencies> = {
@@ -159,6 +163,20 @@ async function determineComponentState(
   try {
     const url = getServiceUrl(name);
     await fetchWithTimeout(`${url}/status`, PROBE_TIMEOUT_MS);
+
+    // Healthy — check for available updates
+    const entry = registry[name];
+    if (entry.pluginPackage && entry.pluginVersion) {
+      const componentConfigDir = join(configRoot, `jeeves-${name}`);
+      const latestVersion = checkRegistryVersion(
+        entry.pluginPackage,
+        componentConfigDir,
+      );
+      if (latestVersion && semverGt(latestVersion, entry.pluginVersion)) {
+        return 'update_available';
+      }
+    }
+
     return 'healthy';
   } catch {
     // Service not responding — classify sub-state
@@ -182,8 +200,24 @@ function generateAlertText(
   name: string,
   state: ComponentState,
   configRoot: string,
+  registry: ComponentVersionsState,
 ): string {
   if (state === 'healthy') return '';
+
+  // Update available — dynamic text with version info
+  if (state === 'update_available') {
+    const entry = registry[name];
+    const currentVersion = entry.pluginVersion ?? 'unknown';
+    const componentConfigDir = join(configRoot, `jeeves-${name}`);
+    const latestVersion = entry.pluginPackage
+      ? (checkRegistryVersion(entry.pluginPackage, componentConfigDir) ??
+        'unknown')
+      : 'unknown';
+    const installCmd = entry.pluginPackage
+      ? `\`npx ${entry.pluginPackage} install\``
+      : `\`npx @karmaniverous/jeeves-${name}-openclaw install\``;
+    return `- Update available: v${currentVersion} → v${latestVersion}. Ask the user for consent to update. On approval, execute: ${installCmd}.`;
+  }
 
   const componentAlerts = ALERT_TEXT[name];
   const alertOrFn = componentAlerts[state];
@@ -261,7 +295,7 @@ export async function orchestrateHeartbeat(
       continue;
     }
 
-    const alertText = generateAlertText(name, state, configRoot);
+    const alertText = generateAlertText(name, state, configRoot, registry);
     entries.push({ name: fullName, declined: false, content: alertText });
   }
 
