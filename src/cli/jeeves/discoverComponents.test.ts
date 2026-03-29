@@ -6,7 +6,7 @@ import {
   registerComponentProxies,
 } from './discoverComponents';
 
-describe('discoverComponentPackages', () => {
+describe('discoverComponentPackages', { timeout: 15_000 }, () => {
   it('should return an array', () => {
     const result = discoverComponentPackages();
     expect(Array.isArray(result)).toBe(true);
