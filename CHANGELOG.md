@@ -2,9 +2,16 @@
 
 All notable changes to this project will be documented in this file. Dates are displayed in UTC.
 
+#### [0.4.3](https://github.com/karmaniverous/jeeves/compare/0.4.2...0.4.3)
+
+- fix: config CLI tree and config apply wire format [`#47`](https://github.com/karmaniverous/jeeves/pull/47)
+
 #### [0.4.2](https://github.com/karmaniverous/jeeves/compare/0.4.1...0.4.2)
 
+> 29 March 2026
+
 - feat: add customMerge hook to createConfigApplyHandler [`#46`](https://github.com/karmaniverous/jeeves/pull/46)
+- chore: release v0.4.2 [`6988cd1`](https://github.com/karmaniverous/jeeves/commit/6988cd162d0f340a190d1cb8ba2ea2a1ef283fd3)
 - fix: defensive nullish coalescing in customMerge test mock [`f31ae20`](https://github.com/karmaniverous/jeeves/commit/f31ae20a33d37d1dbd36c76817f70c6af5a063c3)
 
 #### [0.4.1](https://github.com/karmaniverous/jeeves/compare/0.4.0...0.4.1)
