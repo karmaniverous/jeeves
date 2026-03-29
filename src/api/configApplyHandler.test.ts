@@ -142,8 +142,8 @@ describe('createConfigApplyHandler', () => {
         ...existing,
         ...patch,
         watchPaths: [
-          ...(existing.watchPaths as string[]),
-          ...(patch.watchPaths as string[]),
+          ...((existing.watchPaths as string[] | undefined) ?? []),
+          ...((patch.watchPaths as string[] | undefined) ?? []),
         ],
       }),
     );
