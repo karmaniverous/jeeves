@@ -13,7 +13,16 @@ export {
   type ConfigQueryHandler,
   type ConfigQueryResponse,
   createConfigQueryHandler,
+  createStatusHandler,
+  type CreateStatusHandlerOptions,
+  type StatusHandler,
+  type StatusHandlerResult,
+  type StatusResponse,
 } from './api/index.js';
+export {
+  createPluginCli,
+  type CreatePluginCliOptions,
+} from './cli/plugin/index.js';
 export {
   type AsyncContentCacheOptions,
   type ComponentDependencies,
@@ -23,7 +32,11 @@ export {
   ComponentWriter,
   createAsyncContentCache,
   createComponentWriter,
+  getEffectiveServiceName,
+  isPrime,
   type JeevesComponent,
+  type JeevesComponentDescriptor,
+  jeevesComponentDescriptorSchema,
   orchestrateHeartbeat,
   type OrchestrateHeartbeatOptions,
   type PluginCommands,

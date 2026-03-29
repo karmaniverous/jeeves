@@ -19,6 +19,12 @@ export {
 } from './createAsyncContentCache.js';
 export { createComponentWriter } from './createComponentWriter.js';
 export {
+  getEffectiveServiceName,
+  isPrime,
+  type JeevesComponentDescriptor,
+  jeevesComponentDescriptorSchema,
+} from './descriptor.js';
+export {
   type ComponentState,
   NOT_INSTALLED_ALERTS,
   orchestrateHeartbeat,

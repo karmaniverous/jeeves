@@ -9,3 +9,10 @@ export {
   type ConfigQueryResponse,
   createConfigQueryHandler,
 } from './configQuery.js';
+export {
+  createStatusHandler,
+  type CreateStatusHandlerOptions,
+  type StatusHandler,
+  type StatusHandlerResult,
+  type StatusResponse,
+} from './statusHandler.js';
