@@ -27,6 +27,7 @@ export {
   createPluginCli,
   type CreatePluginCliOptions,
 } from './cli/plugin/index.js';
+export { createServiceCli } from './cli/service/index.js';
 export {
   type AsyncContentCacheOptions,
   type ComponentDependencies,
@@ -133,6 +134,7 @@ export {
 } from './platform/index.js';
 export {
   connectionFail,
+  createPluginToolset,
   fail,
   fetchJson,
   fetchWithTimeout,
