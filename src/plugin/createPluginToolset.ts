@@ -106,7 +106,9 @@ export function createPluginToolset(
         return fail('Missing required parameter: config');
       }
       try {
-        const result = await postJson(`${baseUrl}/config/apply`, config);
+        const result = await postJson(`${baseUrl}/config/apply`, {
+          patch: config,
+        });
         return ok(result);
       } catch (err: unknown) {
         return connectionFail(err, baseUrl, `jeeves-${name}-openclaw`);

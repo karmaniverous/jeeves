@@ -51,9 +51,18 @@ describe('createServiceCli', () => {
     expect(configCmd).toBeDefined();
 
     const subCmds = configCmd!.commands.map((c) => c.name());
-    expect(subCmds).toContain('query');
+    expect(subCmds).not.toContain('query');
     expect(subCmds).toContain('validate');
     expect(subCmds).toContain('apply');
+  });
+
+  it('config command should accept jsonpath argument directly', () => {
+    const program = createServiceCli(makeTestDescriptor());
+    const configCmd = program.commands.find((c) => c.name() === 'config');
+    expect(configCmd).toBeDefined();
+    const args = configCmd!.registeredArguments;
+    expect(args.length).toBeGreaterThan(0);
+    expect(args[0].name()).toBe('jsonpath');
   });
 
   it('should have service subcommands', () => {
