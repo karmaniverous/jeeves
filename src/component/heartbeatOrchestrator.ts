@@ -63,7 +63,7 @@ export const NOT_INSTALLED_ALERTS: Record<string, string> = {
 const ALERT_TEXT: Record<string, Record<string, AlertTextValue>> = {
   runner: {
     not_installed:
-      NOT_INSTALLED_ALERTS['runner'] ?? '',
+      NOT_INSTALLED_ALERTS['runner'],
     config_missing: (configRoot: string) =>
       `Plugin installed but no configuration file found at \`${configRoot}/jeeves-runner/config.json\`. The plugin installer should have created a default config. Ask the user for consent to re-run the installer: \`npx @karmaniverous/jeeves-runner-openclaw install\`.`,
     service_not_installed:
@@ -73,7 +73,7 @@ const ALERT_TEXT: Record<string, Record<string, AlertTextValue>> = {
   },
   watcher: {
     not_installed:
-      NOT_INSTALLED_ALERTS['watcher'] ?? '',
+      NOT_INSTALLED_ALERTS['watcher'],
     deps_missing:
       'Plugin installed but Qdrant is not responding on `http://127.0.0.1:6333`. Qdrant is the vector database required for semantic search. Ask the user for consent to set up Qdrant. Guide them through installation for their platform — Docker is simplest: `docker run -p 6333:6333 qdrant/qdrant`. Verify via `GET http://127.0.0.1:6333/collections`.',
     config_missing: (configRoot: string) =>
@@ -85,7 +85,7 @@ const ALERT_TEXT: Record<string, Record<string, AlertTextValue>> = {
   },
   server: {
     not_installed:
-      NOT_INSTALLED_ALERTS['server'] ?? '',
+      NOT_INSTALLED_ALERTS['server'],
     config_missing: (configRoot: string) =>
       `Plugin installed but config file missing or invalid at \`${configRoot}/jeeves-server/config.json\`. The plugin installer should have created a default config. If missing, re-run: \`npx @karmaniverous/jeeves-server-openclaw install\`.`,
     service_not_installed:
@@ -95,7 +95,7 @@ const ALERT_TEXT: Record<string, Record<string, AlertTextValue>> = {
   },
   meta: {
     not_installed:
-      NOT_INSTALLED_ALERTS['meta'] ?? '',
+      NOT_INSTALLED_ALERTS['meta'],
     deps_missing:
       'Plugin installed but required dependency jeeves-watcher is not available. The watcher must be installed and running before meta can function. Do not attempt to set up meta until jeeves-watcher is healthy.',
     config_missing: (configRoot: string) =>

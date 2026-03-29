@@ -84,7 +84,7 @@ export async function seedContent(options: SeedContentOptions): Promise<void> {
   const entries: HeartbeatEntry[] = PLATFORM_COMPONENTS.map((name) => ({
     name: toServiceName(name),
     declined: false,
-    content: `- ${NOT_INSTALLED_ALERTS[name] ?? ''}`,
+    content: `- ${NOT_INSTALLED_ALERTS[name]}`,
   }));
   await writeHeartbeatSection(heartbeatPath, entries);
 }

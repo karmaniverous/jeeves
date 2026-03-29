@@ -98,9 +98,27 @@ function getServiceStateMacOS(serviceName: string): ServiceState {
       stdio: ['pipe', 'pipe', 'pipe'],
     }).trim();
 
-    // launchctl list output includes a PID field; if it's a number > 0, running
-    const pidMatch = /^(\d+)\s/m.exec(output);
-    if (pidMatch && Number(pidMatch[1]) > 0) return 'running';
+    // launchctl list output formats:
+    // 1. Table row: "PID\tStatus\tLabel" (e.g., "1234\t0\tcom.jeeves.runner")
+    // 2. Plist-style: '"PID" = 1234;'
+    // 3. Single service: first token is the PID or "-"
+
+    // Try table format: first token is PID
+    const tableMatch = /^(\d+|-)\s/m.exec(output);
+    if (tableMatch) {
+      const pid = tableMatch[1];
+      return pid !== undefined && pid !== '-' && Number(pid) > 0
+        ? 'running'
+        : 'stopped';
+    }
+
+    // Try plist-style: "PID" = <number>;
+    const plistMatch = /"PID"\s*=\s*(\d+)/m.exec(output);
+    if (plistMatch) {
+      return Number(plistMatch[1]) > 0 ? 'running' : 'stopped';
+    }
+
+    // If we got output but can't parse it, assume stopped (service exists but state unclear)
     return 'stopped';
   } catch {
     return 'not_installed';

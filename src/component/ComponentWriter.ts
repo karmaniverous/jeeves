@@ -115,8 +115,16 @@ export class ComponentWriter {
         const existingContent = (() => {
           try {
             return readFileSync(heartbeatPath, 'utf-8');
-          } catch {
-            return '';
+          } catch (err: unknown) {
+            // Only swallow "file not found" — let permission errors propagate
+            if (
+              err instanceof Error &&
+              'code' in err &&
+              (err as NodeJS.ErrnoException).code === 'ENOENT'
+            ) {
+              return '';
+            }
+            throw err;
           }
         })();
         const parsed = parseHeartbeat(existingContent);
