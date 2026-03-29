@@ -5,6 +5,12 @@
  */
 
 export {
+  type ConfigApplyHandler,
+  type ConfigApplyRequest,
+  type ConfigApplyResult,
+  createConfigApplyHandler,
+} from './configApplyHandler.js';
+export {
   type ConfigQueryHandler,
   type ConfigQueryResponse,
   createConfigQueryHandler,

@@ -10,8 +10,12 @@
  */
 
 export {
+  type ConfigApplyHandler,
+  type ConfigApplyRequest,
+  type ConfigApplyResult,
   type ConfigQueryHandler,
   type ConfigQueryResponse,
+  createConfigApplyHandler,
   createConfigQueryHandler,
   createStatusHandler,
   type CreateStatusHandlerOptions,
@@ -145,3 +149,8 @@ export {
   type ToolRegistrationOptions,
   type ToolResult,
 } from './plugin/index.js';
+export {
+  createServiceManager,
+  type ServiceManager,
+  type ServiceManagerOptions,
+} from './service/index.js';

@@ -9,8 +9,10 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { z } from 'zod';
+
 import { createComponentWriter } from '../component/createComponentWriter.js';
-import type { JeevesComponent } from '../component/types.js';
+import type { JeevesComponentDescriptor } from '../component/descriptor.js';
 import {
   SOUL_MARKERS,
   TEMPLATES_DIR,
@@ -22,24 +24,28 @@ import { refreshPlatformContent } from './refreshPlatformContent.js';
 import { seedContent } from './seedContent.js';
 
 function makeTestComponent(
-  overrides: Partial<JeevesComponent> = {},
-): JeevesComponent {
+  overrides: Partial<JeevesComponentDescriptor> = {},
+): JeevesComponentDescriptor {
   return {
     name: 'watcher',
     version: '0.10.1',
+    servicePackage: '@karmaniverous/jeeves-watcher',
+    pluginPackage: '@karmaniverous/jeeves-watcher-openclaw',
+    defaultPort: 1936,
+    configSchema: z.object({ watchPaths: z.array(z.string()) }),
+    configFileName: 'config.json',
+    initTemplate: () => ({ watchPaths: [] }),
+    startCommand: (configPath: string) => [
+      'node',
+      'index.js',
+      '-c',
+      configPath,
+    ],
     sectionId: 'Watcher',
     refreshIntervalSeconds: 71,
     generateToolsContent: () => 'Watcher search index: 464,230 chunks.',
-    serviceCommands: {
-      stop: vi.fn().mockResolvedValue(undefined),
-      uninstall: vi.fn().mockResolvedValue(undefined),
-      status: vi.fn().mockResolvedValue({ running: true, version: '0.10.1' }),
-    },
-    pluginCommands: {
-      uninstall: vi.fn().mockResolvedValue(undefined),
-    },
     ...overrides,
-  };
+  } as JeevesComponentDescriptor;
 }
 
 describe('end-to-end integration', () => {
