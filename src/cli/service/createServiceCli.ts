@@ -29,7 +29,7 @@ import {
  * Standard commands:
  * - `start -c <path>` - Launch the service process (foreground)
  * - `status [-p port]` - Probe service health
- * - `config [jsonpath] [-p port]` - Query running config
+ * - `config [jsonpath] [-p port]` - Query running config (jsonpath optional)
  * - `config validate -c <path>` - Validate a config file
  * - `config apply [-p port] [--file path] [--replace]` - Apply config patch
  * - `init [-o path]` - Generate default config
@@ -90,11 +90,7 @@ export function createServiceCli(
   // --- config ---
   const configCmd = program
     .command('config')
-    .description('Query or manage service configuration');
-
-  configCmd
-    .command('query')
-    .description('Query running service config via JSONPath')
+    .description('Query or manage service configuration')
     .argument('[jsonpath]', 'JSONPath expression')
     .option('-p, --port <port>', 'Service port', String(descriptor.defaultPort))
     .action(async (jsonpath, opts) => {
@@ -152,9 +148,12 @@ export function createServiceCli(
         }
       }
 
-      const qs = opts.replace ? '?replace=true' : '';
+      const body: Record<string, unknown> = { patch };
+      if (opts.replace) {
+        body.replace = true;
+      }
       try {
-        const result = await postJson(`${url}/config/apply${qs}`, patch);
+        const result = await postJson(`${url}/config/apply`, body);
         console.log(JSON.stringify(result, null, 2));
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
