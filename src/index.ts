@@ -16,14 +16,19 @@ export {
 } from './api/index.js';
 export {
   type AsyncContentCacheOptions,
+  type ComponentDependencies,
+  type ComponentState,
   type ComponentVersionEntry,
   type ComponentVersionsState,
   ComponentWriter,
   createAsyncContentCache,
   createComponentWriter,
   type JeevesComponent,
+  orchestrateHeartbeat,
+  type OrchestrateHeartbeatOptions,
   type PluginCommands,
   readComponentVersions,
+  removeComponentVersion,
   type ServiceCommands,
   type ServiceStatus,
   writeComponentVersion,
@@ -42,6 +47,8 @@ export {
   META_PORT,
   REGISTRY_CACHE_FILE,
   RUNNER_PORT,
+  PLATFORM_COMPONENTS,
+  type PlatformComponent,
   SECTION_IDS,
   SECTION_ORDER,
   type SectionId,
@@ -58,8 +65,12 @@ export {
   checkRegistryVersion,
   type CoreConfig,
   coreConfigSchema,
+  DEFAULT_BIND_ADDRESS,
   generateJsonSchema,
+  getBindAddress,
+  getServiceState,
   getServiceUrl,
+  type ServiceState,
 } from './discovery/index.js';
 export {
   getComponentConfigDir,
@@ -73,12 +84,17 @@ export {
 } from './init.js';
 export {
   atomicWrite,
+  buildHeartbeatSection,
   DEFAULT_CORE_VERSION,
   formatBeginMarker,
+  type HeartbeatEntry,
+  HEARTBEAT_HEADING,
   formatEndMarker,
   jaccard,
   type ManagedSection,
   needsCleanup,
+  type ParsedHeartbeat,
+  parseHeartbeat,
   parseManaged,
   type ParseManagedResult,
   removeManagedSection,
@@ -90,6 +106,7 @@ export {
   type UpdateManagedSectionOptions,
   type VersionStamp,
   withFileLock,
+  writeHeartbeatSection,
 } from './managed/index.js';
 export {
   refreshPlatformContent,
