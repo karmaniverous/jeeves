@@ -5,8 +5,8 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
-import type { JeevesComponentDescriptor } from '../component/descriptor';
 import { init, resetInit } from '../init';
+import { makeTestDescriptor } from '../test/makeTestDescriptor';
 import { createConfigApplyHandler } from './configApplyHandler';
 
 const testSchema = z.object({
@@ -16,23 +16,14 @@ const testSchema = z.object({
 });
 
 function makeDescriptor(
-  overrides: Partial<JeevesComponentDescriptor> = {},
-): JeevesComponentDescriptor {
-  return {
-    name: 'watcher',
-    version: '0.11.1',
-    servicePackage: '@karmaniverous/jeeves-watcher',
-    pluginPackage: '@karmaniverous/jeeves-watcher-openclaw',
-    defaultPort: 1936,
+  overrides: Parameters<typeof makeTestDescriptor>[0] = {},
+) {
+  return makeTestDescriptor({
     configSchema: testSchema,
-    configFileName: 'config.json',
     initTemplate: () => ({ port: 1936, watchPaths: [], debug: false }),
     startCommand: (cp: string) => ['node', 'index.js', '-c', cp],
-    sectionId: 'Watcher',
-    refreshIntervalSeconds: 71,
-    generateToolsContent: () => 'content',
     ...overrides,
-  } as JeevesComponentDescriptor;
+  });
 }
 
 describe('createConfigApplyHandler', () => {

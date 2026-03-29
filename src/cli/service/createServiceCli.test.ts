@@ -3,38 +3,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { z } from 'zod';
 
-import type { JeevesComponentDescriptor } from '../../component/descriptor';
 import { init, resetInit } from '../../init';
+import { makeTestDescriptor } from '../../test/makeTestDescriptor';
 import { createServiceCli } from './createServiceCli';
-
-function makeDescriptor(
-  overrides: Partial<JeevesComponentDescriptor> = {},
-): JeevesComponentDescriptor {
-  return {
-    name: 'watcher',
-    version: '0.11.1',
-    servicePackage: '@karmaniverous/jeeves-watcher',
-    pluginPackage: '@karmaniverous/jeeves-watcher-openclaw',
-    defaultPort: 1936,
-    configSchema: z.object({
-      watchPaths: z.array(z.string()).default([]),
-    }),
-    configFileName: 'config.json',
-    initTemplate: () => ({ watchPaths: [] }),
-    startCommand: (configPath: string) => [
-      'node',
-      'dist/index.js',
-      '-c',
-      configPath,
-    ],
-    sectionId: 'Watcher',
-    refreshIntervalSeconds: 71,
-    generateToolsContent: () => 'content',
-    ...overrides,
-  } as JeevesComponentDescriptor;
-}
 
 describe('createServiceCli', () => {
   let testDir: string;
@@ -52,7 +24,7 @@ describe('createServiceCli', () => {
   });
 
   it('should create a CLI program with standard commands', () => {
-    const program = createServiceCli(makeDescriptor());
+    const program = createServiceCli(makeTestDescriptor());
     expect(program.name()).toBe('jeeves-watcher');
     expect(program.version()).toBe('0.11.1');
 
@@ -65,7 +37,7 @@ describe('createServiceCli', () => {
   });
 
   it('should have config subcommands', () => {
-    const program = createServiceCli(makeDescriptor());
+    const program = createServiceCli(makeTestDescriptor());
     const configCmd = program.commands.find((c) => c.name() === 'config');
     expect(configCmd).toBeDefined();
 
@@ -76,7 +48,7 @@ describe('createServiceCli', () => {
   });
 
   it('should have service subcommands', () => {
-    const program = createServiceCli(makeDescriptor());
+    const program = createServiceCli(makeTestDescriptor());
     const serviceCmd = program.commands.find((c) => c.name() === 'service');
     expect(serviceCmd).toBeDefined();
 
@@ -90,7 +62,7 @@ describe('createServiceCli', () => {
   });
 
   it('should apply custom CLI commands', () => {
-    const descriptor = makeDescriptor({
+    const descriptor = makeTestDescriptor({
       customCliCommands: (program) => {
         program.command('custom-cmd').description('A custom command');
       },
@@ -101,7 +73,9 @@ describe('createServiceCli', () => {
   });
 
   it('should use custom service name', () => {
-    const program = createServiceCli(makeDescriptor({ serviceName: 'my-svc' }));
+    const program = createServiceCli(
+      makeTestDescriptor({ serviceName: 'my-svc' }),
+    );
     // service status subcommand defaults to the descriptor's service name
     const serviceCmd = program.commands.find((c) => c.name() === 'service');
     expect(serviceCmd).toBeDefined();

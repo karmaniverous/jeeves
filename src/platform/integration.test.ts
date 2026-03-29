@@ -8,10 +8,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { z } from 'zod';
 
 import { createComponentWriter } from '../component/createComponentWriter.js';
-import type { JeevesComponentDescriptor } from '../component/descriptor.js';
 import {
   SOUL_MARKERS,
   TEMPLATES_DIR,
@@ -19,33 +17,9 @@ import {
 } from '../constants/index.js';
 import { init, resetInit } from '../init.js';
 import { parseManaged } from '../managed/parseManaged.js';
+import { makeTestDescriptor } from '../test/makeTestDescriptor.js';
 import { refreshPlatformContent } from './refreshPlatformContent.js';
 import { seedContent } from './seedContent.js';
-
-function makeTestComponent(
-  overrides: Partial<JeevesComponentDescriptor> = {},
-): JeevesComponentDescriptor {
-  return {
-    name: 'watcher',
-    version: '0.10.1',
-    servicePackage: '@karmaniverous/jeeves-watcher',
-    pluginPackage: '@karmaniverous/jeeves-watcher-openclaw',
-    defaultPort: 1936,
-    configSchema: z.object({ watchPaths: z.array(z.string()) }),
-    configFileName: 'config.json',
-    initTemplate: () => ({ watchPaths: [] }),
-    startCommand: (configPath: string) => [
-      'node',
-      'index.js',
-      '-c',
-      configPath,
-    ],
-    sectionId: 'Watcher',
-    refreshIntervalSeconds: 71,
-    generateToolsContent: () => 'Watcher search index: 464,230 chunks.',
-    ...overrides,
-  } as JeevesComponentDescriptor;
-}
 
 describe('end-to-end integration', () => {
   let testDir: string;
@@ -97,7 +71,11 @@ describe('end-to-end integration', () => {
     ).toBe(true);
 
     // Step 2: Component writer runs a cycle
-    const writer = createComponentWriter(makeTestComponent());
+    const writer = createComponentWriter(
+      makeTestDescriptor({
+        generateToolsContent: () => 'Watcher search index: 464,230 chunks.',
+      }),
+    );
     await writer.cycle();
 
     // Verify TOOLS.md has both Platform and Watcher sections

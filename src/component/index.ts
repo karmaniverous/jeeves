@@ -31,10 +31,4 @@ export {
   type OrchestrateHeartbeatOptions,
   toServiceName,
 } from './heartbeatOrchestrator.js';
-export type {
-  ComponentDependencies,
-  JeevesComponent,
-  PluginCommands,
-  ServiceCommands,
-  ServiceStatus,
-} from './types.js';
+export type { ComponentDependencies } from './types.js';

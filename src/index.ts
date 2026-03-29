@@ -3,7 +3,7 @@
  *
  * @remarks
  * Provides managed content writing, service discovery, config resolution,
- * and the `JeevesComponent` / `ComponentWriter` integration point for
+ * and the `JeevesComponentDescriptor` / `ComponentWriter` integration point for
  * Jeeves platform component plugins.
  *
  * @packageDocumentation
@@ -39,16 +39,12 @@ export {
   createComponentWriter,
   getEffectiveServiceName,
   isPrime,
-  type JeevesComponent,
   type JeevesComponentDescriptor,
   jeevesComponentDescriptorSchema,
   orchestrateHeartbeat,
   type OrchestrateHeartbeatOptions,
-  type PluginCommands,
   readComponentVersions,
   removeComponentVersion,
-  type ServiceCommands,
-  type ServiceStatus,
   writeComponentVersion,
   type WriteComponentVersionOptions,
 } from './component/index.js';

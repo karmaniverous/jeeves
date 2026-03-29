@@ -2,7 +2,7 @@
  * Creates a synchronous content accessor backed by an async data source.
  *
  * @remarks
- * Solves the sync/async gap in `JeevesComponent.generateToolsContent()`:
+ * Solves the sync/async gap in `JeevesComponentDescriptor.generateToolsContent()`:
  * the interface is synchronous, but most components fetch live data from
  * their HTTP service. This utility returns a sync `() => string` that
  * serves the last successfully fetched value while kicking off a background

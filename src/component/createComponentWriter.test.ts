@@ -3,36 +3,19 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { z } from 'zod';
 
 import { init, resetInit } from '../init';
 import { parseManaged } from '../managed/parseManaged';
+import { makeTestDescriptor } from '../test/makeTestDescriptor';
 import { createComponentWriter } from './createComponentWriter';
-import type { JeevesComponentDescriptor } from './descriptor';
 
 function makeDescriptor(
-  overrides: Partial<JeevesComponentDescriptor> = {},
-): JeevesComponentDescriptor {
-  return {
-    name: 'watcher',
-    version: '0.10.1',
-    servicePackage: '@karmaniverous/jeeves-watcher',
-    pluginPackage: '@karmaniverous/jeeves-watcher-openclaw',
-    defaultPort: 1936,
-    configSchema: z.object({ watchPaths: z.array(z.string()) }),
-    configFileName: 'config.json',
-    initTemplate: () => ({ watchPaths: [] }),
-    startCommand: (configPath: string) => [
-      'node',
-      'index.js',
-      '-c',
-      configPath,
-    ],
-    sectionId: 'Watcher',
-    refreshIntervalSeconds: 71,
+  overrides: Parameters<typeof makeTestDescriptor>[0] = {},
+) {
+  return makeTestDescriptor({
     generateToolsContent: () => 'Watcher content.',
     ...overrides,
-  } as JeevesComponentDescriptor;
+  });
 }
 
 describe('createComponentWriter', () => {
