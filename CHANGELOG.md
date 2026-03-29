@@ -2,7 +2,14 @@
 
 All notable changes to this project will be documented in this file. Dates are displayed in UTC.
 
+#### [0.4.2](https://github.com/karmaniverous/jeeves/compare/0.4.1...0.4.2)
+
+- feat: add customMerge hook to createConfigApplyHandler [`#46`](https://github.com/karmaniverous/jeeves/pull/46)
+- fix: defensive nullish coalescing in customMerge test mock [`f31ae20`](https://github.com/karmaniverous/jeeves/commit/f31ae20a33d37d1dbd36c76817f70c6af5a063c3)
+
 #### [0.4.1](https://github.com/karmaniverous/jeeves/compare/0.4.0...0.4.1)
+
+> 29 March 2026
 
 - feat: v0.5.0 — Component SDK (factory-driven CLI, plugin tools, HTTP handlers) [`#45`](https://github.com/karmaniverous/jeeves/pull/45)
 - feat: phase 1 - descriptor schema, status handler, plugin CLI [`362236e`](https://github.com/karmaniverous/jeeves/commit/362236ef8d255768750ad39593054dcbb3fe1e54)
@@ -12,6 +19,7 @@ All notable changes to this project will be documented in this file. Dates are d
 - feat: phase 4 - unified CLI with dynamic subcommand discovery [`9e541b1`](https://github.com/karmaniverous/jeeves/commit/9e541b1daaf8ad9e57b10462af7c659112dab599)
 - test: add CLI integration tests for createServiceCli [`56b6b8e`](https://github.com/karmaniverous/jeeves/commit/56b6b8e8ac873c6c1731def01013a18ce5243953)
 - fix: address Gemini review comments [`686aff1`](https://github.com/karmaniverous/jeeves/commit/686aff1bb0fd16137599f0c931537a5408be9340)
+- chore: release v0.4.1 [`42bbdd5`](https://github.com/karmaniverous/jeeves/commit/42bbdd55a0af1d36f85cda13d256757b052b93ea)
 - chore: remove temp commit script [`7e8c484`](https://github.com/karmaniverous/jeeves/commit/7e8c484cc2cfb9877c51e4512cddfbe28e385b51)
 - fix: increase timeout for discoverComponents tests [`7bda59c`](https://github.com/karmaniverous/jeeves/commit/7bda59ce7b5264364c9cdc46c9fa8f5c8265b977)
 
