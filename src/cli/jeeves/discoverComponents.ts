@@ -24,7 +24,7 @@ import type { Command } from '@commander-js/extra-typings';
  */
 export function discoverComponentPackages(): string[] {
   try {
-    const output = execSync('npm ls -g --json --depth=0 2>nul', {
+    const output = execSync('npm ls -g --json --depth=0', {
       encoding: 'utf-8',
       timeout: 10_000,
       stdio: ['pipe', 'pipe', 'pipe'],

@@ -168,16 +168,12 @@ export function createPluginCli(options: CreatePluginCliOptions): Command {
       // 4. Write initial HEARTBEAT entry
       try {
         const cfgRoot = opts.configRoot;
+        const agents = config.agents as Record<string, unknown> | undefined;
+        const defaults = agents?.defaults as
+          | Record<string, unknown>
+          | undefined;
         const ws =
-          (opts.workspace ??
-          (config.agents as Record<string, unknown> | undefined)?.defaults)
-            ? ((
-                (config.agents as Record<string, unknown>).defaults as Record<
-                  string,
-                  unknown
-                >
-              ).workspace as string | undefined)
-            : undefined;
+          opts.workspace ?? (defaults?.workspace as string | undefined);
 
         if (ws) {
           init({ workspacePath: ws, configRoot: cfgRoot });

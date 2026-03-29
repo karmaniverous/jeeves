@@ -83,7 +83,9 @@ function readConfigFile(filePath: string): Record<string, unknown> {
   try {
     const raw = readFileSync(filePath, 'utf-8');
     return JSON.parse(raw) as Record<string, unknown>;
-  } catch {
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`jeeves-core: Could not read config file ${filePath}: ${msg}`);
     return {};
   }
 }

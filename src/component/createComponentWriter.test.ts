@@ -46,7 +46,7 @@ describe('createComponentWriter', () => {
   it('should reject interval of 1', () => {
     expect(() =>
       createComponentWriter(makeDescriptor({ refreshIntervalSeconds: 1 })),
-    ).toThrow();
+    ).toThrow(/prime/);
   });
 
   it('should accept prime interval', () => {
