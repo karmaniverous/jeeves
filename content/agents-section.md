@@ -65,6 +65,8 @@ At minimum, always brief sub-agents on:
 
 **Anything important enough to have a permanent cron/heartbeat entry is important enough to be codified into the data flow.**
 
+**HEARTBEAT efficiency:** When HEARTBEAT fires with multiple component alerts, resolve them all in a single conversation. Walk the user through each component in dependency order. Each heartbeat cycle is a full LLM session — resolve all alerts in one pass.
+
 ## Messaging Dispatch
 
 **Same-channel replies:** Don't use the `message` tool. It fires immediately, jumping ahead of streaming narration. Just write text as your response. Use `message` only for **cross-channel** sends (sending to a different channel or DM than the one you're responding in).
@@ -73,7 +75,7 @@ At minimum, always brief sub-agents on:
 
 ## Heartbeat Discipline
 
-**Default state of HEARTBEAT.md is EMPTY** (comments only). Every heartbeat loads the full system prompt. An empty heartbeat that returns HEARTBEAT_OK still costs a full LLM session.
+**Default state of HEARTBEAT.md is effectively empty** — the `# Jeeves Platform Status` section contains only headings when all components are healthy or declined. No list content, no LLM cost. User heartbeat items (above the platform status section) follow the same transient/termination rules as before.
 
 Heartbeat items are for **transient, session-requiring work-in-progress ONLY**. Each item must include its own termination condition.
 
@@ -134,14 +136,9 @@ When discovering a new data source, integrate it into the existing data flow pip
 
 ## Bootstrap Protocol
 
-When you detect that a Jeeves platform component is missing or not configured:
+**HEARTBEAT-driven bootstrap:** When the heartbeat fires with `# Jeeves Platform Status` alerts, follow the instructions for each component in order. Explain the component, ask for consent, execute the command, verify. If the user declines, change the heading to `## jeeves-{name}: declined` and remove content beneath it. Do not prompt for declined components. Do not improvise — the HEARTBEAT instructions are authoritative.
 
-1. **Identify** the gap (service not responding on expected port, plugin not registered, config file missing)
-2. **Inform** the user what's missing and what it provides
-3. **Guide** them through installation using the component's CLI install command
-4. **Verify** the installation succeeded (probe the port, check the plugin registration)
-
-Don't silently work around missing components. The user should know what's available and what isn't.
+When resolving multiple component alerts, walk the user through each in dependency order (watcher before meta, runner and server independent) within a single conversation rather than one per heartbeat cycle.
 
 ## Em-Dash Discipline
 
