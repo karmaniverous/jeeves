@@ -82,6 +82,20 @@ export const jeevesComponentDescriptorSchema = z.object({
     .optional(),
 
   /**
+   * Custom merge function for config apply. Receives the existing config
+   * and the patch, returns the merged result. Optional — if omitted,
+   * the default deep-merge (object-recursive, array-replacing) is used.
+   *
+   * Use this to implement domain-specific merge strategies such as
+   * name-based array merging for inference rules.
+   */
+  customMerge: z
+    .function()
+    .args(z.record(z.unknown()), z.record(z.unknown()))
+    .returns(z.record(z.unknown()))
+    .optional(),
+
+  /**
    * Returns command + args for launching the service process.
    * Consumed by `start` CLI command and `service install`.
    */

@@ -127,6 +127,90 @@ describe('createConfigApplyHandler', () => {
     expect(calledWith.port).toBe(2000);
   });
 
+  it('should use customMerge when provided', async () => {
+    const existingPath = join(configDir, 'jeeves-watcher', 'config.json');
+    writeFileSync(
+      existingPath,
+      JSON.stringify({ port: 1936, watchPaths: ['/old'], debug: true }),
+    );
+
+    const customMerge = vi.fn(
+      (
+        existing: Record<string, unknown>,
+        patch: Record<string, unknown>,
+      ): Record<string, unknown> => ({
+        ...existing,
+        ...patch,
+        watchPaths: [
+          ...((existing.watchPaths as string[] | undefined) ?? []),
+          ...((patch.watchPaths as string[] | undefined) ?? []),
+        ],
+      }),
+    );
+
+    const handler = createConfigApplyHandler(makeDescriptor({ customMerge }));
+    const result = await handler({
+      patch: { watchPaths: ['/new'] },
+    });
+
+    expect(result.status).toBe(200);
+    expect(customMerge).toHaveBeenCalledExactlyOnceWith(
+      { port: 1936, watchPaths: ['/old'], debug: true },
+      { watchPaths: ['/new'] },
+    );
+
+    const written = JSON.parse(readFileSync(existingPath, 'utf-8')) as Record<
+      string,
+      unknown
+    >;
+    expect(written.watchPaths).toEqual(['/old', '/new']); // concatenated, not replaced
+    expect(written.port).toBe(1936);
+  });
+
+  it('should validate customMerge result against schema', async () => {
+    const existingPath = join(configDir, 'jeeves-watcher', 'config.json');
+    writeFileSync(
+      existingPath,
+      JSON.stringify({ port: 1936, watchPaths: [], debug: false }),
+    );
+
+    const customMerge = vi.fn(
+      (): Record<string, unknown> => ({
+        port: -1, // invalid: must be positive
+        watchPaths: [],
+        debug: false,
+      }),
+    );
+
+    const handler = createConfigApplyHandler(makeDescriptor({ customMerge }));
+    const result = await handler({
+      patch: { debug: true },
+    });
+
+    expect(result.status).toBe(400);
+    const body = result.body as Record<string, unknown>;
+    expect(body.error).toContain('validation failed');
+  });
+
+  it('should not call customMerge when replace is true', async () => {
+    const existingPath = join(configDir, 'jeeves-watcher', 'config.json');
+    writeFileSync(
+      existingPath,
+      JSON.stringify({ port: 1936, watchPaths: [], debug: false }),
+    );
+
+    const customMerge = vi.fn();
+
+    const handler = createConfigApplyHandler(makeDescriptor({ customMerge }));
+    const result = await handler({
+      patch: { port: 2000 },
+      replace: true,
+    });
+
+    expect(result.status).toBe(200);
+    expect(customMerge).not.toHaveBeenCalled();
+  });
+
   it('should return warning when callback fails', async () => {
     const callback = vi.fn().mockRejectedValue(new Error('reload failed'));
     const handler = createConfigApplyHandler(

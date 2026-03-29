@@ -118,7 +118,8 @@ export function createConfigApplyHandler(
     const existing = readConfigFile(configPath);
 
     // Merge or replace
-    const merged = replace ? { ...patch } : deepMerge(existing, patch);
+    const mergeFn = descriptor.customMerge ?? deepMerge;
+    const merged = replace ? { ...patch } : mergeFn(existing, patch);
 
     // Validate against schema
     const schema = descriptor.configSchema;
