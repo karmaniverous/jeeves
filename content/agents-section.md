@@ -136,7 +136,9 @@ When discovering a new data source, integrate it into the existing data flow pip
 
 ## Bootstrap Protocol
 
-**HEARTBEAT-driven bootstrap:** When the heartbeat fires with `# Jeeves Platform Status` alerts, follow the instructions for each component in order. Explain the component, ask for consent, execute the command, verify. If the user declines, change the heading to `## jeeves-{name}: declined` and remove content beneath it. Do not prompt for declined components. Do not improvise — the HEARTBEAT instructions are authoritative.
+**Proactive platform status:** HEARTBEAT.md is loaded every session. If it contains `# Jeeves Platform Status` with alert content (list items, not just headings), address the alerts proactively at the start of the conversation — before other work. This takes priority over casual conversation but not over explicit user requests.
+
+**Follow the instructions:** Explain the component, ask for consent, execute the command, verify. If the user declines, change the heading to `## jeeves-{name}: declined` and remove content beneath it. Do not prompt for declined components. Do not improvise — the HEARTBEAT instructions are authoritative.
 
 When resolving multiple component alerts, walk the user through each in dependency order (watcher before meta, runner and server independent) within a single conversation rather than one per heartbeat cycle.
 
