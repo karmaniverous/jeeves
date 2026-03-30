@@ -12,7 +12,7 @@ import type { Command } from '@commander-js/extra-typings';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
-import { init, resetInit } from '../../init';
+import { getWorkspacePath, init, resetInit } from '../../init';
 import { makeTestDescriptor } from '../../test/makeTestDescriptor';
 import { createServiceCli } from './createServiceCli';
 
@@ -114,6 +114,33 @@ describe('createServiceCli', () => {
         'start',
         '-c',
         '/some/config.json',
+      ]);
+
+      expect(runSpy).toHaveBeenCalledWith('/some/config.json');
+    });
+
+    it('start command should initialize core before calling run', async () => {
+      // Reset init state so we can verify start command calls init
+      resetInit();
+
+      const runSpy = vi.fn().mockImplementation(() => {
+        // Verify init was called by the time run executes
+        // getWorkspacePath() would throw if init wasn't called
+        getWorkspacePath(); // should not throw
+      });
+      const descriptor = makeTestDescriptor({ run: runSpy });
+      const program = createServiceCli(descriptor);
+
+      await program.parseAsync([
+        'node',
+        'test',
+        'start',
+        '-c',
+        '/some/config.json',
+        '-w',
+        '/some/workspace',
+        '--config-root',
+        '/some/config',
       ]);
 
       expect(runSpy).toHaveBeenCalledWith('/some/config.json');
