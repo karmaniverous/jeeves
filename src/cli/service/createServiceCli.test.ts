@@ -8,6 +8,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import type { Command } from '@commander-js/extra-typings';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
@@ -81,7 +82,7 @@ describe('createServiceCli', () => {
 
   it('should apply custom CLI commands', () => {
     const descriptor = makeTestDescriptor({
-      customCliCommands: (program) => {
+      customCliCommands: (program: Command) => {
         program.command('custom-cmd').description('A custom command');
       },
     });

@@ -8,7 +8,7 @@
  */
 
 import type { Command } from '@commander-js/extra-typings';
-import { z, type ZodTypeAny } from 'zod';
+import { z, type ZodType } from 'zod';
 
 import type { PluginApi } from '../plugin/types.js';
 
@@ -56,11 +56,11 @@ export const jeevesComponentDescriptorSchema = z.object({
   defaultPort: z.number().int().positive(),
 
   /** Zod schema for validating config files. */
-  configSchema: z.custom<ZodTypeAny>(
+  configSchema: z.custom<ZodType>(
     (val) =>
       val !== null &&
       typeof val === 'object' &&
-      typeof (val as ZodTypeAny).parse === 'function',
+      typeof (val as ZodType).parse === 'function',
     { message: 'configSchema must be a Zod schema' },
   ),
 
@@ -68,7 +68,10 @@ export const jeevesComponentDescriptorSchema = z.object({
   configFileName: z.string().min(1),
 
   /** Returns a default config object for `init`. */
-  initTemplate: z.function().returns(z.record(z.unknown())),
+  initTemplate: z.function({
+    input: [],
+    output: z.record(z.string(), z.unknown()),
+  }),
 
   /**
    * Service-side callback after config apply. Receives the merged,
@@ -76,9 +79,10 @@ export const jeevesComponentDescriptorSchema = z.object({
    * write-only (service picks up changes on restart).
    */
   onConfigApply: z
-    .function()
-    .args(z.record(z.unknown()))
-    .returns(z.promise(z.void()))
+    .function({
+      input: [z.record(z.string(), z.unknown())],
+      output: z.promise(z.void()),
+    })
     .optional(),
 
   /**
@@ -90,16 +94,23 @@ export const jeevesComponentDescriptorSchema = z.object({
    * name-based array merging for inference rules.
    */
   customMerge: z
-    .function()
-    .args(z.record(z.unknown()), z.record(z.unknown()))
-    .returns(z.record(z.unknown()))
+    .function({
+      input: [
+        z.record(z.string(), z.unknown()),
+        z.record(z.string(), z.unknown()),
+      ],
+      output: z.record(z.string(), z.unknown()),
+    })
     .optional(),
 
   /**
    * Returns command + args for launching the service process.
    * Consumed by `start` CLI command and `service install`.
    */
-  startCommand: z.function().args(z.string()).returns(z.array(z.string())),
+  startCommand: z.function({
+    input: [z.string()],
+    output: z.array(z.string()),
+  }),
 
   /** TOOLS.md section name (e.g., 'Watcher'). */
   sectionId: z.string().min(1, 'sectionId must be a non-empty string'),
@@ -110,28 +121,26 @@ export const jeevesComponentDescriptorSchema = z.object({
   }),
 
   /** Produce the component's TOOLS.md section content. */
-  generateToolsContent: z.function().returns(z.string()),
+  generateToolsContent: z.function({ input: [], output: z.string() }),
 
   /** Component dependencies for HEARTBEAT alert suppression. */
   dependencies: z
     .object({
+      /** Components that must be healthy for this component to function. */
       hard: z.array(z.string()),
+      /** Components that improve behavior but are not strictly required. */
       soft: z.array(z.string()),
     })
     .optional(),
 
   /** Extension point: add custom CLI commands to the service CLI. */
   customCliCommands: z
-    .function()
-    .args(z.custom<Command>())
-    .returns(z.void())
+    .function({ input: [z.custom<Command>()], output: z.void() })
     .optional(),
 
   /** Extension point: return additional plugin tool descriptors. */
   customPluginTools: z
-    .function()
-    .args(z.custom<PluginApi>())
-    .returns(z.array(z.unknown()))
+    .function({ input: [z.custom<PluginApi>()], output: z.array(z.unknown()) })
     .optional(),
 });
 

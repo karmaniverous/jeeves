@@ -19,7 +19,7 @@ import { CONFIG_FILE } from '../constants/paths.js';
 /** Zod schema for a service entry in core config. */
 const serviceEntrySchema = z.object({
   /** Service URL (must be a valid URL). */
-  url: z.string().url().describe('Service URL'),
+  url: z.url().describe('Service URL'),
 });
 
 /** Default bind address for all Jeeves services. */
@@ -55,7 +55,7 @@ export const coreConfigSchema = z.object({
         .default(3600)
         .describe('Cache TTL in seconds'),
     })
-    .default({})
+    .prefault({})
     .describe('Registry cache settings'),
 });
 
