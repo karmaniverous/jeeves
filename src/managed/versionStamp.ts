@@ -7,7 +7,7 @@
  * mechanism ensures convergence without coordination state.
  */
 
-import { gte } from 'semver';
+import { gte, valid } from 'semver';
 
 import { STALENESS_THRESHOLD_MS } from '../constants/index.js';
 import type { VersionStamp } from './parseManaged.js';
@@ -48,8 +48,9 @@ export function shouldWrite(
   existing: VersionStamp | undefined,
   stalenessThresholdMs: number = STALENESS_THRESHOLD_MS,
 ): boolean {
-  // No existing stamp — always write
-  if (!existing) return true;
+  // Always write when version comparison is impossible: invalid/placeholder
+  // versions (dev/test mode) or no existing stamp to compare against.
+  if (!valid(myVersion) || !existing || !valid(existing.version)) return true;
 
   // My version >= stamped version — always write (I'm current or newer)
   if (gte(myVersion, existing.version)) return true;
