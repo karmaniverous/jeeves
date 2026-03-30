@@ -100,6 +100,26 @@ describe('createServiceCli', () => {
     expect(serviceCmd).toBeDefined();
   });
 
+  // --- start command ---
+
+  describe('start command execution', () => {
+    it('start command should call descriptor.run', async () => {
+      const runSpy = vi.fn().mockResolvedValue(undefined);
+      const descriptor = makeTestDescriptor({ run: runSpy });
+      const program = createServiceCli(descriptor);
+
+      await program.parseAsync([
+        'node',
+        'test',
+        'start',
+        '-c',
+        '/some/config.json',
+      ]);
+
+      expect(runSpy).toHaveBeenCalledWith('/some/config.json');
+    });
+  });
+
   // --- Integration tests: command execution ---
 
   describe('init command execution', () => {

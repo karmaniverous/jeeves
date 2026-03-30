@@ -105,11 +105,17 @@ export const jeevesComponentDescriptorSchema = z.object({
 
   /**
    * Returns command + args for launching the service process.
-   * Consumed by `start` CLI command and `service install`.
+   * Consumed by `service install`.
    */
   startCommand: z.function({
     input: [z.string()],
     output: z.array(z.string()),
+  }),
+
+  /** In-process service entry point for the CLI `start` command. */
+  run: z.function({
+    input: [z.string()],
+    output: z.promise(z.void()),
   }),
 
   /** TOOLS.md section name (e.g., 'Watcher'). */
