@@ -2,9 +2,18 @@
 
 All notable changes to this project will be documented in this file. Dates are displayed in UTC.
 
+#### [0.4.4](https://github.com/karmaniverous/jeeves/compare/0.4.3...0.4.4)
+
+- fix: atomicWrite temp file leak + semver guard for dev/test [`#49`](https://github.com/karmaniverous/jeeves/pull/49)
+- chore: update dependencies [`#48`](https://github.com/karmaniverous/jeeves/pull/48)
+- fix: clean up temp files on failed atomic write + guard invalid semver in tests [`6a3bdc5`](https://github.com/karmaniverous/jeeves/commit/6a3bdc54f7039a18efdd53bfd77c13be5ba97042)
+
 #### [0.4.3](https://github.com/karmaniverous/jeeves/compare/0.4.2...0.4.3)
 
+> 29 March 2026
+
 - fix: config CLI tree and config apply wire format [`#47`](https://github.com/karmaniverous/jeeves/pull/47)
+- chore: release v0.4.3 [`b8fde1b`](https://github.com/karmaniverous/jeeves/commit/b8fde1b6d46369a5e6c8e95e955f529ed56a28e8)
 
 #### [0.4.2](https://github.com/karmaniverous/jeeves/compare/0.4.1...0.4.2)
 
