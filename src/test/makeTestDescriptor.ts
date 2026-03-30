@@ -39,6 +39,9 @@ export function makeTestDescriptor(
       '-c',
       configPath,
     ],
+    run: async () => {
+      /* no-op for tests */
+    },
     sectionId: 'Watcher',
     refreshIntervalSeconds: 71,
     generateToolsContent: () => 'content',

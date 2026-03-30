@@ -26,6 +26,9 @@ function makeDescriptor(
       '-c',
       configPath,
     ],
+    run: async () => {
+      /* no-op for tests */
+    },
     sectionId: 'Watcher',
     refreshIntervalSeconds: 71,
     generateToolsContent: () => 'Watcher tools content.',
@@ -149,6 +152,24 @@ describe('jeevesComponentDescriptorSchema', () => {
   it('should accept optional customPluginTools', () => {
     const result = jeevesComponentDescriptorSchema.safeParse(
       makeDescriptor({ customPluginTools: () => [] }),
+    );
+    expect(result.success).toBe(true);
+  });
+
+  it('should require the run field', () => {
+    const withoutRun: Record<string, unknown> = { ...makeDescriptor() };
+    delete withoutRun['run'];
+    const result = jeevesComponentDescriptorSchema.safeParse(withoutRun);
+    expect(result.success).toBe(false);
+  });
+
+  it('should accept a valid run function', () => {
+    const result = jeevesComponentDescriptorSchema.safeParse(
+      makeDescriptor({
+        run: async () => {
+          /* noop */
+        },
+      }),
     );
     expect(result.success).toBe(true);
   });

@@ -7,7 +7,6 @@
  * via `descriptor.customCliCommands`.
  */
 
-import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -60,14 +59,8 @@ export function createServiceCli(
     .command('start')
     .description('Launch the service process (foreground)')
     .requiredOption('-c, --config <path>', 'Config file path')
-    .action((opts) => {
-      const cmdArgs = descriptor.startCommand(opts.config);
-      const proc = spawn(cmdArgs[0], cmdArgs.slice(1), {
-        stdio: 'inherit',
-      });
-      proc.on('exit', (code: number | null) => {
-        process.exit(code ?? 1);
-      });
+    .action(async (opts) => {
+      await descriptor.run(opts.config);
     });
 
   // --- status ---
