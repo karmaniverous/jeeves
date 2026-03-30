@@ -2,11 +2,21 @@
 
 All notable changes to this project will be documented in this file. Dates are displayed in UTC.
 
+#### [0.4.5](https://github.com/karmaniverous/jeeves/compare/0.4.4...0.4.5)
+
+- fix: replace spawn recursion with descriptor.run in start command [`#52`](https://github.com/karmaniverous/jeeves/pull/52)
+- [51] fix: replace spawn recursion with descriptor.run in start command [`6827943`](https://github.com/karmaniverous/jeeves/commit/68279432f0d36a825e9141c99568f21556df1ac5)
+- [51] chore: remove temp scripts [`95fe447`](https://github.com/karmaniverous/jeeves/commit/95fe44744fc4a341cac85381bb9c055d7989c6b0)
+- [51] chore: remove remaining temp scripts [`7702b34`](https://github.com/karmaniverous/jeeves/commit/7702b3429f9621ec61e83a5ff1f8c684ed4b06b0)
+
 #### [0.4.4](https://github.com/karmaniverous/jeeves/compare/0.4.3...0.4.4)
+
+> 30 March 2026
 
 - fix: atomicWrite temp file leak + semver guard for dev/test [`#49`](https://github.com/karmaniverous/jeeves/pull/49)
 - chore: update dependencies [`#48`](https://github.com/karmaniverous/jeeves/pull/48)
 - fix: clean up temp files on failed atomic write + guard invalid semver in tests [`6a3bdc5`](https://github.com/karmaniverous/jeeves/commit/6a3bdc54f7039a18efdd53bfd77c13be5ba97042)
+- chore: release v0.4.4 [`6203283`](https://github.com/karmaniverous/jeeves/commit/6203283925ea290730fa98e2a1bd39a722c8114f)
 
 #### [0.4.3](https://github.com/karmaniverous/jeeves/compare/0.4.2...0.4.3)
 
