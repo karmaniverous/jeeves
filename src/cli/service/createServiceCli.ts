@@ -14,12 +14,16 @@ import { Command } from '@commander-js/extra-typings';
 
 import type { JeevesComponentDescriptor } from '../../component/descriptor.js';
 import { getEffectiveServiceName } from '../../component/descriptor.js';
-import { getComponentConfigDir } from '../../init.js';
+import { getComponentConfigDir, init } from '../../init.js';
 import { fetchJson, postJson } from '../../plugin/http.js';
 import {
   createServiceManager,
   type ServiceManager,
 } from '../../service/createServiceManager.js';
+import {
+  DEFAULT_CONFIG_ROOT,
+  DEFAULT_WORKSPACE,
+} from '../jeeves/cliDefaults.js';
 
 /**
  * Create a standard service CLI program from a component descriptor.
@@ -59,7 +63,14 @@ export function createServiceCli(
     .command('start')
     .description('Launch the service process (foreground)')
     .requiredOption('-c, --config <path>', 'Config file path')
+    .option('-w, --workspace <path>', 'Workspace root path', DEFAULT_WORKSPACE)
+    .option(
+      '--config-root <path>',
+      'Platform config root path',
+      DEFAULT_CONFIG_ROOT,
+    )
     .action(async (opts) => {
+      init({ workspacePath: opts.workspace, configRoot: opts.configRoot });
       await descriptor.run(opts.config);
     });
 
