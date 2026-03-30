@@ -29,6 +29,24 @@ describe('versionStamp', () => {
       expect(shouldWrite('0.1.0', undefined)).toBe(true);
     });
 
+    it('should write when version is an unresolved placeholder', () => {
+      expect(
+        shouldWrite('__JEEVES_CORE_VERSION__', {
+          version: '0.3.0',
+          timestamp: new Date().toISOString(),
+        }),
+      ).toBe(true);
+    });
+
+    it('should write when existing stamp has an unresolved placeholder version', () => {
+      expect(
+        shouldWrite('0.3.0', {
+          version: '__JEEVES_CORE_VERSION__',
+          timestamp: new Date().toISOString(),
+        }),
+      ).toBe(true);
+    });
+
     it('should write when my version equals stamped version', () => {
       expect(
         shouldWrite('0.1.0', {

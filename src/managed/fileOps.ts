@@ -7,7 +7,7 @@
  * `updateManagedSection` and `removeManagedSection`.
  */
 
-import { renameSync, writeFileSync } from 'node:fs';
+import { renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { lock } from 'proper-lockfile';
@@ -33,7 +33,16 @@ export function atomicWrite(filePath: string, content: string): void {
   const dir = dirname(filePath);
   const tempPath = join(dir, `.${String(Date.now())}.tmp`);
   writeFileSync(tempPath, content, 'utf-8');
-  renameSync(tempPath, filePath);
+  try {
+    renameSync(tempPath, filePath);
+  } catch (err) {
+    try {
+      unlinkSync(tempPath);
+    } catch {
+      /* best-effort cleanup */
+    }
+    throw err;
+  }
 }
 
 /**
