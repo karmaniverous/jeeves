@@ -2,10 +2,18 @@
 
 All notable changes to this project will be documented in this file. Dates are displayed in UTC.
 
+#### [0.4.6](https://github.com/karmaniverous/jeeves/compare/0.4.5...0.4.6)
+
+- fix: call init() before descriptor.run() in start command [`#54`](https://github.com/karmaniverous/jeeves/pull/54)
+- [53] fix: call init() before descriptor.run() in start command [`27a9aea`](https://github.com/karmaniverous/jeeves/commit/27a9aeac87a8dec4635723b28b9a4c0a470fc5db)
+
 #### [0.4.5](https://github.com/karmaniverous/jeeves/compare/0.4.4...0.4.5)
+
+> 30 March 2026
 
 - fix: replace spawn recursion with descriptor.run in start command [`#52`](https://github.com/karmaniverous/jeeves/pull/52)
 - [51] fix: replace spawn recursion with descriptor.run in start command [`6827943`](https://github.com/karmaniverous/jeeves/commit/68279432f0d36a825e9141c99568f21556df1ac5)
+- chore: release v0.4.5 [`290f938`](https://github.com/karmaniverous/jeeves/commit/290f9387b219758e268985ded7b5a1ac5938f8e8)
 - [51] chore: remove temp scripts [`95fe447`](https://github.com/karmaniverous/jeeves/commit/95fe44744fc4a341cac85381bb9c055d7989c6b0)
 - [51] chore: remove remaining temp scripts [`7702b34`](https://github.com/karmaniverous/jeeves/commit/7702b3429f9621ec61e83a5ff1f8c684ed4b06b0)
 
