@@ -2,10 +2,20 @@
 
 All notable changes to this project will be documented in this file. Dates are displayed in UTC.
 
+#### [0.4.7](https://github.com/karmaniverous/jeeves/compare/0.4.6...0.4.7)
+
+- feat: v0.5.0 Phase 1 — Plugin installer fix + utility hoist [`#58`](https://github.com/karmaniverous/jeeves/pull/58)
+- feat: plugin installer fix + utility hoist + getPackageVersion [`#57`](https://github.com/karmaniverous/jeeves/pull/57)
+- feat: plugin installer fix + utility hoist + getPackageVersion (#57) [`#57`](https://github.com/karmaniverous/jeeves/issues/57)
+- test: fill test gaps for Phase 1 validation [`683d96c`](https://github.com/karmaniverous/jeeves/commit/683d96c3ec614b5dee214423a830e847771b3192)
+
 #### [0.4.6](https://github.com/karmaniverous/jeeves/compare/0.4.5...0.4.6)
+
+> 31 March 2026
 
 - fix: call init() before descriptor.run() in start command [`#54`](https://github.com/karmaniverous/jeeves/pull/54)
 - [53] fix: call init() before descriptor.run() in start command [`27a9aea`](https://github.com/karmaniverous/jeeves/commit/27a9aeac87a8dec4635723b28b9a4c0a470fc5db)
+- chore: release v0.4.6 [`fb7e67d`](https://github.com/karmaniverous/jeeves/commit/fb7e67d27383e7dfcc35df53e226cefe95fb7669)
 
 #### [0.4.5](https://github.com/karmaniverous/jeeves/compare/0.4.4...0.4.5)
 
