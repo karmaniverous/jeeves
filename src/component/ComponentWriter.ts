@@ -53,6 +53,7 @@ export class ComponentWriter {
   private readonly component: JeevesComponentDescriptor;
   private readonly configDir: string;
   private readonly gatewayUrl: string | undefined;
+  private readonly pendingCleanups = new Set<string>();
 
   /** @internal */
   constructor(
@@ -121,22 +122,6 @@ export class ComponentWriter {
         coreVersion: CORE_VERSION,
       });
 
-      // Cleanup escalation: check if the written file has the cleanup flag
-      if (this.gatewayUrl) {
-        try {
-          const toolsContent = readFileSync(toolsPath, 'utf-8');
-          if (toolsContent.includes(CLEANUP_FLAG)) {
-            void requestCleanupSession({
-              gatewayUrl: this.gatewayUrl,
-              filePath: toolsPath,
-              markerIdentity: 'TOOLS',
-            });
-          }
-        } catch {
-          // Best-effort: don't fail the cycle for escalation issues
-        }
-      }
-
       // Platform content maintenance: SOUL.md, AGENTS.md, Platform section
       await refreshPlatformContent({
         coreVersion: CORE_VERSION,
@@ -161,12 +146,17 @@ export class ComponentWriter {
 
         for (const target of cleanupTargets) {
           try {
+            if (this.pendingCleanups.has(target.filePath)) continue;
+
             const fileContent = readFileSync(target.filePath, 'utf-8');
             if (fileContent.includes(CLEANUP_FLAG)) {
+              this.pendingCleanups.add(target.filePath);
               void requestCleanupSession({
                 gatewayUrl: this.gatewayUrl,
                 filePath: target.filePath,
                 markerIdentity: target.markerIdentity,
+              }).finally(() => {
+                this.pendingCleanups.delete(target.filePath);
               });
             }
           } catch {
