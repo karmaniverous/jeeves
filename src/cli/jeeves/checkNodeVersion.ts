@@ -4,6 +4,8 @@
  * @module
  */
 
+import { major } from 'semver';
+
 /** Minimum supported Node.js major version. */
 const MIN_NODE_MAJOR = 22;
 
@@ -12,8 +14,8 @@ const MIN_NODE_MAJOR = 22;
  * Prints an error and exits with code 1 if the check fails.
  */
 export function checkNodeVersion(): void {
-  const major = parseInt(process.versions.node.split('.')[0], 10);
-  if (major < MIN_NODE_MAJOR) {
+  const nodeMajor = major(process.versions.node);
+  if (nodeMajor < MIN_NODE_MAJOR) {
     console.error(
       `Error: jeeves requires Node.js >= ${String(MIN_NODE_MAJOR)}. Current: ${process.versions.node}`,
     );
