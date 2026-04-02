@@ -23,6 +23,7 @@ export {
   type StatusHandlerResult,
   type StatusResponse,
 } from './api/index.js';
+export { checkNodeVersion } from './cli/jeeves/checkNodeVersion.js';
 export {
   createPluginCli,
   type CreatePluginCliOptions,

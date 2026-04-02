@@ -11,6 +11,9 @@
 import { Command } from '@commander-js/extra-typings';
 
 import { CORE_VERSION } from '../../constants/index.js';
+import { checkNodeVersion } from './checkNodeVersion.js';
+
+checkNodeVersion();
 import {
   discoverComponentPackages,
   registerComponentProxies,
