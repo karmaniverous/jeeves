@@ -7,14 +7,9 @@
  * on a configurable prime-interval timer cycle.
  */
 
-import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import {
-  CLEANUP_FLAG,
-  CORE_VERSION,
-  TOOLS_MARKERS,
-} from '../constants/index.js';
+import { CORE_VERSION, TOOLS_MARKERS } from '../constants/index.js';
 import { WORKSPACE_FILES } from '../constants/paths.js';
 import {
   getComponentConfigDir,
@@ -22,12 +17,11 @@ import {
   getCoreConfigDir,
   getWorkspacePath,
 } from '../init.js';
-import { parseHeartbeat, writeHeartbeatSection } from '../managed/heartbeat.js';
 import { updateManagedSection } from '../managed/updateManagedSection.js';
 import { refreshPlatformContent } from '../platform/refreshPlatformContent.js';
-import { requestCleanupSession } from './cleanupEscalation.js';
+import { scanAndEscalateCleanup } from './cleanupScan.js';
 import type { JeevesComponentDescriptor } from './descriptor.js';
-import { orchestrateHeartbeat } from './heartbeatOrchestrator.js';
+import { runHeartbeatCycle } from './heartbeatCycle.js';
 
 /**
  * Orchestrates managed content writing for a single Jeeves component.
@@ -37,6 +31,7 @@ import { orchestrateHeartbeat } from './heartbeatOrchestrator.js';
  * at the component's prime-interval, calling `generateToolsContent()`
  * and `refreshPlatformContent()` on each cycle.
  */
+
 /** Options for ComponentWriter construction. */
 export interface ComponentWriterOptions {
   /**
@@ -104,16 +99,17 @@ export class ComponentWriter {
    * Execute a single write cycle.
    *
    * @remarks
-   * Calls `generateToolsContent()` and writes the component's
-   * TOOLS.md section via `updateManagedSection()`. Also calls
-   * `refreshPlatformContent()` for shared content maintenance.
+   * 1. Write the component's TOOLS.md section.
+   * 2. Refresh shared platform content (SOUL.md, AGENTS.md, Platform section).
+   * 3. Scan for cleanup flags and escalate if a gateway URL is configured.
+   * 4. Run HEARTBEAT health orchestration.
    */
   async cycle(): Promise<void> {
     try {
       const workspacePath = getWorkspacePath();
       const toolsPath = join(workspacePath, WORKSPACE_FILES.tools);
 
-      // Write the component's TOOLS.md section
+      // 1. Write the component's TOOLS.md section
       const toolsContent = this.component.generateToolsContent();
       await updateManagedSection(toolsPath, toolsContent, {
         mode: 'section',
@@ -122,7 +118,7 @@ export class ComponentWriter {
         coreVersion: CORE_VERSION,
       });
 
-      // Platform content maintenance: SOUL.md, AGENTS.md, Platform section
+      // 2. Platform content maintenance
       await refreshPlatformContent({
         coreVersion: CORE_VERSION,
         componentName: this.component.name,
@@ -131,74 +127,31 @@ export class ComponentWriter {
         pluginPackage: this.component.pluginPackage,
       });
 
+      // 3. Cleanup escalation
       if (this.gatewayUrl) {
-        const cleanupTargets = [
-          { filePath: toolsPath, markerIdentity: 'TOOLS' },
-          {
-            filePath: join(workspacePath, WORKSPACE_FILES.soul),
-            markerIdentity: 'SOUL',
-          },
-          {
-            filePath: join(workspacePath, WORKSPACE_FILES.agents),
-            markerIdentity: 'AGENTS',
-          },
-        ];
-
-        for (const target of cleanupTargets) {
-          try {
-            if (this.pendingCleanups.has(target.filePath)) continue;
-
-            const fileContent = readFileSync(target.filePath, 'utf-8');
-            if (fileContent.includes(CLEANUP_FLAG)) {
-              this.pendingCleanups.add(target.filePath);
-              void requestCleanupSession({
-                gatewayUrl: this.gatewayUrl,
-                filePath: target.filePath,
-                markerIdentity: target.markerIdentity,
-              }).finally(() => {
-                this.pendingCleanups.delete(target.filePath);
-              });
-            }
-          } catch {
-            // Best-effort: don't fail the cycle for escalation issues.
-          }
-        }
-      }
-
-      // HEARTBEAT health orchestration
-      const heartbeatPath = join(workspacePath, WORKSPACE_FILES.heartbeat);
-      try {
-        const existingContent = (() => {
-          try {
-            return readFileSync(heartbeatPath, 'utf-8');
-          } catch (err: unknown) {
-            // Only swallow "file not found" — let permission errors propagate
-            if (
-              err instanceof Error &&
-              'code' in err &&
-              (err as NodeJS.ErrnoException).code === 'ENOENT'
-            ) {
-              return '';
-            }
-            throw err;
-          }
-        })();
-        const parsed = parseHeartbeat(existingContent);
-        const declinedNames = new Set(
-          parsed.entries.filter((e) => e.declined).map((e) => e.name),
+        scanAndEscalateCleanup(
+          [
+            { filePath: toolsPath, markerIdentity: 'TOOLS' },
+            {
+              filePath: join(workspacePath, WORKSPACE_FILES.soul),
+              markerIdentity: 'SOUL',
+            },
+            {
+              filePath: join(workspacePath, WORKSPACE_FILES.agents),
+              markerIdentity: 'AGENTS',
+            },
+          ],
+          this.gatewayUrl,
+          this.pendingCleanups,
         );
-
-        const entries = await orchestrateHeartbeat({
-          coreConfigDir: getCoreConfigDir(),
-          configRoot: getConfigRoot(),
-          declinedNames,
-        });
-
-        await writeHeartbeatSection(heartbeatPath, entries);
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.warn(`jeeves-core: HEARTBEAT orchestration failed: ${msg}`);
       }
+
+      // 4. HEARTBEAT orchestration
+      await runHeartbeatCycle({
+        workspacePath,
+        coreConfigDir: getCoreConfigDir(),
+        configRoot: getConfigRoot(),
+      });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       console.warn(
