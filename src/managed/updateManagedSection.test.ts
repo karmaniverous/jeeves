@@ -293,6 +293,73 @@ describe('updateManagedSection', () => {
     });
   });
 
+  describe('regression coverage', () => {
+    it('preserves mixed user content above and below an existing managed block', async () => {
+      writeFileSync(
+        testFile,
+        [
+          '# Above',
+          '',
+          'Keep this above.',
+          '',
+          begin(TOOLS_MARKERS, '0.1.0'),
+          '',
+          'Old managed content.',
+          '',
+          end(TOOLS_MARKERS),
+          '',
+          '# Below',
+          '',
+          'Keep this below.',
+        ].join('\n'),
+      );
+
+      await updateManagedSection(testFile, 'New managed content.', {
+        mode: 'block',
+        coreVersion: '0.1.0',
+      });
+
+      const content = readFileSync(testFile, 'utf-8');
+      const aboveIdx = content.indexOf('# Above');
+      const managedIdx = content.indexOf(TOOLS_MARKERS.begin);
+      const belowIdx = content.indexOf('# Below');
+
+      expect(content).toContain('Keep this above.');
+      expect(content).toContain('Keep this below.');
+      expect(content).toContain('New managed content.');
+      expect(aboveIdx).toBeLessThan(managedIdx);
+      expect(managedIdx).toBeLessThan(belowIdx);
+    });
+
+    it('strips orphaned BEGIN marker when inserting a new managed block', async () => {
+      writeFileSync(
+        testFile,
+        [
+          begin(TOOLS_MARKERS, '0.1.0'),
+          '',
+          'Broken managed content with no END marker.',
+          '',
+          '# User Notes',
+          '',
+          'Preserve me.',
+        ].join('\n'),
+      );
+
+      await updateManagedSection(testFile, 'Recovered managed content.', {
+        mode: 'block',
+        coreVersion: '0.1.0',
+      });
+
+      const content = readFileSync(testFile, 'utf-8');
+      expect(content).toContain('Recovered managed content.');
+      expect(content).toContain('Preserve me.');
+      // The orphaned BEGIN marker must be stripped to prevent the parser
+      // from pairing it with the new END marker on the next cycle.
+      expect(content.match(/BEGIN JEEVES PLATFORM TOOLS/g)?.length).toBe(1);
+      expect(content.match(/END JEEVES PLATFORM TOOLS/g)?.length).toBe(1);
+    });
+  });
+
   describe('cleanup detection', () => {
     it('should inject cleanup flag when orphaned content detected', async () => {
       const managed = [
@@ -322,6 +389,9 @@ describe('updateManagedSection', () => {
 
       const content = readFileSync(testFile, 'utf-8');
       expect(content).toContain('CLEANUP NEEDED');
+      expect(content).toContain('outside this managed block');
+      expect(content).not.toContain('below this managed section');
+      expect(content).not.toContain('after the END marker');
     });
 
     it('should not inject cleanup flag for unrelated user content', async () => {
@@ -368,8 +438,9 @@ describe('updateManagedSection', () => {
       expect(content).toContain('Managed body.');
     });
 
-    it('position bottom: migrates existing top-positioned block to bottom', async () => {
-      // Simulate a file with managed block at the top (old format)
+    it('existing block stays in place regardless of configured position (Decision 39)', async () => {
+      // Block is at the top (old format), but markers say position: 'bottom'.
+      // Decision 39: once a block exists, its position is fixed. Don't move it.
       const oldContent = [
         begin(SOUL_MARKERS, '0.0.9'),
         '',
@@ -394,14 +465,15 @@ describe('updateManagedSection', () => {
       const content = readFileSync(testFile, 'utf-8');
       const parsed = parseManaged(content, SOUL_MARKERS);
 
-      // User content should be above the managed block
-      expect(parsed.beforeContent).toContain('User personality.');
+      // Managed block should still be at the top (in place)
       expect(parsed.managedContent).toContain('New managed content.');
+      // User content should still be below
+      expect(parsed.userContent).toContain('User personality.');
 
-      // Verify ordering in raw file
+      // Verify ordering: managed block before user content
       const managedIdx = content.indexOf(SOUL_MARKERS.begin);
       const userIdx = content.indexOf('User personality.');
-      expect(userIdx).toBeLessThan(managedIdx);
+      expect(managedIdx).toBeLessThan(userIdx);
     });
   });
 });

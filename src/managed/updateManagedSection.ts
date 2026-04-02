@@ -120,10 +120,11 @@ export async function updateManagedSection(
           : sectionText;
       }
 
-      // Combine beforeContent + userContent for the user zone.
-      // When migrating from top→bottom, beforeContent is empty and
-      // userContent has the real content. When already at bottom,
-      // beforeContent has the user content and userContent is empty.
+      // Build the full managed block
+      const beginLine = formatBeginMarker(markers.begin, coreVersion);
+      const endLine = formatEndMarker(markers.end);
+
+      // Combine all user content for cleanup detection
       const rawUserContent = [parsed.beforeContent, parsed.userContent]
         .filter(Boolean)
         .join('\n\n')
@@ -132,10 +133,6 @@ export async function updateManagedSection(
       // Strip foreign managed blocks from user content (cross-contamination fix)
       const userContent = stripForeignMarkers(rawUserContent, markers);
       const cleanupNeeded = needsCleanup(newManagedBody, userContent);
-
-      // Build the full managed block
-      const beginLine = formatBeginMarker(markers.begin, coreVersion);
-      const endLine = formatEndMarker(markers.end);
 
       const managedParts: string[] = [];
       managedParts.push(beginLine);
@@ -149,27 +146,62 @@ export async function updateManagedSection(
       managedParts.push(endLine);
 
       const managedBlock = managedParts.join('\n');
-      const position = markers.position ?? 'top';
 
-      const fileParts: string[] = [];
-      if (position === 'bottom') {
-        // User content first, managed block at end
-        if (userContent) {
-          fileParts.push(userContent);
+      let newFileContent: string;
+
+      if (parsed.found) {
+        // Existing block: update in place — preserve position, don't move.
+        // Strip foreign managed blocks from both content zones (cross-contamination fix).
+        const cleanBefore = stripForeignMarkers(parsed.beforeContent, markers);
+        const cleanAfter = stripForeignMarkers(parsed.userContent, markers);
+        const fileParts: string[] = [];
+        if (cleanBefore) {
+          fileParts.push(cleanBefore);
           fileParts.push('');
         }
         fileParts.push(managedBlock);
+        if (cleanAfter) {
+          fileParts.push('');
+          fileParts.push(cleanAfter);
+        }
+        fileParts.push('');
+        newFileContent = fileParts.join('\n');
       } else {
-        // Managed block first (legacy default), user content below
-        fileParts.push(managedBlock);
-        if (userContent) {
-          fileParts.push('');
-          fileParts.push(userContent);
-        }
-      }
-      fileParts.push('');
+        // No existing block: insert new block using the configured position.
+        // Strip orphaned same-type BEGIN markers from user content to prevent
+        // the parser from pairing them with the new END marker on the next cycle.
+        const escapedBegin = markers.begin.replace(
+          /[.*+?^${}()|[\]\\]/g,
+          '\\$&',
+        );
+        const orphanedBeginRe = new RegExp(
+          `^<!--\\s*${escapedBegin}(?:\\s*\\|[^>]*)?\\s*(?:—[^>]*)?\\s*-->\\s*$\\n?`,
+          'gm',
+        );
+        const cleanUserContent = userContent
+          .replace(orphanedBeginRe, '')
+          .replace(/\n{3,}/g, '\n\n')
+          .trim();
 
-      const newFileContent = fileParts.join('\n');
+        const position = markers.position ?? 'top';
+        const fileParts: string[] = [];
+        if (position === 'bottom') {
+          if (cleanUserContent) {
+            fileParts.push(cleanUserContent);
+            fileParts.push('');
+          }
+          fileParts.push(managedBlock);
+        } else {
+          fileParts.push(managedBlock);
+          if (cleanUserContent) {
+            fileParts.push('');
+            fileParts.push(cleanUserContent);
+          }
+        }
+        fileParts.push('');
+        newFileContent = fileParts.join('\n');
+      }
+
       atomicWrite(filePath, newFileContent);
     });
   } catch (err: unknown) {
