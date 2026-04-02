@@ -161,6 +161,8 @@ writer.start();
 4. Your component's version entry is written to `component-versions.json` (including service version from the health probe)
 5. Templates are copied to the config directory if present
 6. Version-stamp convergence ensures the highest library version wins for shared block-mode content
+7. Cleanup escalation: if a gateway URL is configured, managed files are scanned for the cleanup flag. When detected, a cleanup session is spawned via the gateway to automatically resolve orphaned content.
+8. HEARTBEAT orchestration: the component health state machine runs, updating HEARTBEAT.md with per-component alerts (not installed, deps missing, config missing, service stopped, etc.)
 
 All of this is handled internally by the `ComponentWriter`. Your plugin only provides the content generator and lifecycle commands.
 
