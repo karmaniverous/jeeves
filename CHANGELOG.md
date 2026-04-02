@@ -2,12 +2,36 @@
 
 All notable changes to this project will be documented in this file. Dates are displayed in UTC.
 
+#### [0.5.0](https://github.com/karmaniverous/jeeves/compare/0.4.7...0.5.0)
+
+- feat: memory hygiene, skill seeding, SOLID/DRY pass, docs sync (Phases 7-8) [`#63`](https://github.com/karmaniverous/jeeves/pull/63)
+- feat: shared workspace config loader (Phase 6) [`#62`](https://github.com/karmaniverous/jeeves/pull/62)
+- feat: active cleanup escalation (Phase 5) [`#61`](https://github.com/karmaniverous/jeeves/pull/61)
+- feat: managed content safety rewrite (Phase 4) [`#60`](https://github.com/karmaniverous/jeeves/pull/60)
+- feat: Node 22 runtime floor (Phase 3) [`#59`](https://github.com/karmaniverous/jeeves/pull/59)
+- feat: shared workspace config loader and jeeves config command [`07813e2`](https://github.com/karmaniverous/jeeves/commit/07813e279322a9baa3522cce9be9fdc01636f817)
+- feat: memory hygiene + deployed jeeves skill (Phase 7) [`e70afb0`](https://github.com/karmaniverous/jeeves/commit/e70afb0006921990081d6526f3f1da573fe6517f)
+- feat: escalate cleanup via gateway session spawn [`9411676`](https://github.com/karmaniverous/jeeves/commit/9411676102c8b906ed8bd9007dd236bb976659a5)
+- refactor: extract heartbeat cycle and cleanup scan from ComponentWriter [`c58f13d`](https://github.com/karmaniverous/jeeves/commit/c58f13dbe1a8aa96a5af4649c4a8223e61e71b65)
+- fix: address Gemini review — cross-contamination and orphaned markers [`e591c82`](https://github.com/karmaniverous/jeeves/commit/e591c823c32b4f667d06b5214977b18b74503bf5)
+- chore: remove Phase 5 files accidentally included in Phase 4 PR [`613e388`](https://github.com/karmaniverous/jeeves/commit/613e3885dbe122260da8ffb6fa16fee5f4b1798b)
+- feat: keep managed blocks stationary and move cleanup warning inside block [`7c30c57`](https://github.com/karmaniverous/jeeves/commit/7c30c5723e1090f13937acc35962476ac77dcaf3)
+- docs: sync README and guides with v0.5.0 features [`f6c0b83`](https://github.com/karmaniverous/jeeves/commit/f6c0b830c4ab93e51652bbde6d3c740f784eff64)
+- feat: Node 22 runtime floor [`fcd61fe`](https://github.com/karmaniverous/jeeves/commit/fcd61fec6b61b1cf1889d0493d7381b746cc8c34)
+- fix: address Gemini review — env guard, absolute paths, warn on bad config, dynamic output [`a55a446`](https://github.com/karmaniverous/jeeves/commit/a55a446888960a2c785f8266ffc3cad2198fc7fc)
+- fix: address Gemini review — remove redundant check, deduplicate escalation [`b47a489`](https://github.com/karmaniverous/jeeves/commit/b47a4892ab34501ab0270ac7df73f065f4527307)
+- refactor: use semver.major() for Node version check [`d86b3ae`](https://github.com/karmaniverous/jeeves/commit/d86b3aecaa07ec9b993c9ce8106c66bdae13eb6a)
+- fix: address Gemini review — zero-budget guard, remove redundant replace [`c6595e2`](https://github.com/karmaniverous/jeeves/commit/c6595e214825a19aac258cefa2d501b681cf0425)
+
 #### [0.4.7](https://github.com/karmaniverous/jeeves/compare/0.4.6...0.4.7)
+
+> 2 April 2026
 
 - feat: v0.5.0 Phase 1 — Plugin installer fix + utility hoist [`#58`](https://github.com/karmaniverous/jeeves/pull/58)
 - feat: plugin installer fix + utility hoist + getPackageVersion [`#57`](https://github.com/karmaniverous/jeeves/pull/57)
 - feat: plugin installer fix + utility hoist + getPackageVersion (#57) [`#57`](https://github.com/karmaniverous/jeeves/issues/57)
 - test: fill test gaps for Phase 1 validation [`683d96c`](https://github.com/karmaniverous/jeeves/commit/683d96c3ec614b5dee214423a830e847771b3192)
+- chore: release v0.4.7 [`9f837f9`](https://github.com/karmaniverous/jeeves/commit/9f837f91badc48a3f0726cccbc04a51d4fcb81d2)
 
 #### [0.4.6](https://github.com/karmaniverous/jeeves/compare/0.4.5...0.4.6)
 
