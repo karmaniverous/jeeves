@@ -71,6 +71,7 @@ export {
   CORE_CONFIG_DIR,
   CORE_VERSION,
   DEFAULT_PORTS,
+  JEEVES_SKILL_DIR,
   type ManagedMarkers,
   META_PORT,
   PLATFORM_COMPONENTS,
@@ -81,6 +82,7 @@ export {
   SECTION_ORDER,
   type SectionId,
   SERVER_PORT,
+  SKILLS_DIR,
   SOUL_MARKERS,
   STALENESS_THRESHOLD_MS,
   TEMPLATES_DIR,
@@ -137,10 +139,17 @@ export {
   writeHeartbeatSection,
 } from './managed/index.js';
 export {
+  analyzeMemory,
+  extractMostRecentDate,
+  type MemoryHygieneOptions,
+  type MemoryHygieneResult,
+} from './memory/index.js';
+export {
   refreshPlatformContent,
   type RefreshPlatformContentOptions,
   seedContent,
   type SeedContentOptions,
+  seedSkill,
 } from './platform/index.js';
 export {
   connectionFail,

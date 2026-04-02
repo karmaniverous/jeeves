@@ -11,6 +11,8 @@ import type { Command } from '@commander-js/extra-typings';
 
 import { readComponentVersions } from '../../component/componentVersions.js';
 import { getServiceUrl } from '../../discovery/getServiceUrl.js';
+import { getWorkspacePath } from '../../init.js';
+import { analyzeMemory } from '../../memory/index.js';
 import { fetchWithTimeout } from '../../plugin/http.js';
 import { initFromOptions } from './cliDefaults.js';
 
@@ -29,7 +31,7 @@ export function registerStatusCommand(program: Command): void {
     .action(async (opts) => {
       const timeoutMs = parseInt(opts.timeout, 10);
 
-      initFromOptions(opts);
+      const resolved = initFromOptions(opts);
 
       console.log('Jeeves Platform Status');
       console.log('='.repeat(60));
@@ -40,70 +42,97 @@ export function registerStatusCommand(program: Command): void {
       const componentVersions = readComponentVersions(coreConfigDir);
       const componentNames = Object.keys(componentVersions);
 
-      if (componentNames.length === 0) {
-        console.log('No components registered.');
-        return;
-      }
-
-      const nameWidth = 10;
-      const statusWidth = 30;
-      const versionWidth = 12;
-      const header = [
-        'Component'.padEnd(nameWidth),
-        'Status'.padEnd(statusWidth),
-        'Version'.padEnd(versionWidth),
-      ].join('  ');
-      const separator = [
-        '-'.repeat(nameWidth),
-        '-'.repeat(statusWidth),
-        '-'.repeat(versionWidth),
-      ].join('  ');
-
-      console.log(header);
-      console.log(separator);
-
       let allHealthy = true;
 
-      for (const name of componentNames) {
-        let status: string;
-        let version = '—';
+      if (componentNames.length === 0) {
+        console.log('No components registered.');
+        console.log();
+      } else {
+        const nameWidth = 10;
+        const statusWidth = 30;
+        const versionWidth = 12;
+        const header = [
+          'Component'.padEnd(nameWidth),
+          'Status'.padEnd(statusWidth),
+          'Version'.padEnd(versionWidth),
+        ].join('  ');
+        const separator = [
+          '-'.repeat(nameWidth),
+          '-'.repeat(statusWidth),
+          '-'.repeat(versionWidth),
+        ].join('  ');
 
-        try {
-          const url = getServiceUrl(name);
-          const response = await fetchWithTimeout(`${url}/status`, timeoutMs);
+        console.log(header);
+        console.log(separator);
 
-          if (response.ok) {
-            status = '✅ Running';
-            try {
-              const body: unknown = await response.json();
-              if (
-                typeof body === 'object' &&
-                body !== null &&
-                'version' in body &&
-                typeof (body as Record<string, unknown>)['version'] === 'string'
-              ) {
-                version = (body as Record<string, unknown>)[
-                  'version'
-                ] as string;
+        for (const name of componentNames) {
+          let status: string;
+          let version = '—';
+
+          try {
+            const url = getServiceUrl(name);
+            const response = await fetchWithTimeout(`${url}/status`, timeoutMs);
+
+            if (response.ok) {
+              status = '✅ Running';
+              try {
+                const body: unknown = await response.json();
+                if (
+                  typeof body === 'object' &&
+                  body !== null &&
+                  'version' in body &&
+                  typeof (body as Record<string, unknown>)['version'] ===
+                    'string'
+                ) {
+                  version = (body as Record<string, unknown>)[
+                    'version'
+                  ] as string;
+                }
+              } catch {
+                // Non-JSON response — version stays unknown
               }
-            } catch {
-              // Non-JSON response — version stays unknown
+            } else {
+              status = `❌ HTTP ${String(response.status)}`;
+              allHealthy = false;
             }
-          } else {
-            status = `❌ HTTP ${String(response.status)}`;
+          } catch {
+            status = '❌ Down';
             allHealthy = false;
           }
-        } catch {
-          status = '❌ Down';
-          allHealthy = false;
+
+          const row = [
+            name.padEnd(nameWidth),
+            status.padEnd(statusWidth),
+            version.padEnd(versionWidth),
+          ].join('  ');
+          console.log(row);
         }
 
-        const row = [
-          name.padEnd(nameWidth),
-          status.padEnd(statusWidth),
-          version.padEnd(versionWidth),
-        ].join('  ');
-        console.log(row);
+        console.log();
+      }
+
+      const memory = analyzeMemory({
+        workspacePath: getWorkspacePath(),
+        budget: resolved.memory.budget.value,
+        warningThreshold: resolved.memory.warningThreshold.value,
+        staleDays: resolved.memory.staleDays.value,
+      });
+
+      console.log('Memory hygiene');
+      console.log('-'.repeat(60));
+      if (!memory.exists) {
+        console.log('MEMORY.md not found.');
+      } else {
+        const usagePct = Math.round(memory.usage * 100);
+        const status = memory.overBudget
+          ? '❌ Over budget'
+          : memory.warning
+            ? '⚠ Warning'
+            : '✅ OK';
+        console.log(
+          `Chars: ${String(memory.charCount)} / ${String(memory.budget)} (${String(usagePct)}%) — ${status}`,
+        );
+        console.log(`Stale candidates: ${String(memory.staleCandidates)}`);
       }
 
       console.log();

@@ -193,4 +193,30 @@ describe('createPluginCli', () => {
     ).length;
     expect(count).toBe(1);
   });
+
+  it('install should seed the jeeves workspace skill when workspace is provided', async () => {
+    const workspaceDir = join(testDir, 'workspace');
+    mkdirSync(workspaceDir, { recursive: true });
+    writeFileSync(join(openClawHome, 'openclaw.json'), JSON.stringify({}));
+
+    const program = createPluginCli({
+      pluginId: 'jeeves-watcher-openclaw',
+      distDir,
+      pluginPackage: '@karmaniverous/jeeves-watcher-openclaw',
+    });
+
+    await program.parseAsync([
+      'node',
+      'test',
+      'install',
+      '--workspace',
+      workspaceDir,
+      '--config-root',
+      join(testDir, 'config'),
+    ]);
+
+    const skillPath = join(workspaceDir, 'skills', 'jeeves', 'SKILL.md');
+    expect(existsSync(skillPath)).toBe(true);
+    expect(readFileSync(skillPath, 'utf-8')).toContain('Jeeves Platform Skill');
+  });
 });

@@ -18,7 +18,15 @@ export const WORKSPACE_FILES = {
   agents: 'AGENTS.md',
   /** HEARTBEAT.md — platform status and health alerts. */
   heartbeat: 'HEARTBEAT.md',
+  /** MEMORY.md — curated long-term memory. */
+  memory: 'MEMORY.md',
 } as const;
+
+/** Skill directory name within workspace. */
+export const SKILLS_DIR = 'skills';
+
+/** Jeeves skill directory name. */
+export const JEEVES_SKILL_DIR = 'jeeves';
 
 /** Templates directory name within core config. */
 export const TEMPLATES_DIR = 'templates';

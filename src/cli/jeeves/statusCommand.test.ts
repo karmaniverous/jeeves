@@ -91,13 +91,14 @@ describe('registerStatusCommand', () => {
     );
   }
 
-  it('prints "No components registered" when versions file is empty', async () => {
+  it('prints "No components registered" and memory hygiene when versions file is empty', async () => {
     writeVersions({});
 
     await runStatusAction();
 
     const output = consoleSpy.mock.calls.map((c) => String(c[0])).join('\n');
     expect(output).toContain('No components registered');
+    expect(output).toContain('Memory hygiene');
     expect(process.exitCode).toBeUndefined();
   });
 
