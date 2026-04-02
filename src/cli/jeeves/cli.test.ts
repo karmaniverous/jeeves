@@ -189,6 +189,33 @@ describe('CLI commands', () => {
       expect(content).toContain('## jeeves-meta');
       expect(content).toContain('Not installed');
     }, 15_000);
+
+    it('should seed the jeeves workspace skill', async () => {
+      await seedContent({
+        coreVersion: '0.1.0',
+      });
+
+      const skillPath = join(workspaceDir, 'skills', 'jeeves', 'SKILL.md');
+      expect(existsSync(skillPath)).toBe(true);
+      const content = readFileSync(skillPath, 'utf-8');
+      expect(content).toContain('name: jeeves');
+      expect(content).toContain('Jeeves Platform Skill');
+    }, 15_000);
+
+    it('should overwrite an existing jeeves workspace skill on install', async () => {
+      const skillDir = join(workspaceDir, 'skills', 'jeeves');
+      mkdirSync(skillDir, { recursive: true });
+      const skillPath = join(skillDir, 'SKILL.md');
+      writeFileSync(skillPath, 'old skill', 'utf-8');
+
+      await seedContent({
+        coreVersion: '0.1.0',
+      });
+
+      const content = readFileSync(skillPath, 'utf-8');
+      expect(content).not.toBe('old skill');
+      expect(content).toContain('Jeeves Platform Skill');
+    }, 15_000);
   });
 
   describe('uninstall', () => {

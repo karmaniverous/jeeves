@@ -164,6 +164,32 @@ Each component plugin bundles its own copy of `@karmaniverous/jeeves` as a regul
   TOOLS.md                    ← Live platform state (managed + user sections)
 ```
 
+## Workspace Configuration
+
+An optional `jeeves.config.json` at the workspace root provides shared defaults for all CLI commands and programmatic consumers. Values are namespaced under `core.*` (workspace path, config root, gateway URL) and `memory.*` (budget, warning threshold, stale days).
+
+Resolution precedence: **CLI flags → environment variables → `jeeves.config.json` → defaults**. The `jeeves config [jsonpath]` command prints the effective resolved values with per-key provenance tracking.
+
+A JSON Schema file (`jeeves.config.schema.json`) is generated alongside `jeeves.config.json` during install, providing IDE autocomplete and validation.
+
+## Memory Hygiene
+
+MEMORY.md is the assistant's curated long-term memory, loaded at every session start. Core tracks its health:
+
+- **Character budget** (default: 20,000) with usage percentage and a configurable warning threshold (default: 80%)
+- **Stale section detection** via ISO date scanning in H2/H3 headings and bullet items. Sections whose most recent date exceeds the staleness threshold (default: 90 days) are flagged as candidates for review.
+- **Evergreen sections** (no parseable dates) are never flagged.
+
+`jeeves status` prints a memory hygiene summary alongside the service health table. Memory hygiene is reporting-only — core never auto-deletes content.
+
+## Skill Seeding
+
+`jeeves install` (and component plugin installers) seed a platform skill at `{workspace}/skills/jeeves/SKILL.md`. This skill gives the assistant architectural context about the platform: component roles, data flow, service discovery patterns, managed content, HEARTBEAT protocol, and memory hygiene. The skill is regenerated on every install to stay current with the library version.
+
+## Node.js Requirement
+
+Jeeves requires Node.js >= 22. The CLI enforces this at startup via `checkNodeVersion()`, which exits with a clear error message if the runtime doesn't meet the minimum.
+
 ## Design Philosophy
 
 **The content is the bootstrap.** The assistant doesn't know what plugins are installed or what services are running. He reads files. TOOLS.md tells him what tools exist. SOUL.md tells him who he is. AGENTS.md tells him how to operate. Everything else — plugins, services, npm packages — is infrastructure for maintaining those files.

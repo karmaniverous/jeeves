@@ -28,6 +28,7 @@ import {
   parseHeartbeat,
 } from '../../managed/heartbeat.js';
 import { removeManagedSection } from '../../managed/removeManagedSection.js';
+import { seedSkill } from '../../platform/seedSkill.js';
 import {
   patchConfig,
   resolveConfigPath,
@@ -131,7 +132,7 @@ export function createPluginCli(options: CreatePluginCliOptions): Command {
         console.log(`  ✓ ${msg}`);
       }
 
-      // 4. Write initial HEARTBEAT entry
+      // 4. Write initial HEARTBEAT entry and seed jeeves skill
       try {
         const cfgRoot = opts.configRoot;
         const agents = config.agents as Record<string, unknown> | undefined;
@@ -164,9 +165,16 @@ export function createPluginCli(options: CreatePluginCliOptions): Command {
           } catch {
             console.log('  ⚠ Could not write HEARTBEAT entry');
           }
+
+          try {
+            seedSkill(ws);
+            console.log('  ✓ Jeeves skill seeded');
+          } catch {
+            console.log('  ⚠ Could not seed Jeeves skill');
+          }
         }
       } catch {
-        // HEARTBEAT is best-effort during install
+        // HEARTBEAT + skill seeding are best-effort during install
       }
 
       // 5. Write component version

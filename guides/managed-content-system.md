@@ -169,6 +169,19 @@ When cleanup is detected, a flag is injected inside the managed block:
 
 The flag is self-clearing: once the duplicate content is removed (by the assistant or manually), the similarity score drops below the threshold and the flag disappears on the next write cycle.
 
+### Cleanup Escalation
+
+When a `ComponentWriter` detects the cleanup flag in a managed file and a gateway URL is configured, it automatically escalates by spawning a cleanup session via the OpenClaw gateway's `/sessions/spawn` endpoint. The session is instructed to:
+
+1. Read the flagged file
+2. Compare content above (managed) and below (user zone) the END marker
+3. Remove any user-zone content that duplicates managed content
+4. Preserve genuinely unique user-authored content
+
+Escalation is best-effort: if the gateway is unreachable, the flag remains and will be retried on the next writer cycle. A `pendingCleanups` set deduplicates in-flight requests so a file is never escalated twice concurrently.
+
+This means cleanup can resolve itself automatically without human intervention, as long as the gateway is running.
+
 ## File Locking and Atomic Writes
 
 ### withFileLock

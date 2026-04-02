@@ -9,3 +9,4 @@ export {
   type RefreshPlatformContentOptions,
 } from './refreshPlatformContent.js';
 export { seedContent, type SeedContentOptions } from './seedContent.js';
+export { seedSkill } from './seedSkill.js';

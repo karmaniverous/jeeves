@@ -169,17 +169,27 @@ See the [Building a Component Plugin](https://docs.karmanivero.us/jeeves/documen
 - **`probeAllServices(consumerName?, timeoutMs?)`** — probes all known services (server, watcher, runner, meta).
 - **`checkRegistryVersion(packageName, cacheDir, ttlSeconds?)`** — checks npm registry for the latest version with local file caching (default 1-hour TTL).
 
+## Prerequisites
+
+- **Node.js >= 22** — the CLI enforces this at startup.
+
 ## CLI
 
 ```bash
-jeeves install     # Seed identity, protocols, platform content; create core config
+jeeves install     # Seed identity, protocols, platform content, skill, core config
 jeeves uninstall   # Remove managed sections, templates, config schema
-jeeves status      # Probe all service ports, report health table
+jeeves status      # Probe all service ports, report health + memory hygiene
+jeeves config      # Print effective config with provenance
+jeeves config '$'  # JSONPath query against effective config
 ```
 
-All three commands accept `--workspace <path>` and `--config-root <path>` options.
+All commands accept `--workspace <path>` and `--config-root <path>` options.
+
+`jeeves status` probes all registered component services, reports a health table, and prints a memory hygiene summary showing MEMORY.md character usage, budget utilization, and any stale sections.
 
 ## Configuration
+
+### Core Config
 
 Core config at `{configRoot}/jeeves-core/config.json`:
 
@@ -195,6 +205,49 @@ Core config at `{configRoot}/jeeves-core/config.json`:
   }
 }
 ```
+
+### Workspace Config
+
+Optional `jeeves.config.json` at the workspace root provides shared defaults for all CLI commands:
+
+```json
+{
+  "$schema": "./jeeves.config.schema.json",
+  "core": {
+    "workspace": "/path/to/workspace",
+    "configRoot": "/path/to/config",
+    "gatewayUrl": "http://localhost:3000"
+  },
+  "memory": {
+    "budget": 20000,
+    "warningThreshold": 0.8,
+    "staleDays": 90
+  }
+}
+```
+
+Precedence: **CLI flags → environment variables → `jeeves.config.json` → defaults**. Run `jeeves config` to see the effective resolved values with provenance tracking (which source each value came from).
+
+### Workspace Config API
+
+- **`loadWorkspaceConfig(workspacePath)`** — loads and validates `jeeves.config.json` via Zod. Returns `undefined` (with a console warning) if the file is missing, corrupt, or fails validation.
+- **`resolveConfigValue(options)`** — resolves a single config key through the precedence chain (flag → env → file → default) with provenance tracking.
+- **`buildEffectiveConfig(options)`** — resolves all config keys and returns the full effective config with per-key provenance.
+- **`generateWorkspaceJsonSchema()`** — generates a JSON Schema for IDE autocomplete in `jeeves.config.json`.
+
+## Memory Hygiene
+
+MEMORY.md has a character budget (default: 20,000 characters). The `analyzeMemory()` function tracks:
+
+- **Character count and usage percentage** — warns at 80% of budget (configurable via `warningThreshold`)
+- **Stale section detection** — scans ISO dates (`YYYY-MM-DD`) in H2/H3 headings and bullet items; sections whose most recent date exceeds `staleDays` (default: 90) are flagged as stale candidates
+- **Evergreen sections** — sections without parseable dates are never flagged
+
+Memory hygiene is reporting-only. Core does not auto-delete content; the assistant or human reviews stale candidates and decides what to prune.
+
+## Skill Seeding
+
+`jeeves install` and component plugin installers seed a platform skill at `{workspace}/skills/jeeves/SKILL.md`. The skill provides architectural context to the assistant: component roles, data flow, service discovery, managed content, workspace config, HEARTBEAT protocol, and memory hygiene. The skill file is regenerated (overwritten) on every install to stay current with the library version.
 
 <!-- TYPEDOC_EXCLUDE -->
 
