@@ -28,6 +28,16 @@ describe('createPluginCli', () => {
     // Create a sample dist file
     writeFileSync(join(distDir, 'index.js'), 'console.log("plugin");');
 
+    // Create package.json and openclaw.plugin.json at package root (parent of dist)
+    writeFileSync(
+      join(testDir, 'package.json'),
+      JSON.stringify({ name: 'test-plugin', version: '1.2.3' }),
+    );
+    writeFileSync(
+      join(testDir, 'openclaw.plugin.json'),
+      JSON.stringify({ id: 'jeeves-watcher-openclaw' }),
+    );
+
     // Set env for openclaw home
     process.env.OPENCLAW_HOME = openClawHome;
   });
@@ -132,6 +142,33 @@ describe('createPluginCli', () => {
     const plugins = config.plugins as Record<string, unknown>;
     const entries = plugins.entries as Record<string, unknown>;
     expect(entries['jeeves-watcher-openclaw']).toBeUndefined();
+  });
+
+  it('install should copy package.json and openclaw.plugin.json to extensions', async () => {
+    const program = createPluginCli({
+      pluginId: 'jeeves-watcher-openclaw',
+      distDir,
+      pluginPackage: '@karmaniverous/jeeves-watcher-openclaw',
+    });
+
+    await program.parseAsync(['node', 'test', 'install']);
+
+    const extDir = join(openClawHome, 'extensions', 'jeeves-watcher-openclaw');
+    // package.json should be copied from package root
+    const pkgJsonPath = join(extDir, 'package.json');
+    expect(existsSync(pkgJsonPath)).toBe(true);
+    const pkgJson = JSON.parse(readFileSync(pkgJsonPath, 'utf-8')) as {
+      version: string;
+    };
+    expect(pkgJson.version).toBe('1.2.3');
+
+    // openclaw.plugin.json should also be copied
+    const pluginJsonPath = join(extDir, 'openclaw.plugin.json');
+    expect(existsSync(pluginJsonPath)).toBe(true);
+    const pluginJson = JSON.parse(readFileSync(pluginJsonPath, 'utf-8')) as {
+      id: string;
+    };
+    expect(pluginJson.id).toBe('jeeves-watcher-openclaw');
   });
 
   it('install is idempotent', async () => {
