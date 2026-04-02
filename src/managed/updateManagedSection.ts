@@ -151,35 +151,51 @@ export async function updateManagedSection(
 
       if (parsed.found) {
         // Existing block: update in place — preserve position, don't move.
-        // Replace everything from BEGIN to END markers with the new block,
-        // keeping beforeContent and userContent exactly where they are.
+        // Strip foreign managed blocks from both content zones (cross-contamination fix).
+        const cleanBefore = stripForeignMarkers(parsed.beforeContent, markers);
+        const cleanAfter = stripForeignMarkers(parsed.userContent, markers);
         const fileParts: string[] = [];
-        if (parsed.beforeContent) {
-          fileParts.push(parsed.beforeContent);
+        if (cleanBefore) {
+          fileParts.push(cleanBefore);
           fileParts.push('');
         }
         fileParts.push(managedBlock);
-        if (parsed.userContent) {
+        if (cleanAfter) {
           fileParts.push('');
-          fileParts.push(parsed.userContent);
+          fileParts.push(cleanAfter);
         }
         fileParts.push('');
         newFileContent = fileParts.join('\n');
       } else {
         // No existing block: insert new block using the configured position.
+        // Strip orphaned same-type BEGIN markers from user content to prevent
+        // the parser from pairing them with the new END marker on the next cycle.
+        const escapedBegin = markers.begin.replace(
+          /[.*+?^${}()|[\]\\]/g,
+          '\\$&',
+        );
+        const orphanedBeginRe = new RegExp(
+          `^<!--\\s*${escapedBegin}(?:\\s*\\|[^>]*)?\\s*(?:—[^>]*)?\\s*-->\\s*$\\n?`,
+          'gm',
+        );
+        const cleanUserContent = userContent
+          .replace(orphanedBeginRe, '')
+          .replace(/\n{3,}/g, '\n\n')
+          .trim();
+
         const position = markers.position ?? 'top';
         const fileParts: string[] = [];
         if (position === 'bottom') {
-          if (userContent) {
-            fileParts.push(userContent);
+          if (cleanUserContent) {
+            fileParts.push(cleanUserContent);
             fileParts.push('');
           }
           fileParts.push(managedBlock);
         } else {
           fileParts.push(managedBlock);
-          if (userContent) {
+          if (cleanUserContent) {
             fileParts.push('');
-            fileParts.push(userContent);
+            fileParts.push(cleanUserContent);
           }
         }
         fileParts.push('');

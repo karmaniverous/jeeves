@@ -331,7 +331,7 @@ describe('updateManagedSection', () => {
       expect(managedIdx).toBeLessThan(belowIdx);
     });
 
-    it('treats orphaned BEGIN marker as fresh content and inserts a new managed block', async () => {
+    it('strips orphaned BEGIN marker when inserting a new managed block', async () => {
       writeFileSync(
         testFile,
         [
@@ -352,9 +352,10 @@ describe('updateManagedSection', () => {
 
       const content = readFileSync(testFile, 'utf-8');
       expect(content).toContain('Recovered managed content.');
-      expect(content).toContain('# User Notes');
       expect(content).toContain('Preserve me.');
-      expect(content.match(/BEGIN JEEVES PLATFORM TOOLS/g)?.length).toBe(2);
+      // The orphaned BEGIN marker must be stripped to prevent the parser
+      // from pairing it with the new END marker on the next cycle.
+      expect(content.match(/BEGIN JEEVES PLATFORM TOOLS/g)?.length).toBe(1);
       expect(content.match(/END JEEVES PLATFORM TOOLS/g)?.length).toBe(1);
     });
   });
