@@ -24,6 +24,7 @@ export {
   type StatusResponse,
 } from './api/index.js';
 export { checkNodeVersion } from './cli/jeeves/checkNodeVersion.js';
+export { buildEffectiveConfig } from './cli/jeeves/configCommand.js';
 export {
   createPluginCli,
   type CreatePluginCliOptions,
@@ -50,6 +51,17 @@ export {
   writeComponentVersion,
   type WriteComponentVersionOptions,
 } from './component/index.js';
+export {
+  type ConfigProvenance,
+  generateWorkspaceJsonSchema,
+  loadWorkspaceConfig,
+  resolveConfigValue,
+  type ResolvedValue,
+  WORKSPACE_CONFIG_DEFAULTS,
+  WORKSPACE_CONFIG_FILE,
+  type WorkspaceConfig,
+  workspaceConfigSchema,
+} from './config/index.js';
 export {
   AGENTS_MARKERS,
   CLEANUP_FLAG,

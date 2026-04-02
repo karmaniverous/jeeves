@@ -14,6 +14,7 @@ import { CORE_VERSION } from '../../constants/index.js';
 import { checkNodeVersion } from './checkNodeVersion.js';
 
 checkNodeVersion();
+import { registerConfigCommand } from './configCommand.js';
 import {
   discoverComponentPackages,
   registerComponentProxies,
@@ -32,6 +33,7 @@ const cli = new Command()
 registerInstallCommand(cli);
 registerUninstallCommand(cli);
 registerStatusCommand(cli);
+registerConfigCommand(cli);
 
 // Dynamic discovery: register proxy subcommands for installed components
 const discoveredComponents = discoverComponentPackages();
