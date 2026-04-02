@@ -5,6 +5,7 @@
  */
 
 export { createPluginToolset } from './createPluginToolset.js';
+export { getPackageVersion } from './getPackageVersion.js';
 export { fetchJson, fetchWithTimeout, postJson } from './http.js';
 export {
   patchConfig,

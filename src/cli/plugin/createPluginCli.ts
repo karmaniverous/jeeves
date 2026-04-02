@@ -1,18 +1,12 @@
 /**
  * Factory for the standard `-openclaw` plugin installer CLI.
  *
- * @remarks
- * Produces a Commander program with `install` and `uninstall` commands
- * that handle the full plugin lifecycle: copy dist to extensions,
- * patch OpenClaw config, manage HEARTBEAT entries, and clean up
- * managed sections on uninstall.
+ * @module
  */
 
 import {
   copyFileSync,
   existsSync,
-  mkdirSync,
-  readdirSync,
   readFileSync,
   rmSync,
   writeFileSync,
@@ -20,8 +14,12 @@ import {
 import { join } from 'node:path';
 
 import { Command } from '@commander-js/extra-typings';
+import { packageDirectorySync } from 'package-directory';
 
-import { removeComponentVersion } from '../../component/componentVersions.js';
+import {
+  removeComponentVersion,
+  writeComponentVersion,
+} from '../../component/componentVersions.js';
 import { TOOLS_MARKERS, WORKSPACE_FILES } from '../../constants/index.js';
 import { getCoreConfigDir, init } from '../../init.js';
 import { atomicWrite } from '../../managed/fileOps.js';
@@ -35,6 +33,11 @@ import {
   resolveConfigPath,
   resolveOpenClawHome,
 } from '../../plugin/openclawConfig.js';
+import {
+  copyDistFiles,
+  deriveComponentName,
+  readJsonFile,
+} from './pluginCliHelpers.js';
 
 /** Options for creating a plugin installer CLI. */
 export interface CreatePluginCliOptions {
@@ -50,54 +53,6 @@ export interface CreatePluginCliOptions {
   workspace?: string;
   /** Config root (defaults to 'j:/config'). */
   configRoot?: string;
-}
-
-/**
- * Derive a component name from a plugin ID.
- *
- * @remarks
- * Strips `jeeves-` prefix and `-openclaw` suffix.
- *
- * @param pluginId - The plugin identifier.
- * @returns Component short name.
- */
-function deriveComponentName(pluginId: string): string {
-  return pluginId.replace(/^jeeves-/, '').replace(/-openclaw$/, '');
-}
-
-/**
- * Copy all files from source directory to destination.
- *
- * @param srcDir - Source directory.
- * @param destDir - Destination directory.
- */
-function copyDistFiles(srcDir: string, destDir: string): void {
-  mkdirSync(destDir, { recursive: true });
-  const entries = readdirSync(srcDir, { withFileTypes: true });
-  for (const entry of entries) {
-    const srcPath = join(srcDir, entry.name);
-    const destPath = join(destDir, entry.name);
-    if (entry.isDirectory()) {
-      copyDistFiles(srcPath, destPath);
-    } else {
-      copyFileSync(srcPath, destPath);
-    }
-  }
-}
-
-/**
- * Read and parse a JSON file, returning an empty object if not found.
- *
- * @param filePath - Path to the JSON file.
- * @returns Parsed object.
- */
-function readJsonFile(filePath: string): Record<string, unknown> {
-  try {
-    const raw = readFileSync(filePath, 'utf-8');
-    return JSON.parse(raw) as Record<string, unknown>;
-  } catch {
-    return {};
-  }
 }
 
 /**
@@ -133,6 +88,17 @@ export function createPluginCli(options: CreatePluginCliOptions): Command {
       const extensionsDir = join(openClawHome, 'extensions', pluginId);
       console.log(`Copying dist to ${extensionsDir}...`);
       copyDistFiles(distDir, extensionsDir);
+
+      // Copy package.json and openclaw.plugin.json from package root
+      const pkgRoot = packageDirectorySync({ cwd: distDir });
+      if (pkgRoot) {
+        for (const file of ['package.json', 'openclaw.plugin.json']) {
+          const src = join(pkgRoot, file);
+          if (existsSync(src)) {
+            copyFileSync(src, join(extensionsDir, file));
+          }
+        }
+      }
       console.log('  ✓ Dist files copied');
 
       // 2. Patch openclaw.json
@@ -184,8 +150,6 @@ export function createPluginCli(options: CreatePluginCliOptions): Command {
               : '';
             const parsed = parseHeartbeat(existing);
             const fullName = `jeeves-${componentName}`;
-
-            // Only add if not already present
             const hasEntry = parsed.entries.some((e) => e.name === fullName);
             if (!hasEntry) {
               parsed.entries.push({
@@ -203,6 +167,26 @@ export function createPluginCli(options: CreatePluginCliOptions): Command {
         }
       } catch {
         // HEARTBEAT is best-effort during install
+      }
+
+      // 5. Write component version
+      try {
+        init({
+          workspacePath: opts.workspace ?? '.',
+          configRoot: opts.configRoot,
+        });
+        const pkgJsonPath = join(extensionsDir, 'package.json');
+        const pkgJson = readJsonFile(pkgJsonPath);
+        const pluginVersion =
+          typeof pkgJson.version === 'string' ? pkgJson.version : undefined;
+        writeComponentVersion(getCoreConfigDir(), {
+          componentName,
+          pluginPackage,
+          pluginVersion,
+        });
+        console.log('  ✓ Component version written');
+      } catch {
+        console.log('  ⚠ Could not write component version');
       }
 
       console.log();
@@ -237,11 +221,9 @@ export function createPluginCli(options: CreatePluginCliOptions): Command {
 
       // 3. Remove TOOLS.md section
       try {
-        const cfgRoot = opts.configRoot;
         const ws = opts.workspace;
-
         if (ws) {
-          init({ workspacePath: ws, configRoot: cfgRoot });
+          init({ workspacePath: ws, configRoot: opts.configRoot });
           const sectionId =
             componentName.charAt(0).toUpperCase() + componentName.slice(1);
           const toolsPath = join(ws, WORKSPACE_FILES.tools);
@@ -259,10 +241,9 @@ export function createPluginCli(options: CreatePluginCliOptions): Command {
 
       // 4. Remove component-versions.json entry
       try {
-        const cfgRoot = opts.configRoot;
         init({
           workspacePath: opts.workspace ?? '.',
-          configRoot: cfgRoot,
+          configRoot: opts.configRoot,
         });
         removeComponentVersion(getCoreConfigDir(), componentName);
         console.log('  ✓ Component version entry removed');
