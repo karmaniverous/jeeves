@@ -105,7 +105,9 @@ export function loadWorkspaceConfig(
     const raw = readFileSync(configPath, 'utf-8');
     const parsed: unknown = JSON.parse(raw);
     return workspaceConfigSchema.parse(parsed);
-  } catch {
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`jeeves-core: failed to load ${configPath}: ${msg}`);
     return undefined;
   }
 }

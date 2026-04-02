@@ -2,7 +2,7 @@ import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   loadWorkspaceConfig,
@@ -40,17 +40,24 @@ describe('loadWorkspaceConfig', () => {
     expect(result?.memory?.budget).toBe(30_000);
   });
 
-  it('returns undefined for corrupt JSON', () => {
+  it('returns undefined and warns for corrupt JSON', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     writeFileSync(join(testDir, WORKSPACE_CONFIG_FILE), 'not json');
     expect(loadWorkspaceConfig(testDir)).toBeUndefined();
+    expect(warnSpy).toHaveBeenCalledOnce();
+    expect(warnSpy.mock.calls[0]?.[0]).toContain('failed to load');
+    warnSpy.mockRestore();
   });
 
-  it('returns undefined for invalid schema', () => {
+  it('returns undefined and warns for invalid schema', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     writeFileSync(
       join(testDir, WORKSPACE_CONFIG_FILE),
       JSON.stringify({ memory: { budget: -5 } }),
     );
     expect(loadWorkspaceConfig(testDir)).toBeUndefined();
+    expect(warnSpy).toHaveBeenCalledOnce();
+    warnSpy.mockRestore();
   });
 
   it('accepts an empty config object', () => {

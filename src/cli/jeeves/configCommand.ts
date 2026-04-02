@@ -45,21 +45,19 @@ export function buildEffectiveConfig(
   return initFromOptions(opts);
 }
 
-/** Print the full effective config tree in a stable flat format. */
+/** Print the full effective config tree by walking the resolved structure. */
 function printEffectiveConfig(config: ResolvedCliConfig): void {
-  const lines = [
-    `core.workspace: ${JSON.stringify(config.core.workspace.value)} ${provenanceTag(config.core.workspace.provenance)}`,
-    `core.configRoot: ${JSON.stringify(config.core.configRoot.value)} ${provenanceTag(config.core.configRoot.provenance)}`,
-    `core.gatewayUrl: ${JSON.stringify(config.core.gatewayUrl.value)} ${provenanceTag(config.core.gatewayUrl.provenance)}`,
-    `memory.budget: ${JSON.stringify(config.memory.budget.value)} ${provenanceTag(config.memory.budget.provenance)}`,
-    `memory.warningThreshold: ${JSON.stringify(config.memory.warningThreshold.value)} ${provenanceTag(config.memory.warningThreshold.provenance)}`,
-    `memory.staleDays: ${JSON.stringify(config.memory.staleDays.value)} ${provenanceTag(config.memory.staleDays.provenance)}`,
-  ];
-
   console.log('Effective jeeves.config.json:');
   console.log('');
-  for (const line of lines) {
-    console.log(`  ${line}`);
+
+  for (const [section, entries] of Object.entries(config)) {
+    for (const [key, leaf] of Object.entries(
+      entries as Record<string, { value: unknown; provenance: string }>,
+    )) {
+      console.log(
+        `  ${section}.${key}: ${JSON.stringify(leaf.value)} ${provenanceTag(leaf.provenance)}`,
+      );
+    }
   }
 }
 

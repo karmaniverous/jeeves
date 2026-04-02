@@ -108,4 +108,11 @@ describe('buildEffectiveConfig', () => {
     const result = buildEffectiveConfig({ workspace: testDir });
     expect(result.memory.budget.provenance).toBe('default');
   });
+
+  it('ignores empty env var for numeric fields', () => {
+    vi.stubEnv('JEEVES_MEMORY_BUDGET', '');
+
+    const result = buildEffectiveConfig({ workspace: testDir });
+    expect(result.memory.budget.provenance).toBe('default');
+  });
 });

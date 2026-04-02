@@ -6,6 +6,8 @@
  * the shared precedence model: flags → env → jeeves.config.json → defaults.
  */
 
+import { resolve } from 'node:path';
+
 import {
   loadWorkspaceConfig,
   resolveConfigValue,
@@ -44,10 +46,10 @@ export interface ResolvedCliConfig {
   };
 }
 
-/** Read a numeric env var or return undefined if missing/invalid. */
+/** Read a numeric env var or return undefined if missing, empty, or invalid. */
 function readNumericEnv(name: string): number | undefined {
   const raw = process.env[name];
-  if (raw === undefined) return undefined;
+  if (raw === undefined || raw.trim() === '') return undefined;
   const value = Number(raw);
   return Number.isFinite(value) ? value : undefined;
 }
@@ -120,8 +122,8 @@ export function resolveCliConfig(opts: WorkspaceOptions): ResolvedCliConfig {
 export function initFromOptions(opts: WorkspaceOptions): ResolvedCliConfig {
   const resolved = resolveCliConfig(opts);
   init({
-    workspacePath: resolved.core.workspace.value,
-    configRoot: resolved.core.configRoot.value,
+    workspacePath: resolve(resolved.core.workspace.value),
+    configRoot: resolve(resolved.core.configRoot.value),
   });
   return resolved;
 }
