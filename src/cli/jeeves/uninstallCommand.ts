@@ -23,11 +23,7 @@ import {
 import { getServiceUrl } from '../../discovery/getServiceUrl.js';
 import { getCoreConfigDir, getWorkspacePath } from '../../init.js';
 import { fetchWithTimeout } from '../../plugin/http.js';
-import {
-  DEFAULT_CONFIG_ROOT,
-  DEFAULT_WORKSPACE,
-  initFromOptions,
-} from './cliDefaults.js';
+import { initFromOptions } from './cliDefaults.js';
 import { removeManagedBlockFromFile } from './uninstallHelpers.js';
 
 /**
@@ -39,19 +35,15 @@ export function registerUninstallCommand(program: Command): void {
   program
     .command('uninstall')
     .description('Remove Jeeves managed sections and platform artifacts')
-    .option('-w, --workspace <path>', 'Workspace root path', DEFAULT_WORKSPACE)
-    .option(
-      '-c, --config-root <path>',
-      'Platform config root path',
-      DEFAULT_CONFIG_ROOT,
-    )
+    .option('-w, --workspace <path>', 'Workspace root path')
+    .option('-c, --config-root <path>', 'Platform config root path')
     .action(async (opts) => {
-      console.log('Jeeves platform uninstall');
-      console.log(`  Workspace: ${opts.workspace}`);
-      console.log(`  Config root: ${opts.configRoot}`);
-      console.log();
+      const resolved = initFromOptions(opts);
 
-      initFromOptions(opts);
+      console.log('Jeeves platform uninstall');
+      console.log(`  Workspace: ${resolved.core.workspace.value}`);
+      console.log(`  Config root: ${resolved.core.configRoot.value}`);
+      console.log();
 
       const wsPath = getWorkspacePath();
       const coreConfigDir = getCoreConfigDir();

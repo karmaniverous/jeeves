@@ -12,11 +12,7 @@ import type { Command } from '@commander-js/extra-typings';
 import { readComponentVersions } from '../../component/componentVersions.js';
 import { getServiceUrl } from '../../discovery/getServiceUrl.js';
 import { fetchWithTimeout } from '../../plugin/http.js';
-import {
-  DEFAULT_CONFIG_ROOT,
-  DEFAULT_WORKSPACE,
-  initFromOptions,
-} from './cliDefaults.js';
+import { initFromOptions } from './cliDefaults.js';
 
 /**
  * Register the status subcommand on the parent CLI program.
@@ -27,12 +23,8 @@ export function registerStatusCommand(program: Command): void {
   program
     .command('status')
     .description('Discover Jeeves components and probe their health')
-    .option('-w, --workspace <path>', 'Workspace root path', DEFAULT_WORKSPACE)
-    .option(
-      '-c, --config-root <path>',
-      'Platform config root path',
-      DEFAULT_CONFIG_ROOT,
-    )
+    .option('-w, --workspace <path>', 'Workspace root path')
+    .option('-c, --config-root <path>', 'Platform config root path')
     .option('-t, --timeout <ms>', 'Probe timeout in milliseconds', '3000')
     .action(async (opts) => {
       const timeoutMs = parseInt(opts.timeout, 10);
