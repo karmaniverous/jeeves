@@ -98,7 +98,7 @@ export function analyzeMemory(
 
   const content = readFileSync(memoryPath, 'utf-8');
   const charCount = content.length;
-  const usage = charCount / budget;
+  const usage = budget > 0 ? charCount / budget : charCount > 0 ? Infinity : 0;
   const warning = usage >= warningThreshold;
   const overBudget = usage > 1;
 
@@ -109,8 +109,7 @@ export function analyzeMemory(
   const staleSectionNames: string[] = [];
 
   for (const section of sections) {
-    const firstLine = section.split('\n')[0]?.trim() ?? '';
-    const sectionName = firstLine.replace(/\s*$/, '');
+    const sectionName = section.split('\n')[0]?.trim() ?? '';
     const recentDate = extractMostRecentDate(section);
 
     // Sections without dates are evergreen — never flagged (Decision 47)
