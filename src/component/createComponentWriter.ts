@@ -7,7 +7,10 @@
  * `JeevesComponent` interface is no longer accepted.
  */
 
-import { ComponentWriter } from './ComponentWriter.js';
+import {
+  ComponentWriter,
+  type ComponentWriterOptions,
+} from './ComponentWriter.js';
 import type { JeevesComponentDescriptor } from './descriptor.js';
 import { jeevesComponentDescriptorSchema } from './descriptor.js';
 
@@ -19,13 +22,15 @@ import { jeevesComponentDescriptorSchema } from './descriptor.js';
  * This replaces the v0.4.0 `createComponentWriter(JeevesComponent)`.
  *
  * @param descriptor - The component descriptor to validate and wrap.
+ * @param options - Optional writer configuration (e.g., gatewayUrl for cleanup escalation).
  * @returns A new `ComponentWriter` instance.
  * @throws ZodError if the descriptor is invalid.
  */
 export function createComponentWriter(
   descriptor: JeevesComponentDescriptor,
+  options?: ComponentWriterOptions,
 ): ComponentWriter {
   // Validate via Zod — throws ZodError with detailed messages on failure
   jeevesComponentDescriptorSchema.parse(descriptor);
-  return new ComponentWriter(descriptor);
+  return new ComponentWriter(descriptor, options);
 }

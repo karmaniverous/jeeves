@@ -10,7 +10,11 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { CORE_VERSION, TOOLS_MARKERS } from '../constants/index.js';
+import {
+  CLEANUP_FLAG,
+  CORE_VERSION,
+  TOOLS_MARKERS,
+} from '../constants/index.js';
 import { WORKSPACE_FILES } from '../constants/paths.js';
 import {
   getComponentConfigDir,
@@ -21,6 +25,7 @@ import {
 import { parseHeartbeat, writeHeartbeatSection } from '../managed/heartbeat.js';
 import { updateManagedSection } from '../managed/updateManagedSection.js';
 import { refreshPlatformContent } from '../platform/refreshPlatformContent.js';
+import { requestCleanupSession } from './cleanupEscalation.js';
 import type { JeevesComponentDescriptor } from './descriptor.js';
 import { orchestrateHeartbeat } from './heartbeatOrchestrator.js';
 
@@ -32,15 +37,31 @@ import { orchestrateHeartbeat } from './heartbeatOrchestrator.js';
  * at the component's prime-interval, calling `generateToolsContent()`
  * and `refreshPlatformContent()` on each cycle.
  */
+/** Options for ComponentWriter construction. */
+export interface ComponentWriterOptions {
+  /**
+   * Gateway URL for cleanup escalation (e.g., 'http://localhost:3000').
+   * When provided, the writer will attempt to spawn a cleanup session
+   * via the gateway when orphaned content is detected.
+   * When omitted, cleanup escalation is silently skipped.
+   */
+  gatewayUrl?: string;
+}
+
 export class ComponentWriter {
   private timer: ReturnType<typeof setInterval> | undefined;
   private readonly component: JeevesComponentDescriptor;
   private readonly configDir: string;
+  private readonly gatewayUrl: string | undefined;
 
   /** @internal */
-  constructor(component: JeevesComponentDescriptor) {
+  constructor(
+    component: JeevesComponentDescriptor,
+    options?: ComponentWriterOptions,
+  ) {
     this.component = component;
     this.configDir = getComponentConfigDir(component.name);
+    this.gatewayUrl = options?.gatewayUrl;
   }
 
   /** The component's config directory path. */
@@ -100,6 +121,22 @@ export class ComponentWriter {
         coreVersion: CORE_VERSION,
       });
 
+      // Cleanup escalation: check if the written file has the cleanup flag
+      if (this.gatewayUrl) {
+        try {
+          const toolsContent = readFileSync(toolsPath, 'utf-8');
+          if (toolsContent.includes(CLEANUP_FLAG)) {
+            void requestCleanupSession({
+              gatewayUrl: this.gatewayUrl,
+              filePath: toolsPath,
+              markerIdentity: 'TOOLS',
+            });
+          }
+        } catch {
+          // Best-effort: don't fail the cycle for escalation issues
+        }
+      }
+
       // Platform content maintenance: SOUL.md, AGENTS.md, Platform section
       await refreshPlatformContent({
         coreVersion: CORE_VERSION,
@@ -108,6 +145,35 @@ export class ComponentWriter {
         servicePackage: this.component.servicePackage,
         pluginPackage: this.component.pluginPackage,
       });
+
+      if (this.gatewayUrl) {
+        const cleanupTargets = [
+          { filePath: toolsPath, markerIdentity: 'TOOLS' },
+          {
+            filePath: join(workspacePath, WORKSPACE_FILES.soul),
+            markerIdentity: 'SOUL',
+          },
+          {
+            filePath: join(workspacePath, WORKSPACE_FILES.agents),
+            markerIdentity: 'AGENTS',
+          },
+        ];
+
+        for (const target of cleanupTargets) {
+          try {
+            const fileContent = readFileSync(target.filePath, 'utf-8');
+            if (fileContent.includes(CLEANUP_FLAG)) {
+              void requestCleanupSession({
+                gatewayUrl: this.gatewayUrl,
+                filePath: target.filePath,
+                markerIdentity: target.markerIdentity,
+              });
+            }
+          } catch {
+            // Best-effort: don't fail the cycle for escalation issues.
+          }
+        }
+      }
 
       // HEARTBEAT health orchestration
       const heartbeatPath = join(workspacePath, WORKSPACE_FILES.heartbeat);

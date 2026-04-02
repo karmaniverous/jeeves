@@ -36,6 +36,7 @@ export {
   type ComponentVersionEntry,
   type ComponentVersionsState,
   ComponentWriter,
+  type ComponentWriterOptions,
   createAsyncContentCache,
   createComponentWriter,
   getEffectiveServiceName,

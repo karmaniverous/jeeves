@@ -12,7 +12,10 @@ export {
   writeComponentVersion,
   type WriteComponentVersionOptions,
 } from './componentVersions.js';
-export { ComponentWriter } from './ComponentWriter.js';
+export {
+  ComponentWriter,
+  type ComponentWriterOptions,
+} from './ComponentWriter.js';
 export {
   type AsyncContentCacheOptions,
   createAsyncContentCache,

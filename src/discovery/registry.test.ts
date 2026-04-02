@@ -31,7 +31,7 @@ describe('checkRegistryVersion', () => {
     expect(result).toBe('1.2.3');
   });
 
-  it('should ignore expired cache', () => {
+  it('should ignore expired cache', { timeout: 15_000 }, () => {
     writeFileSync(
       join(testDir, 'registry-cache.json'),
       JSON.stringify({
@@ -49,7 +49,7 @@ describe('checkRegistryVersion', () => {
     expect(result).toBeUndefined();
   });
 
-  it('should handle corrupt cache gracefully', () => {
+  it('should handle corrupt cache gracefully', { timeout: 15_000 }, () => {
     writeFileSync(join(testDir, 'registry-cache.json'), 'not json');
 
     // Will try npm query for a non-existent package
