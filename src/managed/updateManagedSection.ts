@@ -120,10 +120,11 @@ export async function updateManagedSection(
           : sectionText;
       }
 
-      // Combine beforeContent + userContent for the user zone.
-      // When migrating from top→bottom, beforeContent is empty and
-      // userContent has the real content. When already at bottom,
-      // beforeContent has the user content and userContent is empty.
+      // Build the full managed block
+      const beginLine = formatBeginMarker(markers.begin, coreVersion);
+      const endLine = formatEndMarker(markers.end);
+
+      // Combine all user content for cleanup detection
       const rawUserContent = [parsed.beforeContent, parsed.userContent]
         .filter(Boolean)
         .join('\n\n')
@@ -132,10 +133,6 @@ export async function updateManagedSection(
       // Strip foreign managed blocks from user content (cross-contamination fix)
       const userContent = stripForeignMarkers(rawUserContent, markers);
       const cleanupNeeded = needsCleanup(newManagedBody, userContent);
-
-      // Build the full managed block
-      const beginLine = formatBeginMarker(markers.begin, coreVersion);
-      const endLine = formatEndMarker(markers.end);
 
       const managedParts: string[] = [];
       managedParts.push(beginLine);
@@ -149,27 +146,46 @@ export async function updateManagedSection(
       managedParts.push(endLine);
 
       const managedBlock = managedParts.join('\n');
-      const position = markers.position ?? 'top';
 
-      const fileParts: string[] = [];
-      if (position === 'bottom') {
-        // User content first, managed block at end
-        if (userContent) {
-          fileParts.push(userContent);
+      let newFileContent: string;
+
+      if (parsed.found) {
+        // Existing block: update in place — preserve position, don't move.
+        // Replace everything from BEGIN to END markers with the new block,
+        // keeping beforeContent and userContent exactly where they are.
+        const fileParts: string[] = [];
+        if (parsed.beforeContent) {
+          fileParts.push(parsed.beforeContent);
           fileParts.push('');
         }
         fileParts.push(managedBlock);
+        if (parsed.userContent) {
+          fileParts.push('');
+          fileParts.push(parsed.userContent);
+        }
+        fileParts.push('');
+        newFileContent = fileParts.join('\n');
       } else {
-        // Managed block first (legacy default), user content below
-        fileParts.push(managedBlock);
-        if (userContent) {
-          fileParts.push('');
-          fileParts.push(userContent);
+        // No existing block: insert new block using the configured position.
+        const position = markers.position ?? 'top';
+        const fileParts: string[] = [];
+        if (position === 'bottom') {
+          if (userContent) {
+            fileParts.push(userContent);
+            fileParts.push('');
+          }
+          fileParts.push(managedBlock);
+        } else {
+          fileParts.push(managedBlock);
+          if (userContent) {
+            fileParts.push('');
+            fileParts.push(userContent);
+          }
         }
+        fileParts.push('');
+        newFileContent = fileParts.join('\n');
       }
-      fileParts.push('');
 
-      const newFileContent = fileParts.join('\n');
       atomicWrite(filePath, newFileContent);
     });
   } catch (err: unknown) {

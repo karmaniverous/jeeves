@@ -82,6 +82,6 @@ export const VERSION_STAMP_PATTERN =
 /** Staleness threshold for version-stamp convergence in milliseconds. */
 export const STALENESS_THRESHOLD_MS = 5 * 60 * 1000;
 
-/** Warning text prepended inside managed block when cleanup is needed. */
+/** Warning text injected inside managed block when cleanup is needed. */
 export const CLEANUP_FLAG =
-  '> ⚠️ CLEANUP NEEDED: Orphaned Jeeves content may exist below this managed section. Review everything after the END marker and remove any content that duplicates what appears above.';
+  '> ⚠️ CLEANUP NEEDED: Orphaned Jeeves content detected outside this managed block. Review the file and remove any content outside the BEGIN/END markers that duplicates what appears inside them.';
