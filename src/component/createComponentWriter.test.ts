@@ -4,9 +4,14 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+vi.mock('./cleanupEscalation.js', () => ({
+  requestCleanupSession: vi.fn().mockResolvedValue(true),
+}));
+
 import { init, resetInit } from '../init';
 import { parseManaged } from '../managed/parseManaged';
 import { makeTestDescriptor } from '../test/makeTestDescriptor';
+import { requestCleanupSession } from './cleanupEscalation.js';
 import { createComponentWriter } from './createComponentWriter';
 
 function makeDescriptor(
@@ -16,6 +21,16 @@ function makeDescriptor(
     generateToolsContent: () => 'Watcher content.',
     ...overrides,
   });
+}
+
+async function readBundledContent(fileName: string): Promise<string> {
+  const { dirname, join: joinPath } = await import('node:path');
+  const { fileURLToPath } = await import('node:url');
+  const thisDir = dirname(fileURLToPath(import.meta.url));
+  return readFileSync(
+    joinPath(thisDir, '..', '..', 'content', fileName),
+    'utf-8',
+  );
 }
 
 describe('createComponentWriter', () => {
@@ -33,6 +48,7 @@ describe('createComponentWriter', () => {
   });
 
   afterEach(() => {
+    vi.clearAllMocks();
     resetInit();
     rmSync(testDir, { recursive: true, force: true });
   });
@@ -81,6 +97,8 @@ describe('createComponentWriter', () => {
   describe('ComponentWriter lifecycle', () => {
     it('should start and stop', () => {
       const writer = createComponentWriter(makeDescriptor());
+      vi.spyOn(writer, 'cycle').mockResolvedValue(undefined);
+
       expect(writer.isRunning).toBe(false);
       writer.start();
       expect(writer.isRunning).toBe(true);
@@ -90,6 +108,8 @@ describe('createComponentWriter', () => {
 
     it('should not start twice', () => {
       const writer = createComponentWriter(makeDescriptor());
+      vi.spyOn(writer, 'cycle').mockResolvedValue(undefined);
+
       writer.start();
       writer.start(); // Should be a no-op
       expect(writer.isRunning).toBe(true);
@@ -128,6 +148,39 @@ describe('createComponentWriter', () => {
       expect(parsed.sections.find((s) => s.id === 'Watcher')?.content).toBe(
         'Watcher content.',
       );
+    }, 15_000);
+
+    it('should emit a cleanup session request when cleanup is detected', async () => {
+      const writer = createComponentWriter(makeDescriptor(), {
+        gatewayUrl: 'http://127.0.0.1:3456',
+      });
+      const soulPath = join(workspaceDir, 'SOUL.md');
+      writeFileSync(soulPath, await readBundledContent('soul-section.md'));
+
+      await writer.cycle();
+
+      expect(requestCleanupSession).toHaveBeenCalledTimes(1);
+      expect(requestCleanupSession).toHaveBeenCalledWith({
+        gatewayUrl: 'http://127.0.0.1:3456',
+        filePath: soulPath,
+        markerIdentity: 'SOUL',
+      });
+      expect(readFileSync(soulPath, 'utf-8')).toContain('CLEANUP NEEDED');
+    }, 15_000);
+
+    it('should fall back to the file warning when the gateway is unavailable', async () => {
+      vi.mocked(requestCleanupSession).mockResolvedValueOnce(false);
+
+      const writer = createComponentWriter(makeDescriptor(), {
+        gatewayUrl: 'http://127.0.0.1:3456',
+      });
+      const soulPath = join(workspaceDir, 'SOUL.md');
+      writeFileSync(soulPath, await readBundledContent('soul-section.md'));
+
+      await expect(writer.cycle()).resolves.toBeUndefined();
+
+      expect(requestCleanupSession).toHaveBeenCalledTimes(1);
+      expect(readFileSync(soulPath, 'utf-8')).toContain('CLEANUP NEEDED');
     }, 15_000);
   });
 });
