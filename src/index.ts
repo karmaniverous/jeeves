@@ -140,7 +140,9 @@ export {
 } from './managed/index.js';
 export {
   analyzeMemory,
+  checkMemoryHealth,
   extractMostRecentDate,
+  MEMORY_HEARTBEAT_NAME,
   type MemoryHygieneOptions,
   type MemoryHygieneResult,
 } from './memory/index.js';

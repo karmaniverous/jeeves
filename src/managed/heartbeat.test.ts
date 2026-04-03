@@ -68,6 +68,31 @@ describe('parseHeartbeat', () => {
     expect(result.entries).toHaveLength(1);
   });
 
+  it('parses MEMORY.md heading alongside component headings', () => {
+    const content = [
+      '# Jeeves Platform Status',
+      '## jeeves-runner',
+      '- Not installed.',
+      '## MEMORY.md',
+      '- Budget: 18,500 / 20,000 chars (93%). Consider reviewing.',
+    ].join('\n');
+    const result = parseHeartbeat(content);
+    expect(result.entries).toHaveLength(2);
+    expect(result.entries[1].name).toBe('MEMORY.md');
+    expect(result.entries[1].declined).toBe(false);
+    expect(result.entries[1].content).toContain('Budget:');
+  });
+
+  it('parses declined MEMORY.md heading', () => {
+    const content = ['# Jeeves Platform Status', '## MEMORY.md: declined'].join(
+      '\n',
+    );
+    const result = parseHeartbeat(content);
+    expect(result.entries).toHaveLength(1);
+    expect(result.entries[0].name).toBe('MEMORY.md');
+    expect(result.entries[0].declined).toBe(true);
+  });
+
   it('handles headings-only section (effectively empty)', () => {
     const content = [
       '# Jeeves Platform Status',

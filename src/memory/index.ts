@@ -5,6 +5,10 @@
  */
 
 export {
+  checkMemoryHealth,
+  MEMORY_HEARTBEAT_NAME,
+} from './checkMemoryHealth.js';
+export {
   analyzeMemory,
   extractMostRecentDate,
   type MemoryHygieneOptions,
