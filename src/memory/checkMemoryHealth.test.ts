@@ -13,7 +13,10 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { WORKSPACE_CONFIG_DEFAULTS } from '../config/workspaceConfig.js';
-import { checkMemoryHealth, MEMORY_HEARTBEAT_NAME } from './checkMemoryHealth.js';
+import {
+  checkMemoryHealth,
+  MEMORY_HEARTBEAT_NAME,
+} from './checkMemoryHealth.js';
 
 describe('checkMemoryHealth', () => {
   let testDir: string;
