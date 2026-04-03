@@ -97,3 +97,9 @@ MEMORY.md has a character budget (default 20,000). Core tracks:
 - Evergreen sections (no dates) are never flagged
 
 Review is human/agent-mediated — core does not auto-delete.
+
+### HEARTBEAT Integration
+
+Memory hygiene is checked on every `ComponentWriter` cycle alongside component health. When budget or staleness thresholds are breached, a `## MEMORY.md` alert appears in HEARTBEAT.md under `# Jeeves Platform Status`. The alert includes character count, budget usage percentage, and any stale section names. When memory is healthy, the heading is absent — no alert content, no LLM cost on heartbeat polls.
+
+The `## MEMORY.md` heading follows the same declined/active lifecycle as component headings (`## jeeves-{name}`). Users can decline memory alerts by changing the heading to `## MEMORY.md: declined`.
