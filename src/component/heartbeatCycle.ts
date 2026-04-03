@@ -10,8 +10,16 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import {
+  loadWorkspaceConfig,
+  WORKSPACE_CONFIG_DEFAULTS,
+} from '../config/workspaceConfig.js';
 import { WORKSPACE_FILES } from '../constants/paths.js';
 import { parseHeartbeat, writeHeartbeatSection } from '../managed/heartbeat.js';
+import {
+  checkMemoryHealth,
+  MEMORY_HEARTBEAT_NAME,
+} from '../memory/checkMemoryHealth.js';
 import { orchestrateHeartbeat } from './heartbeatOrchestrator.js';
 
 /** Options for running a heartbeat cycle. */
@@ -68,6 +76,29 @@ export async function runHeartbeatCycle(
       configRoot,
       declinedNames,
     });
+
+    // Memory hygiene check (Decision 49)
+    if (!declinedNames.has(MEMORY_HEARTBEAT_NAME)) {
+      const wsConfig = loadWorkspaceConfig(workspacePath);
+      const memoryEntry = checkMemoryHealth({
+        workspacePath,
+        budget:
+          wsConfig?.memory?.budget ?? WORKSPACE_CONFIG_DEFAULTS.memory.budget,
+        warningThreshold:
+          wsConfig?.memory?.warningThreshold ??
+          WORKSPACE_CONFIG_DEFAULTS.memory.warningThreshold,
+        staleDays:
+          wsConfig?.memory?.staleDays ??
+          WORKSPACE_CONFIG_DEFAULTS.memory.staleDays,
+      });
+      if (memoryEntry) entries.push(memoryEntry);
+    } else {
+      entries.push({
+        name: MEMORY_HEARTBEAT_NAME,
+        declined: true,
+        content: '',
+      });
+    }
 
     await writeHeartbeatSection(heartbeatPath, entries);
   } catch (err: unknown) {
