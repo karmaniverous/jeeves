@@ -2,7 +2,17 @@
 
 All notable changes to this project will be documented in this file. Dates are displayed in UTC.
 
+#### [0.5.1](https://github.com/karmaniverous/jeeves/compare/0.5.0...0.5.1)
+
+- feat: HEARTBEAT memory hygiene integration (Phase 9) [`#64`](https://github.com/karmaniverous/jeeves/pull/64)
+- feat: integrate memory hygiene into HEARTBEAT cycle (Phase 9) [`5310da9`](https://github.com/karmaniverous/jeeves/commit/5310da9213e659e4069a7953b5f7c76fe95342cc)
+- docs: update skill with HEARTBEAT memory integration [`79a0ffb`](https://github.com/karmaniverous/jeeves/commit/79a0ffb36a1f51f32c67c6bc60e436106e598030)
+- lint:fix [`eac4771`](https://github.com/karmaniverous/jeeves/commit/eac47711e3b38ca9904fd27028c5a3c53460a32d)
+- fix: add .js extension to test import (Gemini review) [`5cd00bf`](https://github.com/karmaniverous/jeeves/commit/5cd00bf90c776615c81f65186d774a59bc1fd7d6)
+
 #### [0.5.0](https://github.com/karmaniverous/jeeves/compare/0.4.7...0.5.0)
+
+> 2 April 2026
 
 - feat: memory hygiene, skill seeding, SOLID/DRY pass, docs sync (Phases 7-8) [`#63`](https://github.com/karmaniverous/jeeves/pull/63)
 - feat: shared workspace config loader (Phase 6) [`#62`](https://github.com/karmaniverous/jeeves/pull/62)
@@ -19,6 +29,7 @@ All notable changes to this project will be documented in this file. Dates are d
 - docs: sync README and guides with v0.5.0 features [`f6c0b83`](https://github.com/karmaniverous/jeeves/commit/f6c0b830c4ab93e51652bbde6d3c740f784eff64)
 - feat: Node 22 runtime floor [`fcd61fe`](https://github.com/karmaniverous/jeeves/commit/fcd61fec6b61b1cf1889d0493d7381b746cc8c34)
 - fix: address Gemini review — env guard, absolute paths, warn on bad config, dynamic output [`a55a446`](https://github.com/karmaniverous/jeeves/commit/a55a446888960a2c785f8266ffc3cad2198fc7fc)
+- chore: release v0.5.0 [`f47eeca`](https://github.com/karmaniverous/jeeves/commit/f47eeca046efbeeda837b4b1ff1e70ffcc131452)
 - fix: address Gemini review — remove redundant check, deduplicate escalation [`b47a489`](https://github.com/karmaniverous/jeeves/commit/b47a4892ab34501ab0270ac7df73f065f4527307)
 - refactor: use semver.major() for Node version check [`d86b3ae`](https://github.com/karmaniverous/jeeves/commit/d86b3aecaa07ec9b993c9ce8106c66bdae13eb6a)
 - fix: address Gemini review — zero-budget guard, remove redundant replace [`c6595e2`](https://github.com/karmaniverous/jeeves/commit/c6595e214825a19aac258cefa2d501b681cf0425)
