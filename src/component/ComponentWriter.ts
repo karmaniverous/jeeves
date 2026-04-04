@@ -23,15 +23,6 @@ import { scanAndEscalateCleanup } from './cleanupScan.js';
 import type { JeevesComponentDescriptor } from './descriptor.js';
 import { runHeartbeatCycle } from './heartbeatCycle.js';
 
-/**
- * Orchestrates managed content writing for a single Jeeves component.
- *
- * @remarks
- * Created via `createComponentWriter()`. Manages a timer that fires
- * at the component's prime-interval, calling `generateToolsContent()`
- * and `refreshPlatformContent()` on each cycle.
- */
-
 /** Options for ComponentWriter construction. */
 export interface ComponentWriterOptions {
   /**
@@ -43,8 +34,17 @@ export interface ComponentWriterOptions {
   gatewayUrl?: string;
 }
 
+/**
+ * Orchestrates managed content writing for a single Jeeves component.
+ *
+ * @remarks
+ * Created via {@link createComponentWriter}. Manages a timer that fires
+ * at the component's prime-interval, calling `generateToolsContent()`
+ * and `refreshPlatformContent()` on each cycle.
+ */
 export class ComponentWriter {
   private timer: ReturnType<typeof setInterval> | undefined;
+  private jitterTimeout: ReturnType<typeof setTimeout> | undefined;
   private readonly component: JeevesComponentDescriptor;
   private readonly configDir: string;
   private readonly gatewayUrl: string | undefined;
@@ -65,30 +65,38 @@ export class ComponentWriter {
     return this.configDir;
   }
 
-  /** Whether the writer timer is currently running. */
+  /** Whether the writer timer is currently running or pending its first cycle. */
   get isRunning(): boolean {
-    return this.timer !== undefined;
+    return this.jitterTimeout !== undefined || this.timer !== undefined;
   }
 
   /**
    * Start the writer timer.
    *
    * @remarks
-   * Performs an immediate first write, then sets up the interval.
+   * Delays the first cycle by a random jitter (0 to one full interval) to
+   * spread initial writes across all component plugins and reduce EPERM
+   * contention on startup.
    */
   start(): void {
-    if (this.timer) return;
+    if (this.isRunning) return;
 
-    // Fire immediately, then on interval
-    void this.cycle();
-    this.timer = setInterval(
-      () => void this.cycle(),
-      this.component.refreshIntervalSeconds * 1000,
-    );
+    // Random jitter up to one full interval to spread initial writes
+    const intervalMs = this.component.refreshIntervalSeconds * 1000;
+    const jitterMs = Math.floor(Math.random() * intervalMs);
+    this.jitterTimeout = setTimeout(() => {
+      this.jitterTimeout = undefined;
+      void this.cycle();
+      this.timer = setInterval(() => void this.cycle(), intervalMs);
+    }, jitterMs);
   }
 
   /** Stop the writer timer. */
   stop(): void {
+    if (this.jitterTimeout) {
+      clearTimeout(this.jitterTimeout);
+      this.jitterTimeout = undefined;
+    }
     if (this.timer) {
       clearInterval(this.timer);
       this.timer = undefined;

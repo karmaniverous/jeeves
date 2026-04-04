@@ -64,8 +64,33 @@ export const workspaceConfigSchema = z.object({
 /** Workspace config type. */
 export type WorkspaceConfig = z.infer<typeof workspaceConfigSchema>;
 
-/** Built-in workspace config defaults. */
-export const WORKSPACE_CONFIG_DEFAULTS = {
+/**
+ * Built-in workspace config defaults.
+ *
+ * @remarks
+ * These defaults are used as the lowest-priority tier in config resolution
+ * (below CLI flags, env vars, and `jeeves.config.json` values).
+ */
+export const WORKSPACE_CONFIG_DEFAULTS: {
+  /** Core shared defaults. */
+  readonly core: {
+    /** Default workspace root path. */
+    readonly workspace: '.';
+    /** Default platform config root path. */
+    readonly configRoot: './config';
+    /** Default OpenClaw gateway URL. */
+    readonly gatewayUrl: 'http://127.0.0.1:3000';
+  };
+  /** Memory hygiene shared defaults. */
+  readonly memory: {
+    /** Default MEMORY.md character budget. */
+    readonly budget: 20_000;
+    /** Default warning threshold as a fraction of budget (80%). */
+    readonly warningThreshold: 0.8;
+    /** Default staleness threshold in days. */
+    readonly staleDays: 30;
+  };
+} = {
   core: {
     workspace: '.',
     configRoot: './config',
@@ -76,7 +101,7 @@ export const WORKSPACE_CONFIG_DEFAULTS = {
     warningThreshold: 0.8,
     staleDays: 30,
   },
-} as const;
+};
 
 /** Provenance source for a resolved config value. */
 export type ConfigProvenance = 'flag' | 'env' | 'file' | 'default';

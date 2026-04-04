@@ -20,6 +20,10 @@ import {
   checkMemoryHealth,
   MEMORY_HEARTBEAT_NAME,
 } from '../memory/checkMemoryHealth.js';
+import {
+  checkWorkspaceFileHealth,
+  workspaceFileHealthEntries,
+} from '../memory/checkWorkspaceFileHealth.js';
 import { orchestrateHeartbeat } from './heartbeatOrchestrator.js';
 
 /** Options for running a heartbeat cycle. */
@@ -99,6 +103,10 @@ export async function runHeartbeatCycle(
         content: '',
       });
     }
+
+    // Workspace file size health check (Decision 70)
+    const wsFileResults = checkWorkspaceFileHealth({ workspacePath });
+    entries.push(...workspaceFileHealthEntries(wsFileResults));
 
     await writeHeartbeatSection(heartbeatPath, entries);
   } catch (err: unknown) {

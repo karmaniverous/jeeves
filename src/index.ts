@@ -24,6 +24,10 @@ export {
   type StatusResponse,
 } from './api/index.js';
 export { checkNodeVersion } from './cli/jeeves/checkNodeVersion.js';
+export {
+  type ResolvedCliConfig,
+  type WorkspaceOptions,
+} from './cli/jeeves/cliDefaults.js';
 export { buildEffectiveConfig } from './cli/jeeves/configCommand.js';
 export {
   createPluginCli,
@@ -163,6 +167,7 @@ export {
   ok,
   patchConfig,
   type PluginApi,
+  type PluginInstallRecord,
   postJson,
   resolveConfigPath,
   resolveOpenClawHome,

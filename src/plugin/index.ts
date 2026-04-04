@@ -9,6 +9,7 @@ export { getPackageVersion } from './getPackageVersion.js';
 export { fetchJson, fetchWithTimeout, postJson } from './http.js';
 export {
   patchConfig,
+  type PluginInstallRecord,
   resolveConfigPath,
   resolveOpenClawHome,
 } from './openclawConfig.js';

@@ -197,4 +197,101 @@ describe('patchConfig', () => {
     // plugins.allow should be untouched
     expect(allow).toEqual(['existing-plugin']);
   });
+
+  it('writes install record with source: "path" on add', () => {
+    const config: Record<string, unknown> = {};
+    patchConfig(config, 'my-plugin', 'add', {
+      installPath: '/extensions/my-plugin',
+      version: '1.2.3',
+      installedAt: '2026-01-01T00:00:00.000Z',
+    });
+
+    const plugins = config.plugins as Record<string, unknown>;
+    const installs = plugins.installs as Record<string, unknown>;
+    expect(installs['my-plugin']).toEqual({
+      source: 'path',
+      installPath: '/extensions/my-plugin',
+      version: '1.2.3',
+      installedAt: '2026-01-01T00:00:00.000Z',
+    });
+  });
+
+  it('uses current ISO timestamp when installedAt not provided', () => {
+    const before = Date.now();
+    const config: Record<string, unknown> = {};
+    patchConfig(config, 'my-plugin', 'add', {
+      installPath: '/extensions/my-plugin',
+    });
+    const after = Date.now();
+
+    const plugins = config.plugins as Record<string, unknown>;
+    const installs = plugins.installs as Record<string, unknown>;
+    const record = installs['my-plugin'] as Record<string, unknown>;
+    const ts = new Date(record.installedAt as string).getTime();
+    expect(ts).toBeGreaterThanOrEqual(before);
+    expect(ts).toBeLessThanOrEqual(after);
+  });
+
+  it('removes install record on uninstall', () => {
+    const config: Record<string, unknown> = {
+      plugins: {
+        entries: { 'my-plugin': { enabled: true } },
+        installs: {
+          'my-plugin': {
+            source: 'path',
+            installPath: '/extensions/my-plugin',
+            version: '1.0.0',
+            installedAt: '2026-01-01T00:00:00.000Z',
+          },
+        },
+      },
+    };
+
+    patchConfig(config, 'my-plugin', 'remove');
+
+    const plugins = config.plugins as Record<string, unknown>;
+    const installs = plugins.installs as Record<string, unknown>;
+    expect(installs['my-plugin']).toBeUndefined();
+  });
+
+  it('round-trip install then uninstall leaves no install record', () => {
+    const config: Record<string, unknown> = {};
+    patchConfig(config, 'my-plugin', 'add', {
+      installPath: '/extensions/my-plugin',
+      version: '1.0.0',
+    });
+    patchConfig(config, 'my-plugin', 'remove');
+
+    const plugins = config.plugins as Record<string, unknown>;
+    const installs = plugins.installs as Record<string, unknown>;
+    expect(installs['my-plugin']).toBeUndefined();
+  });
+
+  it('double install is idempotent for install record', () => {
+    const config: Record<string, unknown> = {};
+    patchConfig(config, 'my-plugin', 'add', {
+      installPath: '/extensions/my-plugin',
+      version: '1.0.0',
+      installedAt: '2026-01-01T00:00:00.000Z',
+    });
+    patchConfig(config, 'my-plugin', 'add', {
+      installPath: '/extensions/my-plugin',
+      version: '1.0.0',
+      installedAt: '2026-01-01T00:00:00.000Z',
+    });
+
+    const plugins = config.plugins as Record<string, unknown>;
+    const installs = plugins.installs as Record<string, unknown>;
+    // Only one entry
+    expect(Object.keys(installs)).toHaveLength(1);
+  });
+
+  it('does not write install record when installRecord omitted', () => {
+    const config: Record<string, unknown> = {};
+    patchConfig(config, 'my-plugin', 'add');
+
+    const plugins = config.plugins as Record<string, unknown>;
+    const installs = plugins.installs as Record<string, unknown>;
+    expect(installs['my-plugin']).toBeUndefined();
+  });
 });
