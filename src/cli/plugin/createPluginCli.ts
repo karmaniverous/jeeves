@@ -102,7 +102,7 @@ export function createPluginCli(options: CreatePluginCliOptions): Command {
         );
       }
       console.log(`Copying dist to ${extensionsDir}...`);
-      copyDistFiles(distDir, extensionsDir);
+      copyDistFiles(distDir, join(extensionsDir, 'dist'));
 
       // Copy package.json and openclaw.plugin.json from package root
       for (const file of ['package.json', 'openclaw.plugin.json']) {
