@@ -109,7 +109,7 @@ The `## MEMORY.md` heading follows the same declined/active lifecycle as compone
 OpenClaw applies a ~20,000-char injection limit to all workspace bootstrap files (AGENTS.md, SOUL.md, TOOLS.md, USER.md, MEMORY.md). Files exceeding the limit are silently truncated.
 
 Core monitors all five files on every `ComponentWriter` cycle:
-- Warning at 80% of budget (configurable via `memory.warningThreshold` in `jeeves.config.json`)
+- Warning at 80% of budget (fixed threshold; not configurable via `jeeves.config.json`)
 - Over-budget alert when charCount exceeds the budget
 - Missing files are silently skipped
 
