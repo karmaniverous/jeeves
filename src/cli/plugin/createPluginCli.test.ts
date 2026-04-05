@@ -84,10 +84,10 @@ describe('createPluginCli', () => {
 
     const extDir = join(openClawHome, 'extensions', 'jeeves-watcher-openclaw');
     expect(existsSync(extDir)).toBe(true);
-    expect(existsSync(join(extDir, 'index.js'))).toBe(true);
+    expect(existsSync(join(extDir, 'dist', 'index.js'))).toBe(true);
   });
 
-  it('install should copy only dist contents plus plugin manifests', async () => {
+  it('install should preserve dist/ subdirectory and copy manifests to root', async () => {
     const program = createPluginCli({
       pluginId: 'jeeves-watcher-openclaw',
       importMetaUrl,
@@ -98,12 +98,17 @@ describe('createPluginCli', () => {
 
     const extDir = join(openClawHome, 'extensions', 'jeeves-watcher-openclaw');
 
-    expect(existsSync(join(extDir, 'index.js'))).toBe(true);
+    // dist contents should be under dist/ subdirectory
+    expect(existsSync(join(extDir, 'dist', 'index.js'))).toBe(true);
+    // manifests should be at extension root
     expect(existsSync(join(extDir, 'package.json'))).toBe(true);
     expect(existsSync(join(extDir, 'openclaw.plugin.json'))).toBe(true);
 
+    // package-root extras should NOT be copied
     expect(existsSync(join(extDir, 'README.md'))).toBe(false);
     expect(existsSync(join(extDir, 'content'))).toBe(false);
+    // dist contents should NOT be at extension root
+    expect(existsSync(join(extDir, 'index.js'))).toBe(false);
   });
 
   it('install should patch openclaw.json', async () => {
