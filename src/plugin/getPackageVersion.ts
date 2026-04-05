@@ -6,9 +6,8 @@
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
-import { packageDirectorySync } from 'package-directory';
+import { getPackageRoot } from './getPackageRoot.js';
 
 /**
  * Get the version string from the nearest `package.json` relative to the
@@ -19,8 +18,7 @@ import { packageDirectorySync } from 'package-directory';
  */
 export function getPackageVersion(importMetaUrl: string): string {
   try {
-    const dir = fileURLToPath(importMetaUrl);
-    const pkgRoot = packageDirectorySync({ cwd: dir });
+    const pkgRoot = getPackageRoot(importMetaUrl);
     if (!pkgRoot) return 'unknown';
     const raw = readFileSync(join(pkgRoot, 'package.json'), 'utf-8');
     const pkg = JSON.parse(raw) as { version?: string };
