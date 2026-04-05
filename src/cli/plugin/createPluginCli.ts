@@ -96,6 +96,11 @@ export function createPluginCli(options: CreatePluginCliOptions): Command {
 
       // 1. Copy dist to extensions
       const extensionsDir = join(openClawHome, 'extensions', pluginId);
+      if (!existsSync(distDir)) {
+        throw new Error(
+          `Plugin dist directory not found: ${distDir}. Ensure the plugin is built before installing.`,
+        );
+      }
       console.log(`Copying dist to ${extensionsDir}...`);
       copyDistFiles(distDir, extensionsDir);
 
