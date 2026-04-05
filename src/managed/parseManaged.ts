@@ -43,6 +43,16 @@ export interface ParseManagedResult {
 }
 
 /**
+ * Escape a string for safe use as a literal in a RegExp pattern.
+ *
+ * @param str - The string to escape.
+ * @returns The escaped string.
+ */
+export function escapeForRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
  * Build regex patterns for the given markers.
  *
  * @param markers - Begin/end marker strings.
@@ -52,14 +62,15 @@ function buildMarkerPatterns(markers: { begin: string; end: string }): {
   beginRe: RegExp;
   endRe: RegExp;
 } {
-  const escapedBegin = markers.begin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const escapedEnd = markers.end.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return {
     beginRe: new RegExp(
-      `^<!--\\s*${escapedBegin}(?:\\s*\\|[^>]*)?\\s*(?:—[^>]*)?\\s*-->\\s*$`,
+      `^<!--\\s*${escapeForRegex(markers.begin)}(?:\\s*\\|[^>]*)?\\s*(?:—[^>]*)?\\s*-->\\s*$`,
       'm',
     ),
-    endRe: new RegExp(`^<!--\\s*${escapedEnd}\\s*-->\\s*$`, 'm'),
+    endRe: new RegExp(
+      `^<!--\\s*${escapeForRegex(markers.end)}\\s*-->\\s*$`,
+      'm',
+    ),
   };
 }
 

@@ -13,6 +13,7 @@ import { join } from 'node:path';
 import type { JeevesComponentDescriptor } from '../component/descriptor.js';
 import { getComponentConfigDir } from '../init.js';
 import { atomicWrite } from '../managed/fileOps.js';
+import { getErrorMessage } from '../utils.js';
 
 /** Request shape for the config apply handler. */
 export interface ConfigApplyRequest {
@@ -84,8 +85,9 @@ function readConfigFile(filePath: string): Record<string, unknown> {
     const raw = readFileSync(filePath, 'utf-8');
     return JSON.parse(raw) as Record<string, unknown>;
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.warn(`jeeves-core: Could not read config file ${filePath}: ${msg}`);
+    console.warn(
+      `jeeves-core: Could not read config file ${filePath}: ${getErrorMessage(err)}`,
+    );
     return {};
   }
 }
@@ -143,10 +145,9 @@ export function createConfigApplyHandler(
       const json = JSON.stringify(validatedConfig, null, 2) + '\n';
       atomicWrite(configPath, json);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
       return {
         status: 500,
-        body: { error: `Failed to write config: ${message}` },
+        body: { error: `Failed to write config: ${getErrorMessage(err)}` },
       };
     }
 
@@ -157,12 +158,11 @@ export function createConfigApplyHandler(
           validatedConfig as Record<string, unknown>,
         );
       } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : String(err);
         return {
           status: 200,
           body: {
             applied: true,
-            warning: `Config written but callback failed: ${message}`,
+            warning: `Config written but callback failed: ${getErrorMessage(err)}`,
             config: validatedConfig,
           },
         };

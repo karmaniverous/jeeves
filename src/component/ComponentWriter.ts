@@ -19,6 +19,7 @@ import {
 } from '../init.js';
 import { updateManagedSection } from '../managed/updateManagedSection.js';
 import { refreshPlatformContent } from '../platform/refreshPlatformContent.js';
+import { getErrorMessage } from '../utils.js';
 import { scanAndEscalateCleanup } from './cleanupScan.js';
 import type { JeevesComponentDescriptor } from './descriptor.js';
 import { runHeartbeatCycle } from './heartbeatCycle.js';
@@ -161,9 +162,8 @@ export class ComponentWriter {
         configRoot: getConfigRoot(),
       });
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
       console.warn(
-        `jeeves-core: ComponentWriter cycle failed for ${this.component.name}: ${message}`,
+        `jeeves-core: ComponentWriter cycle failed for ${this.component.name}: ${getErrorMessage(err)}`,
       );
     }
   }

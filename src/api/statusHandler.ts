@@ -7,6 +7,8 @@
  * Tracks process start time internally for uptime calculation.
  */
 
+import { getErrorMessage } from '../utils.js';
+
 /** Options for creating a status handler. */
 export interface CreateStatusHandlerOptions {
   /** Component name (e.g., 'watcher'). */
@@ -62,8 +64,7 @@ export function createStatusHandler(
       try {
         health = await options.getHealth();
       } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : String(err);
-        health = { error: message };
+        health = { error: getErrorMessage(err) };
         overallStatus = 'degraded';
       }
     }

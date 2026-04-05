@@ -14,6 +14,8 @@ import { join } from 'node:path';
 
 import { z } from 'zod';
 
+import { getErrorMessage } from '../utils.js';
+
 /** Workspace config file name. */
 export const WORKSPACE_CONFIG_FILE = 'jeeves.config.json';
 
@@ -131,8 +133,9 @@ export function loadWorkspaceConfig(
     const parsed: unknown = JSON.parse(raw);
     return workspaceConfigSchema.parse(parsed);
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.warn(`jeeves-core: failed to load ${configPath}: ${msg}`);
+    console.warn(
+      `jeeves-core: failed to load ${configPath}: ${getErrorMessage(err)}`,
+    );
     return undefined;
   }
 }

@@ -17,9 +17,10 @@ import {
   type ManagedMarkers,
   TOOLS_MARKERS,
 } from '../constants/index.js';
+import { getErrorMessage } from '../utils.js';
 import { needsCleanup } from './cleanupDetection.js';
 import { atomicWrite, DEFAULT_CORE_VERSION, withFileLock } from './fileOps.js';
-import { parseManaged } from './parseManaged.js';
+import { escapeForRegex, parseManaged } from './parseManaged.js';
 import { sortSectionsByOrder } from './sectionSort.js';
 import { stripForeignMarkers } from './stripForeignMarkers.js';
 import {
@@ -170,12 +171,8 @@ export async function updateManagedSection(
         // No existing block: insert new block using the configured position.
         // Strip orphaned same-type BEGIN markers from user content to prevent
         // the parser from pairing them with the new END marker on the next cycle.
-        const escapedBegin = markers.begin.replace(
-          /[.*+?^${}()|[\]\\]/g,
-          '\\$&',
-        );
         const orphanedBeginRe = new RegExp(
-          `^<!--\\s*${escapedBegin}(?:\\s*\\|[^>]*)?\\s*(?:—[^>]*)?\\s*-->\\s*$\\n?`,
+          `^<!--\\s*${escapeForRegex(markers.begin)}(?:\\s*\\|[^>]*)?\\s*(?:—[^>]*)?\\s*-->\\s*$\\n?`,
           'gm',
         );
         const cleanUserContent = userContent
@@ -206,9 +203,8 @@ export async function updateManagedSection(
     });
   } catch (err: unknown) {
     // Log warning but don't throw — writer cycles are periodic
-    const message = err instanceof Error ? err.message : String(err);
     console.warn(
-      `jeeves-core: updateManagedSection failed for ${filePath}: ${message}`,
+      `jeeves-core: updateManagedSection failed for ${filePath}: ${getErrorMessage(err)}`,
     );
   }
 }

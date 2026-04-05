@@ -14,6 +14,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
+import { getErrorMessage } from '../utils.js';
 import { atomicWrite, withFileLock } from './fileOps.js';
 
 /** The H1 heading that anchors the platform status section. */
@@ -158,9 +159,8 @@ export async function writeHeartbeatSection(
       atomicWrite(filePath, parts.join('\n'));
     });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
     console.warn(
-      `jeeves-core: writeHeartbeatSection failed for ${filePath}: ${message}`,
+      `jeeves-core: writeHeartbeatSection failed for ${filePath}: ${getErrorMessage(err)}`,
     );
   }
 }

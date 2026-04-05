@@ -20,10 +20,16 @@ import {
   createServiceManager,
   type ServiceManager,
 } from '../../service/createServiceManager.js';
+import { getErrorMessage } from '../../utils.js';
 import {
   DEFAULT_CONFIG_ROOT,
   DEFAULT_WORKSPACE,
 } from '../jeeves/cliDefaults.js';
+
+function handleCommandError(action: string, err: unknown): void {
+  console.error(`${action} failed: ${getErrorMessage(err)}`);
+  process.exitCode = 1;
+}
 
 /**
  * Create a standard service CLI program from a component descriptor.
@@ -85,8 +91,7 @@ export function createServiceCli(
         const result = await fetchJson(`${url}/status`);
         console.log(JSON.stringify(result, null, 2));
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.error(`Service unreachable: ${msg}`);
+        console.error(`Service unreachable: ${getErrorMessage(err)}`);
         process.exitCode = 1;
       }
     });
@@ -104,8 +109,7 @@ export function createServiceCli(
         const result = await fetchJson(`${url}/config${qs}`);
         console.log(JSON.stringify(result, null, 2));
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.error(`Config query failed: ${msg}`);
+        console.error(`Config query failed: ${getErrorMessage(err)}`);
         process.exitCode = 1;
       }
     });
@@ -121,8 +125,7 @@ export function createServiceCli(
         descriptor.configSchema.parse(parsed);
         console.log('Config is valid.');
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.error(`Validation failed: ${msg}`);
+        console.error(`Validation failed: ${getErrorMessage(err)}`);
         process.exitCode = 1;
       }
     });
@@ -160,8 +163,7 @@ export function createServiceCli(
         const result = await postJson(`${url}/config/apply`, body);
         console.log(JSON.stringify(result, null, 2));
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.error(`Config apply failed: ${msg}`);
+        console.error(`Config apply failed: ${getErrorMessage(err)}`);
         process.exitCode = 1;
       }
     });
@@ -203,9 +205,7 @@ export function createServiceCli(
         svcManager.install({ name: opts.name, configPath: opts.config });
         console.log(`Service "${opts.name}" installed.`);
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.error(`Install failed: ${msg}`);
-        process.exitCode = 1;
+        handleCommandError('Install', err);
       }
     });
 
@@ -218,9 +218,7 @@ export function createServiceCli(
         svcManager.uninstall({ name: opts.name });
         console.log(`Service "${opts.name}" uninstalled.`);
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.error(`Uninstall failed: ${msg}`);
-        process.exitCode = 1;
+        handleCommandError('Uninstall', err);
       }
     });
 
@@ -233,9 +231,7 @@ export function createServiceCli(
         svcManager.start({ name: opts.name });
         console.log(`Service "${opts.name}" started.`);
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.error(`Start failed: ${msg}`);
-        process.exitCode = 1;
+        handleCommandError('Start', err);
       }
     });
 
@@ -248,9 +244,7 @@ export function createServiceCli(
         svcManager.stop({ name: opts.name });
         console.log(`Service "${opts.name}" stopped.`);
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.error(`Stop failed: ${msg}`);
-        process.exitCode = 1;
+        handleCommandError('Stop', err);
       }
     });
 
@@ -263,9 +257,7 @@ export function createServiceCli(
         svcManager.restart({ name: opts.name });
         console.log(`Service "${opts.name}" restarted.`);
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.error(`Restart failed: ${msg}`);
-        process.exitCode = 1;
+        handleCommandError('Restart', err);
       }
     });
 
@@ -278,9 +270,7 @@ export function createServiceCli(
         const state = svcManager.status({ name: opts.name });
         console.log(`Service "${opts.name}": ${state}`);
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.error(`Status failed: ${msg}`);
-        process.exitCode = 1;
+        handleCommandError('Status', err);
       }
     });
 
