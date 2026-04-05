@@ -2,11 +2,19 @@
 
 All notable changes to this project will be documented in this file. Dates are displayed in UTC.
 
+#### [0.5.5](https://github.com/karmaniverous/jeeves/compare/0.5.4...0.5.5)
+
+- fix: preserve dist/ subdirectory in plugin install layout [`#75`](https://github.com/karmaniverous/jeeves/pull/75)
+- [73] fix: preserve dist/ subdirectory in plugin install layout [`#73`](https://github.com/karmaniverous/jeeves/issues/73)
+
 #### [0.5.4](https://github.com/karmaniverous/jeeves/compare/0.5.3...0.5.4)
+
+> 5 April 2026
 
 - fix: replace distDir with importMetaUrl in createPluginCli [`#74`](https://github.com/karmaniverous/jeeves/pull/74)
 - [73] fix: replace distDir param with importMetaUrl in createPluginCli [`#73`](https://github.com/karmaniverous/jeeves/issues/73)
 - npm audit fix [`14b34f8`](https://github.com/karmaniverous/jeeves/commit/14b34f8e4bc59e140a2029cae4441cd32e0fc1d6)
+- chore: release v0.5.4 [`ccc0733`](https://github.com/karmaniverous/jeeves/commit/ccc0733b415bab1dd9375547bad8e71e8445a194)
 - [73] fix: validate dist directory exists before copying [`a50cf74`](https://github.com/karmaniverous/jeeves/commit/a50cf745d19d0a81e75b61f1e9111acaf67b6f87)
 
 #### [0.5.3](https://github.com/karmaniverous/jeeves/compare/0.5.1...0.5.3)
