@@ -106,7 +106,14 @@ export async function runHeartbeatCycle(
 
     // Workspace file size health check (Decision 70)
     const wsFileResults = checkWorkspaceFileHealth({ workspacePath });
-    entries.push(...workspaceFileHealthEntries(wsFileResults));
+    const wsFileAlerts = workspaceFileHealthEntries(wsFileResults);
+    for (const alert of wsFileAlerts) {
+      if (declinedNames.has(alert.name)) {
+        entries.push({ name: alert.name, declined: true, content: '' });
+      } else {
+        entries.push(alert);
+      }
+    }
 
     await writeHeartbeatSection(heartbeatPath, entries);
   } catch (err: unknown) {
