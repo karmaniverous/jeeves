@@ -20,6 +20,11 @@ import {
   checkMemoryHealth,
   MEMORY_HEARTBEAT_NAME,
 } from '../memory/checkMemoryHealth.js';
+import {
+  checkWorkspaceFileHealth,
+  workspaceFileHealthEntries,
+} from '../memory/checkWorkspaceFileHealth.js';
+import { getErrorMessage } from '../utils.js';
 import { orchestrateHeartbeat } from './heartbeatOrchestrator.js';
 
 /** Options for running a heartbeat cycle. */
@@ -100,9 +105,21 @@ export async function runHeartbeatCycle(
       });
     }
 
+    // Workspace file size health check (Decision 70)
+    const wsFileResults = checkWorkspaceFileHealth({ workspacePath });
+    const wsFileAlerts = workspaceFileHealthEntries(wsFileResults);
+    for (const alert of wsFileAlerts) {
+      if (declinedNames.has(alert.name)) {
+        entries.push({ name: alert.name, declined: true, content: '' });
+      } else {
+        entries.push(alert);
+      }
+    }
+
     await writeHeartbeatSection(heartbeatPath, entries);
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.warn(`jeeves-core: HEARTBEAT orchestration failed: ${msg}`);
+    console.warn(
+      `jeeves-core: HEARTBEAT orchestration failed: ${getErrorMessage(err)}`,
+    );
   }
 }

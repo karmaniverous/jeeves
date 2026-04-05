@@ -96,6 +96,7 @@ describe('createComponentWriter', () => {
 
   describe('ComponentWriter lifecycle', () => {
     it('should start and stop', () => {
+      vi.useFakeTimers();
       const writer = createComponentWriter(makeDescriptor());
       vi.spyOn(writer, 'cycle').mockResolvedValue(undefined);
 
@@ -104,9 +105,11 @@ describe('createComponentWriter', () => {
       expect(writer.isRunning).toBe(true);
       writer.stop();
       expect(writer.isRunning).toBe(false);
+      vi.useRealTimers();
     });
 
     it('should not start twice', () => {
+      vi.useFakeTimers();
       const writer = createComponentWriter(makeDescriptor());
       vi.spyOn(writer, 'cycle').mockResolvedValue(undefined);
 
@@ -114,6 +117,30 @@ describe('createComponentWriter', () => {
       writer.start(); // Should be a no-op
       expect(writer.isRunning).toBe(true);
       writer.stop();
+      vi.useRealTimers();
+    });
+
+    it('should delay initial cycle with jitter via setTimeout', () => {
+      vi.useFakeTimers();
+      const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout');
+      const writer = createComponentWriter(
+        makeDescriptor({ refreshIntervalSeconds: 67 }),
+      );
+      vi.spyOn(writer, 'cycle').mockResolvedValue(undefined);
+
+      writer.start();
+
+      // setTimeout should have been called with a delay between 0 and intervalMs
+      const jitterCall = setTimeoutSpy.mock.calls.find(
+        (call) => typeof call[1] === 'number',
+      );
+      expect(jitterCall).toBeDefined();
+      const delay = jitterCall?.[1] as number;
+      expect(delay).toBeGreaterThanOrEqual(0);
+      expect(delay).toBeLessThan(67 * 1000);
+
+      writer.stop();
+      vi.useRealTimers();
     });
 
     it('should call generateToolsContent on cycle', async () => {

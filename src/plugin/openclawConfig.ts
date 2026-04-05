@@ -84,23 +84,64 @@ function patchAllowList(
   return undefined;
 }
 
+/** Options for writing a plugin install provenance record. */
+export interface PluginInstallRecord {
+  /** Absolute path to the extensions directory where the plugin was installed. */
+  installPath: string;
+  /** Plugin version string from package.json, if known. */
+  version?: string;
+  /** ISO timestamp of installation. Defaults to `new Date().toISOString()`. */
+  installedAt?: string;
+}
+
+/**
+ * Patch an OpenClaw config for plugin install.
+ *
+ * @param config - The parsed OpenClaw config object (mutated in place).
+ * @param pluginId - The plugin identifier.
+ * @param mode - Install mode.
+ * @param installRecord - Install provenance record.
+ * @returns Array of log messages describing changes made.
+ */
+export function patchConfig(
+  config: Record<string, unknown>,
+  pluginId: string,
+  mode: 'add',
+  installRecord: PluginInstallRecord,
+): string[];
+/**
+ * Patch an OpenClaw config for plugin uninstall.
+ *
+ * @param config - The parsed OpenClaw config object (mutated in place).
+ * @param pluginId - The plugin identifier.
+ * @param mode - Uninstall mode.
+ * @returns Array of log messages describing changes made.
+ */
+export function patchConfig(
+  config: Record<string, unknown>,
+  pluginId: string,
+  mode: 'remove',
+): string[];
 /**
  * Patch an OpenClaw config for plugin install or uninstall.
  *
  * @remarks
- * Manages `plugins.entries.{pluginId}` and `tools.alsoAllow`.
+ * Manages `plugins.entries.{pluginId}`, `plugins.installs.{pluginId}`,
+ * and `tools.alsoAllow`.
  * Idempotent: adding twice produces no duplicates; removing when absent
  * produces no errors.
  *
  * @param config - The parsed OpenClaw config object (mutated in place).
  * @param pluginId - The plugin identifier.
  * @param mode - Whether to add or remove the plugin.
+ * @param installRecord - Install provenance record (required when mode is 'add').
  * @returns Array of log messages describing changes made.
  */
 export function patchConfig(
   config: Record<string, unknown>,
   pluginId: string,
   mode: 'add' | 'remove',
+  installRecord?: PluginInstallRecord,
 ): string[] {
   const messages: string[] = [];
 
@@ -124,6 +165,27 @@ export function patchConfig(
   } else if (pluginId in entries) {
     Reflect.deleteProperty(entries, pluginId);
     messages.push(`Removed "${pluginId}" from plugins.entries`);
+  }
+
+  // plugins.installs
+  if (!plugins.installs || typeof plugins.installs !== 'object') {
+    plugins.installs = {};
+  }
+  const installs = plugins.installs as Record<string, unknown>;
+
+  if (mode === 'add' && installRecord) {
+    installs[pluginId] = {
+      source: 'path',
+      installPath: installRecord.installPath,
+      version: installRecord.version,
+      installedAt: installRecord.installedAt ?? new Date().toISOString(),
+    };
+    messages.push(`Wrote install record for "${pluginId}" to plugins.installs`);
+  } else if (mode === 'remove' && pluginId in installs) {
+    Reflect.deleteProperty(installs, pluginId);
+    messages.push(
+      `Removed install record for "${pluginId}" from plugins.installs`,
+    );
   }
 
   // tools.alsoAllow

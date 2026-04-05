@@ -105,7 +105,21 @@ export function createPluginCli(options: CreatePluginCliOptions): Command {
       // 2. Patch openclaw.json
       console.log('Patching OpenClaw config...');
       const config = readJsonFile(configPath);
-      const messages = patchConfig(config, pluginId, 'add');
+      const pkgJsonPathForVersion = join(extensionsDir, 'package.json');
+      let pluginVersionForRecord: string | undefined;
+      try {
+        const pkgJsonForRecord = readJsonFile(pkgJsonPathForVersion);
+        pluginVersionForRecord =
+          typeof pkgJsonForRecord.version === 'string'
+            ? pkgJsonForRecord.version
+            : undefined;
+      } catch {
+        // best-effort: version may not be available yet
+      }
+      const messages = patchConfig(config, pluginId, 'add', {
+        installPath: extensionsDir,
+        version: pluginVersionForRecord,
+      });
 
       // 3. Memory slot claim
       if (opts.memory) {

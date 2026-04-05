@@ -103,3 +103,20 @@ Review is human/agent-mediated — core does not auto-delete.
 Memory hygiene is checked on every `ComponentWriter` cycle alongside component health. When budget or staleness thresholds are breached, a `## MEMORY.md` alert appears in HEARTBEAT.md under `# Jeeves Platform Status`. The alert includes character count, budget usage percentage, and any stale section names. When memory is healthy, the heading is absent — no alert content, no LLM cost on heartbeat polls.
 
 The `## MEMORY.md` heading follows the same declined/active lifecycle as component headings (`## jeeves-{name}`). Users can decline memory alerts by changing the heading to `## MEMORY.md: declined`.
+
+## Workspace File Size Monitoring
+
+OpenClaw applies a ~20,000-char injection limit to all workspace bootstrap files (AGENTS.md, SOUL.md, TOOLS.md, USER.md, MEMORY.md). Files exceeding the limit are silently truncated.
+
+Core monitors all five files on every `ComponentWriter` cycle:
+- Warning at 80% of budget (fixed threshold; not configurable via `jeeves.config.json`)
+- Over-budget alert when charCount exceeds the budget
+- Missing files are silently skipped
+
+### HEARTBEAT Integration
+
+When a workspace file exceeds the warning threshold, a `## {filename}` alert appears in HEARTBEAT.md (e.g., `## AGENTS.md`). The alert includes:
+- Character count, budget, and usage percentage
+- Trimming guidance in priority order: (1) move domain-specific content to a local skill, (2) extract reference material to companion files with a pointer, (3) summarize verbose instructions, (4) remove stale content
+
+Each file heading follows the same declined/active lifecycle as component headings. Users can decline alerts by changing the heading to `## {filename}: declined` (e.g., `## AGENTS.md: declined`).

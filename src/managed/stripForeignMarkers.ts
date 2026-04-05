@@ -11,6 +11,7 @@
  */
 
 import { ALL_MARKERS, type ManagedMarkers } from '../constants/index.js';
+import { escapeForRegex } from './parseManaged.js';
 
 /**
  * Build a regex that matches an entire managed block (BEGIN marker through END marker).
@@ -19,10 +20,8 @@ import { ALL_MARKERS, type ManagedMarkers } from '../constants/index.js';
  * @returns A regex that matches the full block including markers.
  */
 function buildBlockPattern(markers: ManagedMarkers): RegExp {
-  const escapedBegin = markers.begin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const escapedEnd = markers.end.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return new RegExp(
-    `\\s*<!--\\s*${escapedBegin}(?:\\s*\\|[^>]*)?\\s*(?:—[^>]*)?\\s*-->[\\s\\S]*?<!--\\s*${escapedEnd}\\s*-->\\s*`,
+    `\\s*<!--\\s*${escapeForRegex(markers.begin)}(?:\\s*\\|[^>]*)?\\s*(?:—[^>]*)?\\s*-->[\\s\\S]*?<!--\\s*${escapeForRegex(markers.end)}\\s*-->\\s*`,
     'g',
   );
 }

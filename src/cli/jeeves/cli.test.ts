@@ -73,7 +73,7 @@ describe('CLI commands', () => {
       const content = readFileSync(agentsPath, 'utf-8');
       const parsed = parseManaged(content, AGENTS_MARKERS);
       expect(parsed.found).toBe(true);
-      expect(parsed.managedContent).toContain('Memory Architecture');
+      expect(parsed.managedContent).toContain('Context Compaction Recovery');
     }, 15_000);
 
     it('should seed TOOLS.md Platform section', async () => {

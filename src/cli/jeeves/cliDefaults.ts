@@ -34,14 +34,20 @@ export interface WorkspaceOptions {
 export interface ResolvedCliConfig {
   /** Core shared config. */
   core: {
+    /** Resolved workspace root path. */
     workspace: ResolvedValue<string>;
+    /** Resolved platform config root path. */
     configRoot: ResolvedValue<string>;
+    /** Resolved OpenClaw gateway URL. */
     gatewayUrl: ResolvedValue<string>;
   };
   /** Memory shared config. */
   memory: {
+    /** Resolved MEMORY.md character budget. */
     budget: ResolvedValue<number>;
+    /** Resolved warning threshold as a fraction of budget. */
     warningThreshold: ResolvedValue<number>;
+    /** Resolved staleness threshold in days. */
     staleDays: ResolvedValue<number>;
   };
 }

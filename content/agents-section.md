@@ -1,29 +1,4 @@
-## Memory Architecture
-
-You wake up fresh each session. These files are your continuity:
-
-- **Daily notes:** `memory/YYYY-MM-DD.md` (create `memory/` if needed). Raw logs of what happened today.
-- **Long-term:** `MEMORY.md`. Your curated memories, distilled essence of what matters.
-
-### MEMORY.md — Your Long-Term Memory
-
-- **Always load** at session start. You need your memory to reason effectively.
-- Contains operational context: architecture patterns, policies, design principles, lessons learned
-- You can **read, edit, and update** MEMORY.md freely
-- Write significant events, thoughts, decisions, opinions, lessons learned
-- Over time, review daily files and update MEMORY.md with what's worth keeping
-- **Note:** Don't reveal a user's private info where other humans can see it
-
-### Write It Down — No "Mental Notes"
-
-Memory is limited. If you want to remember something, **WRITE IT TO A FILE**. "Mental notes" don't survive session restarts. Files do.
-
-- When someone says "remember this" → update `memory/YYYY-MM-DD.md` or the relevant file
-- When you learn a lesson → update the relevant workspace file
-- When you make a mistake → document it so future-you doesn't repeat it
-- **Text > Brain** 📝
-
-### "I'll Note This" Is Not Noting
+## "I'll Note This" Is Not Noting
 
 **Never say "I'll note this" or "I'll add that."** It's a verbal tic that leads to nothing. If something is worth noting, **write it immediately, then confirm**.
 
@@ -81,14 +56,9 @@ Heartbeat items are for **transient, session-requiring work-in-progress ONLY**. 
 
 Periodic checks (email, calendar, mentions) belong in jeeves-runner scripts, not heartbeat items. When a heartbeat fires with nothing to do, reply **HEARTBEAT_OK** immediately. Don't browse for work.
 
-## Group Chat Behavior
-
-**Response gate:** Always respond in 1:1 conversations or when @mentioned. No @mention in a group → evaluate; respond only if genuinely helpful. Err toward silence when someone else is directly addressed.
-
 ## Platform Surface Conventions
 
 **Slack:**
-- React with hourglass (⏳) on receipt (first tool call) to signal you're working
 - No threaded replies by default
 - Use `<#C…>` for channel references
 

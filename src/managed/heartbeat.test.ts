@@ -93,6 +93,25 @@ describe('parseHeartbeat', () => {
     expect(result.entries[0].declined).toBe(true);
   });
 
+  it('parses workspace file headings (AGENTS.md, SOUL.md, etc.)', () => {
+    const content = [
+      '# Jeeves Platform Status',
+      '## AGENTS.md',
+      '- Budget: 18,000 / 20,000 chars (90%).',
+      '## SOUL.md: declined',
+      '## jeeves-runner',
+      '- Not installed.',
+    ].join('\n');
+    const result = parseHeartbeat(content);
+    expect(result.entries).toHaveLength(3);
+    expect(result.entries[0].name).toBe('AGENTS.md');
+    expect(result.entries[0].declined).toBe(false);
+    expect(result.entries[0].content).toContain('Budget:');
+    expect(result.entries[1].name).toBe('SOUL.md');
+    expect(result.entries[1].declined).toBe(true);
+    expect(result.entries[2].name).toBe('jeeves-runner');
+  });
+
   it('handles headings-only section (effectively empty)', () => {
     const content = [
       '# Jeeves Platform Status',

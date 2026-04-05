@@ -13,6 +13,7 @@
 
 import type { JeevesComponentDescriptor } from '../component/descriptor.js';
 import { createServiceManager } from '../service/createServiceManager.js';
+import { getErrorMessage } from '../utils.js';
 import { fetchJson, fetchWithTimeout, postJson } from './http.js';
 import { connectionFail, fail, ok } from './results.js';
 import type { ToolDescriptor, ToolResult } from './types.js';
@@ -174,8 +175,9 @@ export function createPluginToolset(
         methodMap[action]();
         return Promise.resolve(ok({ service: name, action, success: true }));
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        return Promise.resolve(fail(`Service ${action} failed: ${msg}`));
+        return Promise.resolve(
+          fail(`Service ${action} failed: ${getErrorMessage(err)}`),
+        );
       }
     },
   };

@@ -92,7 +92,7 @@ The Plugin SDK (`src/plugin/`) provides canonical types and utilities for buildi
 
 - **`resolveOpenClawHome()`** — resolves the OpenClaw home directory: `OPENCLAW_CONFIG` env (dirname) → `OPENCLAW_HOME` env → `~/.openclaw`.
 - **`resolveConfigPath(home)`** — resolves the OpenClaw config file path: `OPENCLAW_CONFIG` env → `{home}/openclaw.json`.
-- **`patchConfig(config, pluginId, mode)`** — idempotent config patching for plugin install/uninstall. Manages `plugins.entries.{pluginId}` and `tools.alsoAllow`.
+- **`patchConfig(config, pluginId, mode, installRecord?)`** — idempotent config patching for plugin install/uninstall. Manages `plugins.entries.{pluginId}`, `plugins.installs.{pluginId}`, and `tools.alsoAllow`.
 
 ## Config Query Handler
 
@@ -230,8 +230,8 @@ Precedence: **CLI flags → environment variables → `jeeves.config.json` → d
 
 ### Workspace Config API
 
-- **`loadWorkspaceConfig(workspacePath)`** — loads and validates `jeeves.config.json` via Zod. Returns `undefined` (with a console warning) if the file is missing, corrupt, or fails validation.
-- **`resolveConfigValue(options)`** — resolves a single config key through the precedence chain (flag → env → file → default) with provenance tracking.
+- **`loadWorkspaceConfig(workspacePath)`** — loads and validates `jeeves.config.json` via Zod. Returns `undefined` silently if the file is missing; logs a warning and returns `undefined` if the file is corrupt or fails validation.
+- **`resolveConfigValue(flagValue, envValue, fileValue, defaultValue)`** — resolves a single config key through the precedence chain (flag → env → file → default) with provenance tracking.
 - **`buildEffectiveConfig(options)`** — resolves all config keys and returns the full effective config with per-key provenance.
 - **`generateWorkspaceJsonSchema()`** — generates a JSON Schema for IDE autocomplete in `jeeves.config.json`.
 
@@ -240,7 +240,7 @@ Precedence: **CLI flags → environment variables → `jeeves.config.json` → d
 MEMORY.md has a character budget (default: 20,000 characters). The `analyzeMemory()` function tracks:
 
 - **Character count and usage percentage** — warns at 80% of budget (configurable via `warningThreshold`)
-- **Stale section detection** — scans ISO dates (`YYYY-MM-DD`) in H2/H3 headings and bullet items; sections whose most recent date exceeds `staleDays` (default: 90) are flagged as stale candidates
+- **Stale section detection** — scans ISO dates (`YYYY-MM-DD`) in H2/H3 headings and bullet items; sections whose most recent date exceeds `staleDays` (default: 30) are flagged as stale candidates
 - **Evergreen sections** — sections without parseable dates are never flagged
 
 Memory hygiene is reporting-only. Core does not auto-delete content; the assistant or human reviews stale candidates and decides what to prune.
