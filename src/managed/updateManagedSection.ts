@@ -172,7 +172,7 @@ export async function updateManagedSection(
         // Strip orphaned same-type BEGIN markers from user content to prevent
         // the parser from pairing them with the new END marker on the next cycle.
         const orphanedBeginRe = new RegExp(
-          `^<!--\\s*${escapeForRegex(markers.begin)}(?:\\s*\\|[^>]*)?\\s*(?:—[^>]*)?\\s*-->\\s*$\\n?`,
+          `^<!--\\s*${escapeForRegex(markers.begin)}(?:\\s*\\|[^>]*)?\\s*(?:—[^>]*)?\\s*-->\\s*$(?:\\r?\\n)?`,
           'gm',
         );
         const cleanUserContent = userContent

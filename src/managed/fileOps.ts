@@ -7,8 +7,9 @@
  * `updateManagedSection` and `removeManagedSection`.
  */
 
+import { randomUUID } from 'node:crypto';
 import { renameSync, unlinkSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 
 import { lock } from 'proper-lockfile';
 
@@ -41,7 +42,11 @@ const ATOMIC_WRITE_RETRY_DELAY_MS = 100;
  */
 export function atomicWrite(filePath: string, content: string): void {
   const dir = dirname(filePath);
-  const tempPath = join(dir, `.${String(Date.now())}.tmp`);
+  const base = basename(filePath, '.md');
+  const tempPath = join(
+    dir,
+    `.${base}.${String(Date.now())}.${randomUUID().slice(0, 8)}.tmp`,
+  );
   writeFileSync(tempPath, content, 'utf-8');
 
   for (let attempt = 0; attempt < ATOMIC_WRITE_MAX_RETRIES; attempt++) {

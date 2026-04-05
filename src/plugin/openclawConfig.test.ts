@@ -78,7 +78,9 @@ describe('resolveConfigPath', () => {
 describe('patchConfig', () => {
   it('adds plugin entry on install', () => {
     const config: Record<string, unknown> = {};
-    const messages = patchConfig(config, 'my-plugin', 'add');
+    const messages = patchConfig(config, 'my-plugin', 'add', {
+      installPath: '/ext/my-plugin',
+    });
 
     const plugins = config.plugins as Record<string, unknown>;
     const entries = plugins.entries as Record<string, unknown>;
@@ -95,8 +97,11 @@ describe('patchConfig', () => {
       tools: { alsoAllow: ['my-plugin'] },
     };
 
-    const messages = patchConfig(config, 'my-plugin', 'add');
-    expect(messages).toHaveLength(0);
+    const messages = patchConfig(config, 'my-plugin', 'add', {
+      installPath: '/ext/my-plugin',
+    });
+    // install record is overwritten but entries/tools are idempotent
+    expect(messages).toHaveLength(1);
   });
 
   it('removes plugin entry on uninstall', () => {
@@ -128,7 +133,9 @@ describe('patchConfig', () => {
   it('creates tools.alsoAllow on fresh install', () => {
     const config: Record<string, unknown> = {};
 
-    const messages = patchConfig(config, 'my-plugin', 'add');
+    const messages = patchConfig(config, 'my-plugin', 'add', {
+      installPath: '/ext/my-plugin',
+    });
     const tools = config.tools as Record<string, unknown>;
     const alsoAllow = tools.alsoAllow as string[];
 
@@ -141,7 +148,9 @@ describe('patchConfig', () => {
       tools: { alsoAllow: ['other-tool'] },
     };
 
-    const messages = patchConfig(config, 'my-plugin', 'add');
+    const messages = patchConfig(config, 'my-plugin', 'add', {
+      installPath: '/ext/my-plugin',
+    });
     const tools = config.tools as Record<string, unknown>;
     const alsoAllow = tools.alsoAllow as string[];
 
@@ -157,12 +166,15 @@ describe('patchConfig', () => {
       tools: { alsoAllow: ['my-plugin'] },
     };
 
-    const messages = patchConfig(config, 'my-plugin', 'add');
+    const messages = patchConfig(config, 'my-plugin', 'add', {
+      installPath: '/ext/my-plugin',
+    });
     const tools = config.tools as Record<string, unknown>;
     const alsoAllow = tools.alsoAllow as string[];
 
     expect(alsoAllow.filter((id) => id === 'my-plugin')).toHaveLength(1);
-    expect(messages).toHaveLength(0);
+    // install record written but entries/tools are idempotent
+    expect(messages).toHaveLength(1);
   });
 
   it('removes from tools.alsoAllow on uninstall', () => {
@@ -190,7 +202,9 @@ describe('patchConfig', () => {
       },
     };
 
-    patchConfig(config, 'my-plugin', 'add');
+    patchConfig(config, 'my-plugin', 'add', {
+      installPath: '/ext/my-plugin',
+    });
     const plugins = config.plugins as Record<string, unknown>;
     const allow = plugins.allow as string[];
 
@@ -284,14 +298,5 @@ describe('patchConfig', () => {
     const installs = plugins.installs as Record<string, unknown>;
     // Only one entry
     expect(Object.keys(installs)).toHaveLength(1);
-  });
-
-  it('does not write install record when installRecord omitted', () => {
-    const config: Record<string, unknown> = {};
-    patchConfig(config, 'my-plugin', 'add');
-
-    const plugins = config.plugins as Record<string, unknown>;
-    const installs = plugins.installs as Record<string, unknown>;
-    expect(installs['my-plugin']).toBeUndefined();
   });
 });

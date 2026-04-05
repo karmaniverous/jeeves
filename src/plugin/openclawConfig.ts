@@ -95,6 +95,34 @@ export interface PluginInstallRecord {
 }
 
 /**
+ * Patch an OpenClaw config for plugin install.
+ *
+ * @param config - The parsed OpenClaw config object (mutated in place).
+ * @param pluginId - The plugin identifier.
+ * @param mode - Install mode.
+ * @param installRecord - Install provenance record.
+ * @returns Array of log messages describing changes made.
+ */
+export function patchConfig(
+  config: Record<string, unknown>,
+  pluginId: string,
+  mode: 'add',
+  installRecord: PluginInstallRecord,
+): string[];
+/**
+ * Patch an OpenClaw config for plugin uninstall.
+ *
+ * @param config - The parsed OpenClaw config object (mutated in place).
+ * @param pluginId - The plugin identifier.
+ * @param mode - Uninstall mode.
+ * @returns Array of log messages describing changes made.
+ */
+export function patchConfig(
+  config: Record<string, unknown>,
+  pluginId: string,
+  mode: 'remove',
+): string[];
+/**
  * Patch an OpenClaw config for plugin install or uninstall.
  *
  * @remarks

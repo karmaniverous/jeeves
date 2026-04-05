@@ -63,7 +63,7 @@ export function parseHeartbeat(fileContent: string): ParsedHeartbeat {
   );
 
   const entries: HeartbeatEntry[] = [];
-  const h2Re = /^## (jeeves-\S+?|MEMORY\.md)(?:: declined)?$/gm;
+  const h2Re = /^## (jeeves-\S+?|\S+\.md)(?:: declined)?$/gm;
   let match: RegExpExecArray | null;
   const h2Positions: { name: string; declined: boolean; start: number }[] = [];
 
