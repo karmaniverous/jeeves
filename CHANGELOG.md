@@ -2,7 +2,16 @@
 
 All notable changes to this project will be documented in this file. Dates are displayed in UTC.
 
+#### [0.5.4](https://github.com/karmaniverous/jeeves/compare/0.5.3...0.5.4)
+
+- fix: replace distDir with importMetaUrl in createPluginCli [`#74`](https://github.com/karmaniverous/jeeves/pull/74)
+- [73] fix: replace distDir param with importMetaUrl in createPluginCli [`#73`](https://github.com/karmaniverous/jeeves/issues/73)
+- npm audit fix [`14b34f8`](https://github.com/karmaniverous/jeeves/commit/14b34f8e4bc59e140a2029cae4441cd32e0fc1d6)
+- [73] fix: validate dist directory exists before copying [`a50cf74`](https://github.com/karmaniverous/jeeves/commit/a50cf745d19d0a81e75b61f1e9111acaf67b6f87)
+
 #### [0.5.3](https://github.com/karmaniverous/jeeves/compare/0.5.1...0.5.3)
+
+> 5 April 2026
 
 - feat: v0.5.2 patch release [`#71`](https://github.com/karmaniverous/jeeves/pull/71)
 - [0-5] feat: v0.5.2 patch release [`317bad1`](https://github.com/karmaniverous/jeeves/commit/317bad179c14dcf3bfdd52648e28d1db62f25dc8)
@@ -10,6 +19,7 @@ All notable changes to this project will be documented in this file. Dates are d
 - [0-5] refactor: SOLID/DRY pass across codebase [`3abf81b`](https://github.com/karmaniverous/jeeves/commit/3abf81b09f52c8f50f3cff5df13329d9e17b709f)
 - [0-5] fix: address Gemini review feedback on PR #71 [`0cbb984`](https://github.com/karmaniverous/jeeves/commit/0cbb984102ec1d6ecf9780a83adb4085d6667516)
 - [0-5] test: add missing test coverage for utils and workspace health [`59a2688`](https://github.com/karmaniverous/jeeves/commit/59a2688c69e758fe2bc6672cd0c08a69bd333542)
+- chore: release v0.5.3 [`99431cf`](https://github.com/karmaniverous/jeeves/commit/99431cfdfd5abbf7ca08ff1738abeef32055616a)
 - [0-5] docs: sync docs with v0.5.2 implementation [`ff92f47`](https://github.com/karmaniverous/jeeves/commit/ff92f471e8e6710cde44d92b3c4d50cd7a1516c6)
 
 #### [0.5.1](https://github.com/karmaniverous/jeeves/compare/0.5.0...0.5.1)
