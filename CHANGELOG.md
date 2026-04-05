@@ -2,10 +2,23 @@
 
 All notable changes to this project will be documented in this file. Dates are displayed in UTC.
 
+#### [0.5.3](https://github.com/karmaniverous/jeeves/compare/0.5.1...0.5.3)
+
+- feat: v0.5.2 patch release [`#71`](https://github.com/karmaniverous/jeeves/pull/71)
+- [0-5] feat: v0.5.2 patch release [`317bad1`](https://github.com/karmaniverous/jeeves/commit/317bad179c14dcf3bfdd52648e28d1db62f25dc8)
+- [0-5] fix: complete v0.5.2 spec implementation [`788960a`](https://github.com/karmaniverous/jeeves/commit/788960a519001178c04502e5f27bd5937c58a720)
+- [0-5] refactor: SOLID/DRY pass across codebase [`3abf81b`](https://github.com/karmaniverous/jeeves/commit/3abf81b09f52c8f50f3cff5df13329d9e17b709f)
+- [0-5] fix: address Gemini review feedback on PR #71 [`0cbb984`](https://github.com/karmaniverous/jeeves/commit/0cbb984102ec1d6ecf9780a83adb4085d6667516)
+- [0-5] test: add missing test coverage for utils and workspace health [`59a2688`](https://github.com/karmaniverous/jeeves/commit/59a2688c69e758fe2bc6672cd0c08a69bd333542)
+- [0-5] docs: sync docs with v0.5.2 implementation [`ff92f47`](https://github.com/karmaniverous/jeeves/commit/ff92f471e8e6710cde44d92b3c4d50cd7a1516c6)
+
 #### [0.5.1](https://github.com/karmaniverous/jeeves/compare/0.5.0...0.5.1)
+
+> 3 April 2026
 
 - feat: HEARTBEAT memory hygiene integration (Phase 9) [`#64`](https://github.com/karmaniverous/jeeves/pull/64)
 - feat: integrate memory hygiene into HEARTBEAT cycle (Phase 9) [`5310da9`](https://github.com/karmaniverous/jeeves/commit/5310da9213e659e4069a7953b5f7c76fe95342cc)
+- chore: release v0.5.1 [`aa2be84`](https://github.com/karmaniverous/jeeves/commit/aa2be842d2ca3ba96e101e97f0b66e0194f73e36)
 - docs: update skill with HEARTBEAT memory integration [`79a0ffb`](https://github.com/karmaniverous/jeeves/commit/79a0ffb36a1f51f32c67c6bc60e436106e598030)
 - lint:fix [`eac4771`](https://github.com/karmaniverous/jeeves/commit/eac47711e3b38ca9904fd27028c5a3c53460a32d)
 - fix: add .js extension to test import (Gemini review) [`5cd00bf`](https://github.com/karmaniverous/jeeves/commit/5cd00bf90c776615c81f65186d774a59bc1fd7d6)
