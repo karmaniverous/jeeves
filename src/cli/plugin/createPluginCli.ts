@@ -14,7 +14,6 @@ import {
 import { join } from 'node:path';
 
 import { Command } from '@commander-js/extra-typings';
-import { packageDirectorySync } from 'package-directory';
 
 import {
   removeComponentVersion,
@@ -30,10 +29,11 @@ import {
 import { removeManagedSection } from '../../managed/removeManagedSection.js';
 import { seedSkill } from '../../platform/seedSkill.js';
 import {
+  getPackageRoot,
   patchConfig,
   resolveConfigPath,
   resolveOpenClawHome,
-} from '../../plugin/openclawConfig.js';
+} from '../../plugin/index.js';
 import {
   copyDistFiles,
   deriveComponentName,
@@ -44,8 +44,8 @@ import {
 export interface CreatePluginCliOptions {
   /** Plugin identifier (e.g., 'jeeves-watcher-openclaw'). */
   pluginId: string;
-  /** Absolute path to the dist directory to copy. */
-  distDir: string;
+  /** `import.meta.url` for the calling plugin CLI module. */
+  importMetaUrl: string;
   /** npm package name for the plugin. */
   pluginPackage: string;
   /** Component name (e.g., 'watcher'). Derived from pluginId if omitted. */
@@ -65,11 +65,20 @@ export interface CreatePluginCliOptions {
 export function createPluginCli(options: CreatePluginCliOptions): Command {
   const {
     pluginId,
-    distDir,
+    importMetaUrl,
     pluginPackage,
     configRoot = 'j:/config',
   } = options;
   const componentName = options.componentName ?? deriveComponentName(pluginId);
+  const pkgRoot = getPackageRoot(importMetaUrl);
+
+  if (!pkgRoot) {
+    throw new Error(
+      `Unable to resolve package root for plugin CLI: ${pluginPackage}`,
+    );
+  }
+
+  const distDir = join(pkgRoot, 'dist');
 
   const program = new Command()
     .name(pluginPackage)
@@ -87,17 +96,19 @@ export function createPluginCli(options: CreatePluginCliOptions): Command {
 
       // 1. Copy dist to extensions
       const extensionsDir = join(openClawHome, 'extensions', pluginId);
+      if (!existsSync(distDir)) {
+        throw new Error(
+          `Plugin dist directory not found: ${distDir}. Ensure the plugin is built before installing.`,
+        );
+      }
       console.log(`Copying dist to ${extensionsDir}...`);
       copyDistFiles(distDir, extensionsDir);
 
       // Copy package.json and openclaw.plugin.json from package root
-      const pkgRoot = packageDirectorySync({ cwd: distDir });
-      if (pkgRoot) {
-        for (const file of ['package.json', 'openclaw.plugin.json']) {
-          const src = join(pkgRoot, file);
-          if (existsSync(src)) {
-            copyFileSync(src, join(extensionsDir, file));
-          }
+      for (const file of ['package.json', 'openclaw.plugin.json']) {
+        const src = join(pkgRoot, file);
+        if (existsSync(src)) {
+          copyFileSync(src, join(extensionsDir, file));
         }
       }
       console.log('  ✓ Dist files copied');

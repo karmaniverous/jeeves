@@ -163,6 +163,7 @@ export {
   fail,
   fetchJson,
   fetchWithTimeout,
+  getPackageRoot,
   getPackageVersion,
   ok,
   patchConfig,
