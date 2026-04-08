@@ -183,10 +183,10 @@ describe('updateManagedSection', () => {
       expect(platformIdx).toBeLessThan(metaIdx);
     });
 
-    it('should throw if sectionId is missing in section mode', async () => {
-      await expect(
+    it('should throw if sectionId is missing in section mode', () => {
+      expect(() =>
         updateManagedSection(testFile, 'content', { mode: 'section' }),
-      ).rejects.toThrow('sectionId is required');
+      ).toThrow('sectionId is required');
     });
   });
 

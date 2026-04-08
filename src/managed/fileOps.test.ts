@@ -1,104 +1,102 @@
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  renameSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('node:fs', async (importOriginal) => {
-  const actual = await importOriginal();
-  const mod = actual as Record<string, unknown>;
-  return Object.assign({}, mod, {
-    renameSync: vi.fn(mod['renameSync'] as typeof renameSync),
-  });
-});
+import { STALE_LOCK_MS, withFileLock, withWorkspaceLock } from './fileOps.js';
 
-import { atomicWrite } from './fileOps.js';
-
-describe('atomicWrite', () => {
+describe('withWorkspaceLock', () => {
   let testDir: string;
 
   beforeEach(() => {
-    testDir = join(tmpdir(), `jeeves-fileops-test-${String(Date.now())}`);
+    testDir = join(
+      tmpdir(),
+      `jeeves-fileops-${Date.now().toString()}-${Math.random().toString(36).slice(2, 8)}`,
+    );
     mkdirSync(testDir, { recursive: true });
   });
 
   afterEach(() => {
-    vi.restoreAllMocks();
+    vi.useRealTimers();
     rmSync(testDir, { recursive: true, force: true });
   });
 
-  it('writes content to target file', () => {
-    const filePath = join(testDir, 'target.txt');
-    atomicWrite(filePath, 'hello world');
-    expect(readFileSync(filePath, 'utf-8')).toBe('hello world');
+  it('executes fn and releases lock when workspace lock is free', async () => {
+    const fn = vi.fn().mockResolvedValue(undefined);
+
+    await withWorkspaceLock(testDir, fn);
+    await withWorkspaceLock(testDir, fn);
+
+    expect(fn).toHaveBeenCalledTimes(2);
   });
 
-  it('retries on EPERM and succeeds on second attempt', () => {
-    const filePath = join(testDir, 'target.txt');
-    writeFileSync(filePath, 'original');
+  it('returns silently without executing fn when workspace lock is held', async () => {
+    const fn = vi.fn().mockResolvedValue(undefined);
+    let releaseOuter: (() => void) | undefined;
 
-    let callCount = 0;
-
-    vi.mocked(renameSync).mockImplementation(((
-      src: Parameters<typeof renameSync>[0],
-      dest: Parameters<typeof renameSync>[1],
-    ) => {
-      callCount++;
-      if (callCount === 1) {
-        throw Object.assign(new Error('EPERM'), { code: 'EPERM' });
-      }
-      // Restore and call real implementation
-      vi.mocked(renameSync).mockRestore();
-      renameSync(src, dest);
-    }) as typeof renameSync);
-
-    atomicWrite(filePath, 'new content');
-    expect(callCount).toBe(2);
-    expect(readFileSync(filePath, 'utf-8')).toBe('new content');
-  });
-
-  it('gives up after max retries and cleans up temp file', () => {
-    const filePath = join(testDir, 'target.txt');
-    writeFileSync(filePath, 'original');
-
-    const renamedTemps: string[] = [];
-    vi.mocked(renameSync).mockImplementation(((
-      src: Parameters<typeof renameSync>[0],
-    ) => {
-      renamedTemps.push(String(src));
-      throw Object.assign(new Error('EPERM'), { code: 'EPERM' });
-    }) as typeof renameSync);
-
-    expect(() => {
-      atomicWrite(filePath, 'new content');
-    }).toThrow('EPERM');
-
-    // Temp file should have been cleaned up
-    for (const tempPath of renamedTemps) {
-      expect(existsSync(tempPath)).toBe(false);
-    }
-  });
-
-  it('does not retry on non-EPERM errors', () => {
-    const filePath = join(testDir, 'target.txt');
-    writeFileSync(filePath, 'original');
-
-    let callCount = 0;
-    vi.mocked(renameSync).mockImplementation(() => {
-      callCount++;
-      throw Object.assign(new Error('EACCES'), { code: 'EACCES' });
+    const outer = withWorkspaceLock(testDir, async () => {
+      await new Promise<void>((resolve) => {
+        releaseOuter = resolve;
+      });
     });
 
-    expect(() => {
-      atomicWrite(filePath, 'new content');
-    }).toThrow('EACCES');
-    expect(callCount).toBe(1);
+    await vi.waitFor(() => {
+      expect(releaseOuter).toBeTypeOf('function');
+    });
+    await withWorkspaceLock(testDir, fn);
+
+    expect(fn).not.toHaveBeenCalled();
+
+    releaseOuter?.();
+    await outer;
+  });
+
+  it('recovers after the lock is released', async () => {
+    const fn = vi.fn().mockResolvedValue(undefined);
+    let releaseOuter: (() => void) | undefined;
+
+    const outer = withWorkspaceLock(testDir, async () => {
+      await new Promise<void>((resolve) => {
+        releaseOuter = resolve;
+      });
+    });
+
+    await vi.waitFor(() => {
+      expect(releaseOuter).toBeTypeOf('function');
+    });
+    await withWorkspaceLock(testDir, fn);
+    expect(fn).not.toHaveBeenCalled();
+
+    releaseOuter?.();
+    await outer;
+
+    await withWorkspaceLock(testDir, fn);
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+
+  it('recovers a stale workspace lock', async () => {
+    vi.useFakeTimers();
+    const lockFile = join(testDir, 'target.txt');
+    writeFileSync(lockFile, '');
+    let releaseFileLock: (() => void) | undefined;
+
+    const heldLock = withFileLock(lockFile, async () => {
+      await new Promise<void>((resolve) => {
+        releaseFileLock = resolve;
+      });
+    });
+
+    await vi.waitFor(() => {
+      expect(releaseFileLock).toBeTypeOf('function');
+    });
+
+    const lockAttempt = withWorkspaceLock(testDir, vi.fn());
+    await Promise.resolve();
+
+    await vi.advanceTimersByTimeAsync(STALE_LOCK_MS + 1000);
+    releaseFileLock?.();
+    await heldLock;
+    await lockAttempt;
   });
 });

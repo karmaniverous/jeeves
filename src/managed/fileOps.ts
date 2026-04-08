@@ -11,7 +11,7 @@ import { randomUUID } from 'node:crypto';
 import { renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 
-import { lock } from 'proper-lockfile';
+import { lock, type LockOptions } from 'proper-lockfile';
 
 import { CORE_VERSION } from '../constants/version.js';
 
@@ -23,6 +23,12 @@ export const DEFAULT_CORE_VERSION = CORE_VERSION;
 
 /** Lock retry options. */
 const LOCK_RETRIES = { retries: 5, minTimeout: 100, maxTimeout: 1000 };
+
+/** Workspace lock retry options. */
+const WORKSPACE_LOCK_RETRIES = { retries: 0 };
+
+/** Workspace lock file name. */
+export const WORKSPACE_LOCK_FILE = 'jeeves.lock';
 
 /** Maximum rename retry attempts on EPERM. */
 const ATOMIC_WRITE_MAX_RETRIES = 3;
@@ -77,6 +83,32 @@ export function atomicWrite(filePath: string, content: string): void {
   }
 }
 
+async function withLock(
+  targetPath: string,
+  fn: () => void | Promise<void>,
+  options: LockOptions,
+  onLockError?: (error: unknown) => boolean,
+): Promise<void> {
+  let release: (() => Promise<void>) | undefined;
+  try {
+    release = await lock(targetPath, options);
+    await fn();
+  } catch (error: unknown) {
+    if (onLockError?.(error)) {
+      return;
+    }
+    throw error;
+  } finally {
+    if (release) {
+      try {
+        await release();
+      } catch {
+        // Lock already released or file deleted — safe to ignore
+      }
+    }
+  }
+}
+
 /**
  * Execute a callback while holding a file lock.
  *
@@ -92,20 +124,40 @@ export async function withFileLock(
   filePath: string,
   fn: () => void | Promise<void>,
 ): Promise<void> {
-  let release: (() => Promise<void>) | undefined;
-  try {
-    release = await lock(filePath, {
+  await withLock(filePath, fn, {
+    stale: STALE_LOCK_MS,
+    retries: LOCK_RETRIES,
+  });
+}
+
+/**
+ * Execute a callback while holding the workspace cycle lock.
+ *
+ * @remarks
+ * Acquires a lock on `{workspacePath}/jeeves.lock`, executes the callback,
+ * and releases the lock in a finally block. If the lock is already held,
+ * returns silently so the caller can skip this cycle.
+ *
+ * @param workspacePath - Absolute workspace path.
+ * @param fn - Async callback to execute while holding the lock.
+ */
+export async function withWorkspaceLock(
+  workspacePath: string,
+  fn: () => void | Promise<void>,
+): Promise<void> {
+  const lockPath = join(workspacePath, WORKSPACE_LOCK_FILE);
+  writeFileSync(lockPath, '', { flag: 'a' });
+
+  await withLock(
+    lockPath,
+    fn,
+    {
       stale: STALE_LOCK_MS,
-      retries: LOCK_RETRIES,
-    });
-    await fn();
-  } finally {
-    if (release) {
-      try {
-        await release();
-      } catch {
-        // Lock already released or file deleted — safe to ignore
-      }
-    }
-  }
+      retries: WORKSPACE_LOCK_RETRIES,
+    },
+    (error) =>
+      error instanceof Error &&
+      'code' in error &&
+      (error as NodeJS.ErrnoException).code === 'ELOCKED',
+  );
 }

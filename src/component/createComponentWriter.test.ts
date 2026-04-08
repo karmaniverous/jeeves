@@ -9,6 +9,7 @@ vi.mock('./cleanupEscalation.js', () => ({
 }));
 
 import { init, resetInit } from '../init';
+import { withWorkspaceLock } from '../managed/fileOps.js';
 import { parseManaged } from '../managed/parseManaged';
 import { makeTestDescriptor } from '../test/makeTestDescriptor';
 import { requestCleanupSession } from './cleanupEscalation.js';
@@ -175,6 +176,30 @@ describe('createComponentWriter', () => {
       expect(parsed.sections.find((s) => s.id === 'Watcher')?.content).toBe(
         'Watcher content.',
       );
+    }, 15_000);
+
+    it('should skip silently when workspace lock is held', async () => {
+      const writer = createComponentWriter(makeDescriptor());
+      const toolsPath = join(workspaceDir, 'TOOLS.md');
+      writeFileSync(toolsPath, '');
+      let releaseOuter: (() => void) | undefined;
+
+      const outer = withWorkspaceLock(workspaceDir, async () => {
+        await new Promise<void>((resolve) => {
+          releaseOuter = resolve;
+        });
+      });
+
+      await vi.waitFor(() => {
+        expect(releaseOuter).toBeTypeOf('function');
+      });
+      await expect(writer.cycle()).resolves.toBeUndefined();
+
+      const content = readFileSync(toolsPath, 'utf-8');
+      expect(content).toBe('');
+
+      releaseOuter?.();
+      await outer;
     }, 15_000);
 
     it('should emit a cleanup session request when cleanup is detected', async () => {

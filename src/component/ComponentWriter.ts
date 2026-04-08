@@ -17,6 +17,7 @@ import {
   getCoreConfigDir,
   getWorkspacePath,
 } from '../init.js';
+import { withWorkspaceLock } from '../managed/fileOps.js';
 import { updateManagedSection } from '../managed/updateManagedSection.js';
 import { refreshPlatformContent } from '../platform/refreshPlatformContent.js';
 import { getErrorMessage } from '../utils.js';
@@ -118,48 +119,50 @@ export class ComponentWriter {
       const workspacePath = getWorkspacePath();
       const toolsPath = join(workspacePath, WORKSPACE_FILES.tools);
 
-      // 1. Write the component's TOOLS.md section
-      const toolsContent = this.component.generateToolsContent();
-      await updateManagedSection(toolsPath, toolsContent, {
-        mode: 'section',
-        sectionId: this.component.sectionId,
-        markers: TOOLS_MARKERS,
-        coreVersion: CORE_VERSION,
-      });
+      await withWorkspaceLock(workspacePath, async () => {
+        // 1. Write the component's TOOLS.md section
+        const toolsContent = this.component.generateToolsContent();
+        await updateManagedSection(toolsPath, toolsContent, {
+          mode: 'section',
+          sectionId: this.component.sectionId,
+          markers: TOOLS_MARKERS,
+          coreVersion: CORE_VERSION,
+        });
 
-      // 2. Platform content maintenance
-      await refreshPlatformContent({
-        coreVersion: CORE_VERSION,
-        componentName: this.component.name,
-        componentVersion: this.component.version,
-        servicePackage: this.component.servicePackage,
-        pluginPackage: this.component.pluginPackage,
-      });
+        // 2. Platform content maintenance
+        await refreshPlatformContent({
+          coreVersion: CORE_VERSION,
+          componentName: this.component.name,
+          componentVersion: this.component.version,
+          servicePackage: this.component.servicePackage,
+          pluginPackage: this.component.pluginPackage,
+        });
 
-      // 3. Cleanup escalation
-      if (this.gatewayUrl) {
-        scanAndEscalateCleanup(
-          [
-            { filePath: toolsPath, markerIdentity: 'TOOLS' },
-            {
-              filePath: join(workspacePath, WORKSPACE_FILES.soul),
-              markerIdentity: 'SOUL',
-            },
-            {
-              filePath: join(workspacePath, WORKSPACE_FILES.agents),
-              markerIdentity: 'AGENTS',
-            },
-          ],
-          this.gatewayUrl,
-          this.pendingCleanups,
-        );
-      }
+        // 3. Cleanup escalation
+        if (this.gatewayUrl) {
+          scanAndEscalateCleanup(
+            [
+              { filePath: toolsPath, markerIdentity: 'TOOLS' },
+              {
+                filePath: join(workspacePath, WORKSPACE_FILES.soul),
+                markerIdentity: 'SOUL',
+              },
+              {
+                filePath: join(workspacePath, WORKSPACE_FILES.agents),
+                markerIdentity: 'AGENTS',
+              },
+            ],
+            this.gatewayUrl,
+            this.pendingCleanups,
+          );
+        }
 
-      // 4. HEARTBEAT orchestration
-      await runHeartbeatCycle({
-        workspacePath,
-        coreConfigDir: getCoreConfigDir(),
-        configRoot: getConfigRoot(),
+        // 4. HEARTBEAT orchestration
+        await runHeartbeatCycle({
+          workspacePath,
+          coreConfigDir: getCoreConfigDir(),
+          configRoot: getConfigRoot(),
+        });
       });
     } catch (err: unknown) {
       console.warn(

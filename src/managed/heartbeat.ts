@@ -15,7 +15,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 import { getErrorMessage } from '../utils.js';
-import { atomicWrite, withFileLock } from './fileOps.js';
+import { atomicWrite } from './fileOps.js';
 
 /** The H1 heading that anchors the platform status section. */
 export const HEARTBEAT_HEADING = '# Jeeves Platform Status';
@@ -123,12 +123,12 @@ export function buildHeartbeatSection(entries: HeartbeatEntry[]): string {
  *
  * @remarks
  * Replaces everything from `# Jeeves Platform Status` to EOF.
- * Preserves user content above the heading. Uses file-level locking.
+ * Preserves user content above the heading.
  *
  * @param filePath - Absolute path to HEARTBEAT.md.
  * @param entries - Component entries to write.
  */
-export async function writeHeartbeatSection(
+export function writeHeartbeatSection(
   filePath: string,
   entries: HeartbeatEntry[],
 ): Promise<void> {
@@ -142,25 +142,25 @@ export async function writeHeartbeatSection(
   }
 
   try {
-    await withFileLock(filePath, () => {
-      const fileContent = readFileSync(filePath, 'utf-8');
-      const parsed = parseHeartbeat(fileContent);
+    const fileContent = readFileSync(filePath, 'utf-8');
+    const parsed = parseHeartbeat(fileContent);
 
-      const section = buildHeartbeatSection(entries);
+    const section = buildHeartbeatSection(entries);
 
-      const parts: string[] = [];
-      if (parsed.userContent) {
-        parts.push(parsed.userContent);
-        parts.push('');
-      }
-      parts.push(section);
+    const parts: string[] = [];
+    if (parsed.userContent) {
+      parts.push(parsed.userContent);
       parts.push('');
+    }
+    parts.push(section);
+    parts.push('');
 
-      atomicWrite(filePath, parts.join('\n'));
-    });
+    atomicWrite(filePath, parts.join('\n'));
   } catch (err: unknown) {
     console.warn(
       `jeeves-core: writeHeartbeatSection failed for ${filePath}: ${getErrorMessage(err)}`,
     );
   }
+
+  return Promise.resolve();
 }
