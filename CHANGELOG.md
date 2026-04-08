@@ -2,10 +2,20 @@
 
 All notable changes to this project will be documented in this file. Dates are displayed in UTC.
 
+#### [0.5.6](https://github.com/karmaniverous/jeeves/compare/0.5.5...0.5.6)
+
+- fix: serialize managed content writer cycle [`#78`](https://github.com/karmaniverous/jeeves/pull/78)
+- fix: preserve file lock safety for managed writes [`804a019`](https://github.com/karmaniverous/jeeves/commit/804a01941ac207af74f4b2ebdd4d95f6495a7afa)
+- npm audit fix [`275ccc1`](https://github.com/karmaniverous/jeeves/commit/275ccc14181ed1925d6d89341635ebe485332580)
+- fix: prevent component writer cycle reentry [`2f9a9d6`](https://github.com/karmaniverous/jeeves/commit/2f9a9d6391d3295cd23b3ff05706c7570b53a36d)
+
 #### [0.5.5](https://github.com/karmaniverous/jeeves/compare/0.5.4...0.5.5)
+
+> 5 April 2026
 
 - fix: preserve dist/ subdirectory in plugin install layout [`#75`](https://github.com/karmaniverous/jeeves/pull/75)
 - [73] fix: preserve dist/ subdirectory in plugin install layout [`#73`](https://github.com/karmaniverous/jeeves/issues/73)
+- chore: release v0.5.5 [`dd45497`](https://github.com/karmaniverous/jeeves/commit/dd454977e5a455884d842df3c77608023adfd13a)
 
 #### [0.5.4](https://github.com/karmaniverous/jeeves/compare/0.5.3...0.5.4)
 
