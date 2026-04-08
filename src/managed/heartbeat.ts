@@ -123,7 +123,7 @@ export function buildHeartbeatSection(entries: HeartbeatEntry[]): string {
  *
  * @remarks
  * Replaces everything from `# Jeeves Platform Status` to EOF.
- * Preserves user content above the heading. Uses file-level locking.
+ * Preserves user content above the heading.
  *
  * @param filePath - Absolute path to HEARTBEAT.md.
  * @param entries - Component entries to write.

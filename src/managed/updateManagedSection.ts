@@ -6,7 +6,7 @@
  * - `block`: Replaces the entire managed block (SOUL.md, AGENTS.md).
  * - `section`: Upserts a named H2 section within the managed block (TOOLS.md).
  *
- * Provides file-level locking, version-stamp convergence, and atomic writes.
+ * Provides version-stamp convergence and atomic writes.
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
