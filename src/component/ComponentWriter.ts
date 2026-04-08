@@ -45,12 +45,13 @@ export interface ComponentWriterOptions {
  * and `refreshPlatformContent()` on each cycle.
  */
 export class ComponentWriter {
-  private timer: ReturnType<typeof setInterval> | undefined;
+  private timer: ReturnType<typeof setTimeout> | undefined;
   private jitterTimeout: ReturnType<typeof setTimeout> | undefined;
   private readonly component: JeevesComponentDescriptor;
   private readonly configDir: string;
   private readonly gatewayUrl: string | undefined;
   private readonly pendingCleanups = new Set<string>();
+  private cyclePromise: Promise<void> | undefined;
 
   /** @internal */
   constructor(
@@ -69,7 +70,11 @@ export class ComponentWriter {
 
   /** Whether the writer timer is currently running or pending its first cycle. */
   get isRunning(): boolean {
-    return this.jitterTimeout !== undefined || this.timer !== undefined;
+    return (
+      this.jitterTimeout !== undefined ||
+      this.timer !== undefined ||
+      this.cyclePromise !== undefined
+    );
   }
 
   /**
@@ -88,8 +93,7 @@ export class ComponentWriter {
     const jitterMs = Math.floor(Math.random() * intervalMs);
     this.jitterTimeout = setTimeout(() => {
       this.jitterTimeout = undefined;
-      void this.cycle();
-      this.timer = setInterval(() => void this.cycle(), intervalMs);
+      this.scheduleNextCycle(0, intervalMs);
     }, jitterMs);
   }
 
@@ -100,9 +104,18 @@ export class ComponentWriter {
       this.jitterTimeout = undefined;
     }
     if (this.timer) {
-      clearInterval(this.timer);
+      clearTimeout(this.timer);
       this.timer = undefined;
     }
+  }
+
+  private scheduleNextCycle(delayMs: number, intervalMs: number): void {
+    this.timer = setTimeout(() => {
+      this.timer = undefined;
+      void this.cycle().finally(() => {
+        if (this.isRunning) this.scheduleNextCycle(intervalMs, intervalMs);
+      });
+    }, delayMs);
   }
 
   /**
@@ -115,6 +128,16 @@ export class ComponentWriter {
    * 4. Run HEARTBEAT health orchestration.
    */
   async cycle(): Promise<void> {
+    if (this.cyclePromise) return this.cyclePromise;
+
+    this.cyclePromise = this.runCycle().finally(() => {
+      this.cyclePromise = undefined;
+    });
+
+    return this.cyclePromise;
+  }
+
+  private async runCycle(): Promise<void> {
     try {
       const workspacePath = getWorkspacePath();
       const toolsPath = join(workspacePath, WORKSPACE_FILES.tools);

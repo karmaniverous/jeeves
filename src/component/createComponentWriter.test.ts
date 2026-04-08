@@ -144,6 +144,32 @@ describe('createComponentWriter', () => {
       vi.useRealTimers();
     });
 
+    it('should not re-enter while a cycle is already running', async () => {
+      const writer = createComponentWriter(makeDescriptor());
+      let resolveCycle: (() => void) | undefined;
+      const runCycleSpy = vi
+        .spyOn(
+          writer as object as { runCycle: () => Promise<void> },
+          'runCycle',
+        )
+        .mockImplementation(
+          () =>
+            new Promise<void>((resolve) => {
+              resolveCycle = resolve;
+            }),
+        );
+
+      const firstCycle = writer.cycle();
+      const secondCycle = writer.cycle();
+
+      expect(runCycleSpy).toHaveBeenCalledTimes(1);
+      expect(writer.isRunning).toBe(true);
+
+      resolveCycle?.();
+      await Promise.all([firstCycle, secondCycle]);
+      expect(writer.isRunning).toBe(false);
+    });
+
     it('should call generateToolsContent on cycle', async () => {
       const genFn = vi.fn().mockReturnValue('Generated content.');
       const writer = createComponentWriter(
