@@ -22,7 +22,7 @@ export const STALE_LOCK_MS = 120_000;
 export const DEFAULT_CORE_VERSION = CORE_VERSION;
 
 /** Lock retry options. */
-const LOCK_RETRIES = { retries: 5, minTimeout: 100, maxTimeout: 1000 };
+const LOCK_RETRIES = { retries: 0 };
 
 /** Workspace lock retry options. */
 const WORKSPACE_LOCK_RETRIES = { retries: 0 };
