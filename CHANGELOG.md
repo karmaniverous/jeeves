@@ -2,12 +2,20 @@
 
 All notable changes to this project will be documented in this file. Dates are displayed in UTC.
 
+#### [0.5.7](https://github.com/karmaniverous/jeeves/compare/0.5.6...0.5.7)
+
+- feat: condense managed content and rewrite HEARTBEAT alerts [`#82`](https://github.com/karmaniverous/jeeves/pull/82)
+- fix: use dynamic budget in HEARTBEAT alert text [`aa28478`](https://github.com/karmaniverous/jeeves/commit/aa284784144c7a375b75426b8ea1c1bb9c3a5905)
+
 #### [0.5.6](https://github.com/karmaniverous/jeeves/compare/0.5.5...0.5.6)
+
+> 8 April 2026
 
 - fix: serialize managed content writer cycle [`#78`](https://github.com/karmaniverous/jeeves/pull/78)
 - fix: preserve file lock safety for managed writes [`804a019`](https://github.com/karmaniverous/jeeves/commit/804a01941ac207af74f4b2ebdd4d95f6495a7afa)
 - npm audit fix [`275ccc1`](https://github.com/karmaniverous/jeeves/commit/275ccc14181ed1925d6d89341635ebe485332580)
 - fix: prevent component writer cycle reentry [`2f9a9d6`](https://github.com/karmaniverous/jeeves/commit/2f9a9d6391d3295cd23b3ff05706c7570b53a36d)
+- chore: release v0.5.6 [`0e07dba`](https://github.com/karmaniverous/jeeves/commit/0e07dba88c71251017aaf96b4ce3a766a208c0b2)
 
 #### [0.5.5](https://github.com/karmaniverous/jeeves/compare/0.5.4...0.5.5)
 
