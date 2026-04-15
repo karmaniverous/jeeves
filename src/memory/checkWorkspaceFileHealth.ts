@@ -111,7 +111,7 @@ export function workspaceFileHealthEntries(
       const pct = Math.round(r.usage * 100);
       const overBudgetNote = r.overBudget ? ' **Over budget.** ' : ' ';
       const content = [
-        `${r.file} is at ${String(pct)}% of its 20K char injection budget (${r.charCount.toLocaleString()} / ${r.budget.toLocaleString()} chars).${overBudgetNote}Action required:`,
+        `${r.file} is at ${String(pct)}% of its ${(r.budget / 1000).toLocaleString()}K char injection budget (${r.charCount.toLocaleString()} / ${r.budget.toLocaleString()} chars).${overBudgetNote}Action required:`,
         '',
         '1. Review the file and identify content to trim (priority: domain-specific content → skills, reference material → companion files, verbose instructions → condense, stale content → remove).',
         '2. Ask the owner for permission, then trim.',
