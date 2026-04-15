@@ -109,10 +109,11 @@ describe('checkWorkspaceFileHealth', () => {
     expect(names).toContain('SOUL.md');
     expect(names).not.toContain('TOOLS.md');
 
-    // Each entry should contain trimming guidance
+    // Each entry should contain action-gated instructions
     for (const entry of heartbeatEntries) {
-      expect(entry.content).toContain('Trim to stay under');
-      expect(entry.content).toContain('Move domain-specific content');
+      expect(entry.content).toContain('Action required:');
+      expect(entry.content).toContain('Ask the owner for permission');
+      expect(entry.content).toContain('Do NOT reply HEARTBEAT_OK');
     }
   });
 
@@ -128,6 +129,23 @@ describe('checkWorkspaceFileHealth', () => {
     const heartbeatEntries = workspaceFileHealthEntries(results);
     expect(heartbeatEntries).toHaveLength(1);
     expect(heartbeatEntries[0].content).toContain('**Over budget.**');
+    expect(heartbeatEntries[0].content).toContain('Action required:');
+    expect(heartbeatEntries[0].content).toContain('Do NOT reply HEARTBEAT_OK');
+  });
+
+  it('uses dynamic budget in HEARTBEAT entry text', () => {
+    writeFileSync(join(testDir, 'AGENTS.md'), 'a'.repeat(9_000));
+
+    const results = checkWorkspaceFileHealth({
+      workspacePath: testDir,
+      budgetChars: 10_000,
+      warningThreshold: 0.8,
+    });
+
+    const heartbeatEntries = workspaceFileHealthEntries(results);
+    expect(heartbeatEntries).toHaveLength(1);
+    expect(heartbeatEntries[0].content).toContain('10K char injection budget');
+    expect(heartbeatEntries[0].content).not.toContain('20K');
   });
 
   it('does not generate HEARTBEAT entries for non-existent files', () => {

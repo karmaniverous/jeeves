@@ -50,14 +50,6 @@ export interface WorkspaceFileHealthResult {
   overBudget: boolean;
 }
 
-/** Trimming guidance lines emitted in HEARTBEAT entries. */
-const TRIMMING_GUIDANCE = [
-  '  1. Move domain-specific content to a local skill',
-  '  2. Extract reference material to companion files with a pointer',
-  '  3. Summarize verbose instructions',
-  '  4. Remove stale content',
-].join('\n');
-
 /**
  * Check all workspace files against the character budget.
  *
@@ -117,10 +109,17 @@ export function workspaceFileHealthEntries(
     .filter((r) => r.exists && r.warning)
     .map((r) => {
       const pct = Math.round(r.usage * 100);
-      const overBudgetNote = r.overBudget ? ' **Over budget.**' : '';
+      const overBudgetNote = r.overBudget ? ' **Over budget.** ' : ' ';
       const content = [
-        `- Budget: ${r.charCount.toLocaleString()} / ${r.budget.toLocaleString()} chars (${String(pct)}%).${overBudgetNote} Trim to stay under the OpenClaw injection limit.`,
-        `- Suggested trimming priority:\n${TRIMMING_GUIDANCE}`,
+        `${r.file} is at ${String(pct)}% of its ${(r.budget / 1000).toLocaleString()}K char injection budget (${r.charCount.toLocaleString()} / ${r.budget.toLocaleString()} chars).${overBudgetNote}Action required:`,
+        '',
+        '1. Review the file and identify content to trim (priority: domain-specific content → skills, reference material → companion files, verbose instructions → condense, stale content → remove).',
+        '2. Ask the owner for permission, then trim.',
+        "3. If the owner declines, change this heading to '## " +
+          r.file +
+          ": declined' to suppress this alert.",
+        '',
+        'Do NOT reply HEARTBEAT_OK while this alert is unresolved.',
       ].join('\n');
       return {
         name: r.file,
