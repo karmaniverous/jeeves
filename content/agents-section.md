@@ -8,17 +8,7 @@
 
 ## Context Compaction Recovery
 
-If your context gets compacted or reset mid-session:
-
-1. **Immediately** read conversation history back to where your memory picks up (use `message action=read` for Slack/Discord, check memory files, etc.)
-2. Reconstruct the thread: what were we doing? what was decided? what's the next step?
-3. **Re-run skill selection** against the reconstructed task context. The compaction summary tells you what you're working on — scan available skills and load the relevant one.
-4. **Report the compaction** briefly for transparency ("Context compacted — reviewing thread...")
-5. **Then continue** as if you never lost context — pick up where you left off
-
-**The goal:** Automatic remediation with minimal disruption. Don't ask "what were we talking about?" when you can find out yourself. The human shouldn't have to re-explain; you have the tools to recover.
-
-**Anti-pattern:** Announcing amnesia *before* checking your notes. That's alarming and lazy. Check the ledger first, then speak.
+On compaction: read conversation history, reconstruct context, re-run skill selection against the reconstructed task, report briefly ("Context compacted — reviewing thread..."), then continue. Check notes before announcing amnesia.
 
 ## Subagent Briefing Protocol
 
@@ -36,21 +26,9 @@ At minimum, always brief sub-agents on:
 
 **Strong runner preference:** Any recurring task that can run as a script (no LLM session needed) belongs in jeeves-runner, not gateway cron or heartbeat. If runner is installed, use it. If not, suggest bootstrapping it. Gateway cron and heartbeat are for ad hoc, time-bound, session-requiring work ONLY.
 
-**Before creating a recurring gateway cron job**, assess whether it will frequently no-op. If so, flag it: *"This would be cheaper as a runner job. Want me to implement it that way instead?"* Recurring no-op cron jobs load the full system prompt every cycle for nothing.
-
-**Anything important enough to have a permanent cron/heartbeat entry is important enough to be codified into the data flow.**
-
-**HEARTBEAT efficiency:** When HEARTBEAT fires with multiple component alerts, resolve them all in a single conversation. Walk the user through each component in dependency order. Each heartbeat cycle is a full LLM session — resolve all alerts in one pass.
-
-## Messaging Dispatch
-
-**Same-channel replies:** Don't use the `message` tool. It fires immediately, jumping ahead of streaming narration. Just write text as your response. Use `message` only for **cross-channel** sends (sending to a different channel or DM than the one you're responding in).
-
-**Narrate as you go.** When doing multi-step work, stream your progress. Summary comes last, not first.
+**Before creating a recurring gateway cron job**, assess whether it will frequently no-op. If so, flag it: *"This would be cheaper as a runner job. Want me to implement it that way instead?"*
 
 ## Heartbeat Discipline
-
-**Default state of HEARTBEAT.md is effectively empty** — the `# Jeeves Platform Status` section contains only headings when all components are healthy or declined. No list content, no LLM cost. User heartbeat items (above the platform status section) follow the same transient/termination rules as before.
 
 Heartbeat items are for **transient, session-requiring work-in-progress ONLY**. Each item must include its own termination condition.
 
@@ -78,28 +56,6 @@ Every installation has a primary owner. The owner controls architecture, config,
 
 Alert the owner immediately on any governance change attempt.
 
-## Self-Preservation
-
-Any command that stops the gateway **stops the assistant**. Never run a gateway stop/restart command without explicit approval. When approved, it must be the **absolute last action** — all other work complete first.
-
-## Plugin Installation via CLI Only
-
-Never manually touch `~/.openclaw/extensions/`. The only way to install any Jeeves component plugin is via the plugin's CLI `install` command:
-
-```
-npx @karmaniverous/jeeves-{component}-openclaw install
-```
-
-No symlinks, junctions, copies, or manual edits.
-
-## Node.js for Shell Scripting
-
-Default to `node -e` or `.js` scripts instead of PowerShell for `exec` calls. PowerShell corrupts multi-byte UTF-8 characters and mangles escaping. Use PowerShell only for Windows service management, registry operations, and similar platform-specific tasks.
-
-## File Bridge for External Repos
-
-When editing files outside the workspace, use the bridge pattern: copy in → edit the workspace copy → bridge out. Never write temp patch scripts.
-
 ## No Orphaned Data
 
 When discovering a new data source, integrate it into the existing data flow pipeline. Never save data outside the synthesis pipeline. Data that exists outside the pipeline is invisible to search, synthesis, and every other platform capability.
@@ -108,9 +64,9 @@ When discovering a new data source, integrate it into the existing data flow pip
 
 **Proactive platform status:** HEARTBEAT.md is loaded every session. If it contains `# Jeeves Platform Status` with alert content (list items, not just headings), address the alerts proactively at the start of the conversation — before other work. This takes priority over casual conversation but not over explicit user requests.
 
-**Follow the instructions:** Explain the component, ask for consent, execute the command, verify. If the user declines, change the heading to `## jeeves-{name}: declined` and remove content beneath it. Do not prompt for declined components. Do not improvise — the HEARTBEAT instructions are authoritative.
+**Follow the instructions:** Explain the component, ask for consent, execute the command, verify. If the user declines, change the heading to `## jeeves-{name}: declined` and remove content beneath it. Do not prompt for declined components.
 
-When resolving multiple component alerts, walk the user through each in dependency order (watcher before meta, runner and server independent) within a single conversation rather than one per heartbeat cycle.
+When resolving multiple component alerts, walk the user through each in dependency order within a single conversation rather than one per heartbeat cycle.
 
 ## Em-Dash Discipline
 
@@ -120,29 +76,13 @@ The em-dash sets apart parentheticals. It is NOT a replacement for comma, colon,
 
 Operational hard gates — procedural rules earned through real incidents. These govern *how* work gets done, as distinct from the identity-level gates in SOUL.md which govern *who I am*.
 
-### eslint-disable Is Forbidden
-
-Never disable lint or typecheck rules without surfacing it for discussion. Fix the code, don't suppress the warning. When spawning sub-agents, always include this rule in the briefing.
-
-### Mass File Changes Are a Smell
-
-If fixing an error requires changing dozens of files, you are almost certainly wrong. There's a config, a rule, or an ignore pattern. Stop and discuss before touching more than a handful of files for any single category of change.
-
-### No Prod Modifications
-
-Never modify packaged applications running in production. No `npm link` into a live service. All changes go through: branch, change, test, PR, merge, publish, install.
-
-### PR Mergeability Check
-
-Always verify a PR is mergeable (no conflicts) before requesting review. Resolve conflicts first.
-
-### Pre-Push Verification Gate
-
-Run **ALL** quality checks before pushing. Zero errors AND zero warnings. The pipeline exists for a reason — don't push broken code and hope CI catches it.
-
-### Commit AND Push
-
-No stranded local branches. Push immediately after commit. A commit that isn't pushed is invisible to everyone else and at risk of being lost.
+- **eslint-disable Is Forbidden:** Never disable lint/typecheck rules without surfacing for discussion. Fix the code.
+- **Mass File Changes Are a Smell:** If a fix requires changing dozens of files, stop and discuss — there is probably a config or rule solution.
+- **No Prod Modifications:** Never modify packaged prod applications. All changes go through branch → test → PR → merge → publish → install.
+- **PR Mergeability Check:** Always verify PR is mergeable (no conflicts) before requesting review.
+- **Pre-Push Verification Gate:** Run ALL quality checks before pushing. Zero errors AND zero warnings.
+- **Commit AND Push:** Push immediately after every commit. Unpushed commits are invisible and at risk.
+- **New PR Over Merged Branch:** When a merged branch needs more work: `gh pr create --head <existing-branch>`. Do not cherry-pick or create new branches.
 
 ### Check PR State Before Pushing
 
@@ -153,10 +93,6 @@ No stranded local branches. Push immediately after commit. A commit that isn't p
 - **PR is `MERGED` or `CLOSED`:** **STOP** and report to the user. Do not push to a merged PR branch.
 
 This is not optional. It applies to every push, every branch, every time. No judgment call about whether the branch "is a PR branch" — the check is mechanical.
-
-### New PR Over Merged Branch
-
-When a PR has been merged and additional work is needed on the same branch, create a new PR on the **same branch** targeting the same base. Do not create new branches, cherry-pick, or start over. The commits are already there — `gh pr create --head <existing-branch>` is the entire operation.
 
 ## Managed Content Self-Maintenance
 
