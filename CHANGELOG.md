@@ -2,10 +2,19 @@
 
 All notable changes to this project will be documented in this file. Dates are displayed in UTC.
 
+#### [0.5.8](https://github.com/karmaniverous/jeeves/compare/0.5.7...0.5.8)
+
+- fix: resolve config apply path from registered override (#83) + downgrade transient fetch errors (#77) [`#84`](https://github.com/karmaniverous/jeeves/pull/84)
+- [83] fix: resolve config apply path from registered override (#83) and downgrade transient fetch errors to concise warnings [`#77`](https://github.com/karmaniverous/jeeves/pull/77)
+- [83] fix: traverse full error cause chain for transient classification [`ca3bc94`](https://github.com/karmaniverous/jeeves/commit/ca3bc9480dd86a1aab9ae558e9a8ef6f42d93045)
+
 #### [0.5.7](https://github.com/karmaniverous/jeeves/compare/0.5.6...0.5.7)
+
+> 15 April 2026
 
 - feat: condense managed content and rewrite HEARTBEAT alerts [`#82`](https://github.com/karmaniverous/jeeves/pull/82)
 - fix: use dynamic budget in HEARTBEAT alert text [`aa28478`](https://github.com/karmaniverous/jeeves/commit/aa284784144c7a375b75426b8ea1c1bb9c3a5905)
+- chore: release v0.5.7 [`85569f8`](https://github.com/karmaniverous/jeeves/commit/85569f80beb0731be995a126d1708c50fee6a26a)
 
 #### [0.5.6](https://github.com/karmaniverous/jeeves/compare/0.5.5...0.5.6)
 
