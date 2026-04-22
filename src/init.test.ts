@@ -2,11 +2,13 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   getComponentConfigDir,
+  getComponentConfigPath,
   getConfigRoot,
   getCoreConfigDir,
   getCoreConfigFile,
   getWorkspacePath,
   init,
+  registerComponentConfigPath,
   resetInit,
 } from './init';
 
@@ -21,6 +23,12 @@ describe('init', () => {
     expect(() => getCoreConfigDir()).toThrow('init() must be called first');
     expect(() => getCoreConfigFile()).toThrow('init() must be called first');
     expect(() => getComponentConfigDir('watcher')).toThrow(
+      'init() must be called first',
+    );
+    expect(() => {
+      registerComponentConfigPath('watcher', '/path');
+    }).toThrow('init() must be called first');
+    expect(() => getComponentConfigPath('watcher')).toThrow(
       'init() must be called first',
     );
   });
@@ -55,5 +63,26 @@ describe('init', () => {
 
     init({ workspacePath: '/ws2', configRoot: '/cfg2' });
     expect(getWorkspacePath()).toBe('/ws2');
+  });
+
+  it('should register and retrieve component config paths', () => {
+    init({ workspacePath: '/workspace', configRoot: '/config' });
+
+    expect(getComponentConfigPath('watcher')).toBeUndefined();
+
+    registerComponentConfigPath('watcher', '/custom/path/config.json');
+    expect(getComponentConfigPath('watcher')).toBe('/custom/path/config.json');
+
+    // Other components remain unregistered
+    expect(getComponentConfigPath('runner')).toBeUndefined();
+  });
+
+  it('should clear registered paths on re-initialization', () => {
+    init({ workspacePath: '/ws1', configRoot: '/cfg1' });
+    registerComponentConfigPath('watcher', '/custom/path/config.json');
+    expect(getComponentConfigPath('watcher')).toBe('/custom/path/config.json');
+
+    init({ workspacePath: '/ws2', configRoot: '/cfg2' });
+    expect(getComponentConfigPath('watcher')).toBeUndefined();
   });
 });

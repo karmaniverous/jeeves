@@ -30,6 +30,8 @@ interface InitState {
   workspacePath: string;
   configRoot: string;
   coreConfigDir: string;
+  /** Per-component config file path overrides (absolute paths). */
+  componentConfigPaths: Map<string, string>;
 }
 
 let state: InitState | undefined;
@@ -44,6 +46,7 @@ export function init(options: InitOptions): void {
     workspacePath: options.workspacePath,
     configRoot: options.configRoot,
     coreConfigDir: join(options.configRoot, CORE_CONFIG_DIR),
+    componentConfigPaths: new Map(),
   };
 }
 
@@ -97,6 +100,41 @@ export function getCoreConfigFile(): string {
 export function getComponentConfigDir(componentName: string): string {
   if (!state) throw new Error('jeeves-core: init() must be called first');
   return join(state.configRoot, `${COMPONENT_CONFIG_PREFIX}${componentName}`);
+}
+
+/**
+ * Register the actual config file path for a component.
+ *
+ * @remarks
+ * Call this after resolving the `--config` CLI argument so that
+ * `getComponentConfigPath` returns the real file location instead of
+ * the default derived from `configRoot`.
+ *
+ * @param componentName - The component name (e.g., 'watcher', 'runner').
+ * @param absolutePath - Absolute path to the component's config file.
+ * @throws Error if `init()` has not been called.
+ */
+export function registerComponentConfigPath(
+  componentName: string,
+  absolutePath: string,
+): void {
+  if (!state) throw new Error('jeeves-core: init() must be called first');
+  state.componentConfigPaths.set(componentName, absolutePath);
+}
+
+/**
+ * Get the registered config file path for a component, or `undefined`
+ * if no override has been registered.
+ *
+ * @param componentName - The component name.
+ * @returns The registered absolute path, or `undefined`.
+ * @throws Error if `init()` has not been called.
+ */
+export function getComponentConfigPath(
+  componentName: string,
+): string | undefined {
+  if (!state) throw new Error('jeeves-core: init() must be called first');
+  return state.componentConfigPaths.get(componentName);
 }
 
 /**

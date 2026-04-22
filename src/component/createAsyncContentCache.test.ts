@@ -118,4 +118,44 @@ describe('createAsyncContentCache', () => {
     expect(errors).toHaveLength(1);
     expect((errors[0] as Error).message).toBe('boom');
   });
+
+  it('default handler logs transient errors as concise warnings', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const err = new Error('fetch failed');
+    (err as NodeJS.ErrnoException).code = 'ECONNRESET';
+
+    const getContent = createAsyncContentCache({
+      fetch: () => Promise.reject(err),
+    });
+
+    getContent();
+    await vi.advanceTimersToNextTimerAsync();
+    await Promise.resolve();
+
+    expect(warnSpy).toHaveBeenCalledOnce();
+    const msg = warnSpy.mock.calls[0][0] as string;
+    expect(msg).toContain('transient error');
+    expect(msg).toContain('fetch failed');
+
+    warnSpy.mockRestore();
+  });
+
+  it('default handler logs unexpected errors with full details', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const getContent = createAsyncContentCache({
+      fetch: () => Promise.reject(new Error('unexpected crash')),
+    });
+
+    getContent();
+    await vi.advanceTimersToNextTimerAsync();
+    await Promise.resolve();
+
+    expect(warnSpy).toHaveBeenCalledOnce();
+    const msg = warnSpy.mock.calls[0][0] as string;
+    expect(msg).toContain('cache refresh failed');
+
+    warnSpy.mockRestore();
+  });
 });

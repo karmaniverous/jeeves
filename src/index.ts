@@ -108,12 +108,14 @@ export {
 } from './discovery/index.js';
 export {
   getComponentConfigDir,
+  getComponentConfigPath,
   getConfigRoot,
   getCoreConfigDir,
   getCoreConfigFile,
   getWorkspacePath,
   init,
   type InitOptions,
+  registerComponentConfigPath,
   resetInit,
 } from './init.js';
 export {
@@ -211,3 +213,4 @@ export {
   type ServiceManager,
   type ServiceManagerOptions,
 } from './service/index.js';
+export { getErrorMessage, isTransientError } from './utils.js';
