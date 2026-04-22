@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
-import { init, resetInit } from '../init';
+import { init, registerComponentConfigPath, resetInit } from '../init';
 import { makeTestDescriptor } from '../test/makeTestDescriptor';
 import { createConfigApplyHandler } from './configApplyHandler';
 
@@ -223,5 +223,33 @@ describe('createConfigApplyHandler', () => {
     const body = result.body as Record<string, unknown>;
     expect(body.applied).toBe(true);
     expect(body.warning).toContain('reload failed');
+  });
+
+  it('should use registered config path instead of derived path', async () => {
+    // Create an alternate config directory outside the default configRoot
+    const altDir = join(testDir, 'alt-config');
+    mkdirSync(altDir, { recursive: true });
+    const altConfigPath = join(altDir, 'config.json');
+    writeFileSync(
+      altConfigPath,
+      JSON.stringify({ port: 9999, watchPaths: ['/alt'], debug: true }),
+    );
+
+    // Register the alternate path
+    registerComponentConfigPath('watcher', altConfigPath);
+
+    const handler = createConfigApplyHandler(makeDescriptor());
+    const result = await handler({ patch: { port: 5000 } });
+
+    expect(result.status).toBe(200);
+
+    // Verify it merged with the alt config (port overridden, other fields preserved)
+    const written = JSON.parse(readFileSync(altConfigPath, 'utf-8')) as Record<
+      string,
+      unknown
+    >;
+    expect(written.port).toBe(5000);
+    expect(written.watchPaths).toEqual(['/alt']); // preserved from alt config
+    expect(written.debug).toBe(true); // preserved from alt config
   });
 });

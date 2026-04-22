@@ -29,6 +29,8 @@
  * ```
  */
 
+import { getErrorMessage, isTransientError } from '../utils.js';
+
 /** Options for {@link createAsyncContentCache}. */
 export interface AsyncContentCacheOptions {
   /**
@@ -46,7 +48,8 @@ export interface AsyncContentCacheOptions {
 
   /**
    * Optional error handler. Called when `fetch` throws.
-   * Defaults to `console.warn`.
+   * Defaults to a handler that logs transient network errors as
+   * concise warnings and unexpected errors with full details.
    */
   onError?: (error: unknown) => void;
 }
@@ -64,7 +67,13 @@ export function createAsyncContentCache(
     fetch: fetchContent,
     placeholder = '> Initializing...',
     onError = (err: unknown) => {
-      console.warn('[jeeves] async content cache refresh failed:', err);
+      if (isTransientError(err)) {
+        console.warn(
+          `[jeeves] cache refresh: transient error (${getErrorMessage(err)})`,
+        );
+      } else {
+        console.warn('[jeeves] cache refresh failed:', err);
+      }
     },
   } = options;
 

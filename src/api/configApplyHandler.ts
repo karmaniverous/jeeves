@@ -11,7 +11,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import type { JeevesComponentDescriptor } from '../component/descriptor.js';
-import { getComponentConfigDir } from '../init.js';
+import { getComponentConfigDir, getComponentConfigPath } from '../init.js';
 import { atomicWrite } from '../managed/fileOps.js';
 import { getErrorMessage } from '../utils.js';
 
@@ -112,9 +112,10 @@ export function createConfigApplyHandler(
   return async (request: ConfigApplyRequest): Promise<ConfigApplyResult> => {
     const { patch, replace } = request;
 
-    // Derive config path
-    const configDir = getComponentConfigDir(descriptor.name);
-    const configPath = join(configDir, descriptor.configFileName);
+    // Use registered config path if available, otherwise derive from configRoot
+    const configPath =
+      getComponentConfigPath(descriptor.name) ??
+      join(getComponentConfigDir(descriptor.name), descriptor.configFileName);
 
     // Read existing config
     const existing = readConfigFile(configPath);
