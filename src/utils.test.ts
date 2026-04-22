@@ -65,6 +65,14 @@ describe('isTransientError', () => {
     expect(isTransientError(err)).toBe(true);
   });
 
+  it('returns true for deeply nested transient cause', () => {
+    const root = new Error('read ECONNRESET');
+    (root as NodeJS.ErrnoException).code = 'ECONNRESET';
+    const mid = new Error('socket hang up', { cause: root });
+    const outer = new TypeError('fetch failed', { cause: mid });
+    expect(isTransientError(outer)).toBe(true);
+  });
+
   it('returns false for non-transient errors', () => {
     expect(isTransientError(new Error('something else'))).toBe(false);
   });

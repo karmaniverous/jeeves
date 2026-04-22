@@ -30,19 +30,15 @@ const TRANSIENT_CODES = new Set([
  *          AbortError, and timeout-related fetch errors.
  */
 export function isTransientError(err: unknown): boolean {
-  if (!(err instanceof Error)) return false;
+  let current: unknown = err;
 
-  if (TRANSIENT_CODES.has(err.name)) return true;
+  while (current instanceof Error) {
+    if (TRANSIENT_CODES.has(current.name)) return true;
 
-  const code = (err as NodeJS.ErrnoException).code;
-  if (typeof code === 'string' && TRANSIENT_CODES.has(code)) return true;
+    const code = (current as NodeJS.ErrnoException).code;
+    if (typeof code === 'string' && TRANSIENT_CODES.has(code)) return true;
 
-  const cause = (err as { cause?: unknown }).cause;
-  if (cause instanceof Error) {
-    const causeCode = (cause as NodeJS.ErrnoException).code;
-    if (typeof causeCode === 'string' && TRANSIENT_CODES.has(causeCode))
-      return true;
-    if (TRANSIENT_CODES.has(cause.name)) return true;
+    current = (current as { cause?: unknown }).cause;
   }
 
   return false;
