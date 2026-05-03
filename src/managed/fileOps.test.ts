@@ -46,17 +46,16 @@ describe('atomicWrite', () => {
 
     let callCount = 0;
 
-    vi.mocked(renameSync).mockImplementation(((
-      src: Parameters<typeof renameSync>[0],
-      dest: Parameters<typeof renameSync>[1],
-    ) => {
-      callCount++;
-      if (callCount === 1) {
-        throw Object.assign(new Error('EPERM'), { code: 'EPERM' });
-      }
-      vi.mocked(renameSync).mockRestore();
-      renameSync(src, dest);
-    }) as typeof renameSync);
+    vi.mocked(renameSync).mockImplementation(
+      (src: Parameters<typeof renameSync>[0], dest) => {
+        callCount++;
+        if (callCount === 1) {
+          throw Object.assign(new Error('EPERM'), { code: 'EPERM' });
+        }
+        vi.mocked(renameSync).mockRestore();
+        renameSync(src, dest);
+      },
+    );
 
     atomicWrite(filePath, 'new content');
     expect(callCount).toBe(2);
@@ -68,12 +67,12 @@ describe('atomicWrite', () => {
     writeFileSync(filePath, 'original');
 
     const renamedTemps: string[] = [];
-    vi.mocked(renameSync).mockImplementation(((
-      src: Parameters<typeof renameSync>[0],
-    ) => {
-      renamedTemps.push(String(src));
-      throw Object.assign(new Error('EPERM'), { code: 'EPERM' });
-    }) as typeof renameSync);
+    vi.mocked(renameSync).mockImplementation(
+      (src: Parameters<typeof renameSync>[0]) => {
+        renamedTemps.push(String(src));
+        throw Object.assign(new Error('EPERM'), { code: 'EPERM' });
+      },
+    );
 
     expect(() => {
       atomicWrite(filePath, 'new content');

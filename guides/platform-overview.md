@@ -164,9 +164,39 @@ Each component plugin bundles its own copy of `@karmaniverous/jeeves` as a regul
   TOOLS.md                    ← Live platform state (managed + user sections)
 ```
 
+## HEARTBEAT Health Orchestration
+
+The HEARTBEAT system maintains a `# Jeeves Platform Status` heading in HEARTBEAT.md with per-component subsections. Each component follows a state machine:
+
+`not_installed → deps_missing → config_missing → service_not_installed → service_stopped → healthy`
+
+On each `ComponentWriter` cycle, `runHeartbeatCycle()`:
+
+1. Reads existing HEARTBEAT.md and parses declined headings
+2. Runs `orchestrateHeartbeat()` — probes all components through the state machine
+3. Checks memory hygiene (budget warnings)
+4. Checks workspace file health (SOUL.md, AGENTS.md, TOOLS.md size)
+5. Writes the consolidated result to HEARTBEAT.md
+
+**Dependency-aware alert suppression:** Hard dependencies block downstream alerts (e.g., if watcher is missing, meta won't alert about missing index). Soft dependencies add informational notes without blocking.
+
+**Declined state:** When the user declines a component alert, the heading suffix changes to `## jeeves-{name}: declined` and content is removed. Declined components are not re-prompted.
+
+**Proactive update alerts:** `checkRegistryVersion()` compares installed vs latest npm versions and renders update arrows (⬆) in HEARTBEAT alerts when newer versions are available.
+
+## Dual-Layer Locking Architecture
+
+Managed content writes use two locking layers to prevent conflicts:
+
+**Workspace lock (outer):** `withWorkspaceLock()` acquires a workspace-level lock (`jeeves.lock`) with zero-retry semantics. If the lock is held by another plugin's cycle, the current cycle skips silently. This eliminates lock stampedes when multiple plugin timer cycles align.
+
+**File lock (inner):** `withFileLock()` acquires per-file locks in `updateManagedSection`, `writeHeartbeatSection`, and `removeManagedSection`. This inner layer protects out-of-cycle callers (e.g., plugin uninstall) that bypass the workspace lock.
+
+Both layers use a 2-minute stale threshold (`STALE_LOCK_MS`) to recover from crashed processes. The workspace lock wraps the entire cycle body, so within a cycle all file operations execute without contention.
+
 ## Workspace Configuration
 
-An optional `jeeves.config.json` at the workspace root provides shared defaults for all CLI commands and programmatic consumers. Values are namespaced under `core.*` (workspace path, config root, gateway URL) and `memory.*` (budget, warning threshold, stale days).
+An optional `jeeves.config.json` at the workspace root provides shared defaults for all CLI commands and programmatic consumers. Values are namespaced under `core.*` (workspace path, config root, gateway URL, dev repo mappings) and `memory.*` (budget, warning threshold).
 
 Resolution precedence: **CLI flags → environment variables → `jeeves.config.json` → defaults**. The `jeeves config [jsonpath]` command prints the effective resolved values with per-key provenance tracking.
 
@@ -177,10 +207,8 @@ A JSON Schema file (`jeeves.config.schema.json`) is generated alongside `jeeves.
 MEMORY.md is the assistant's curated long-term memory, loaded at every session start. Core tracks its health:
 
 - **Character budget** (default: 20,000) with usage percentage and a configurable warning threshold (default: 80%)
-- **Stale section detection** via ISO date scanning in H2/H3 headings and bullet items. Sections whose most recent date exceeds the staleness threshold (default: 90 days) are flagged as candidates for review.
-- **Evergreen sections** (no parseable dates) are never flagged.
 
-`jeeves status` prints a memory hygiene summary alongside the service health table. Memory hygiene is reporting-only — core never auto-deletes content.
+`jeeves status` prints a memory hygiene summary alongside the service health table. Memory hygiene is reporting-only — core never auto-deletes content (Decision 42). Size pressure is the right signal for curation.
 
 ## Skill Seeding
 

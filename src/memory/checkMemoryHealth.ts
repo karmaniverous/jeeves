@@ -28,26 +28,14 @@ export function checkMemoryHealth(
   const result = analyzeMemory(options);
 
   if (!result.exists) return undefined;
-  if (!result.warning && result.staleCandidates === 0) return undefined;
+  if (!result.warning) return undefined;
 
-  const lines: string[] = [];
-
-  if (result.warning) {
-    const pct = Math.round(result.usage * 100);
-    lines.push(
-      `- Budget: ${result.charCount.toLocaleString()} / ${result.budget.toLocaleString()} chars (${String(pct)}%).${result.overBudget ? ' **Over budget.**' : ' Consider reviewing.'}`,
-    );
-  }
-
-  if (result.staleCandidates > 0) {
-    lines.push(
-      `- ${String(result.staleCandidates)} stale section${result.staleCandidates === 1 ? '' : 's'}: ${result.staleSectionNames.join(', ')}`,
-    );
-  }
+  const pct = Math.round(result.usage * 100);
+  const content = `- Budget: ${result.charCount.toLocaleString()} / ${result.budget.toLocaleString()} chars (${String(pct)}%).${result.overBudget ? ' **Over budget.**' : ' Consider reviewing.'}`;
 
   return {
     name: MEMORY_HEARTBEAT_NAME,
     declined: false,
-    content: lines.join('\n'),
+    content,
   };
 }

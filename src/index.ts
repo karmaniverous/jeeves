@@ -147,7 +147,6 @@ export {
 export {
   analyzeMemory,
   checkMemoryHealth,
-  extractMostRecentDate,
   MEMORY_HEARTBEAT_NAME,
   type MemoryHygieneOptions,
   type MemoryHygieneResult,

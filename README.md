@@ -220,8 +220,7 @@ Optional `jeeves.config.json` at the workspace root provides shared defaults for
   },
   "memory": {
     "budget": 20000,
-    "warningThreshold": 0.8,
-    "staleDays": 90
+    "warningThreshold": 0.8
   }
 }
 ```
@@ -240,10 +239,8 @@ Precedence: **CLI flags → environment variables → `jeeves.config.json` → d
 MEMORY.md has a character budget (default: 20,000 characters). The `analyzeMemory()` function tracks:
 
 - **Character count and usage percentage** — warns at 80% of budget (configurable via `warningThreshold`)
-- **Stale section detection** — scans ISO dates (`YYYY-MM-DD`) in H2/H3 headings and bullet items; sections whose most recent date exceeds `staleDays` (default: 30) are flagged as stale candidates
-- **Evergreen sections** — sections without parseable dates are never flagged
 
-Memory hygiene is reporting-only. Core does not auto-delete content; the assistant or human reviews stale candidates and decides what to prune.
+Memory hygiene is reporting-only. Core does not auto-delete content (Decision 42). Size pressure is the right signal for curation.
 
 ## Skill Seeding
 

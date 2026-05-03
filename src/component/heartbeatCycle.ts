@@ -13,6 +13,7 @@ import { join } from 'node:path';
 import {
   loadWorkspaceConfig,
   WORKSPACE_CONFIG_DEFAULTS,
+  type WorkspaceConfig,
 } from '../config/workspaceConfig.js';
 import { WORKSPACE_FILES } from '../constants/paths.js';
 import { parseHeartbeat, writeHeartbeatSection } from '../managed/heartbeat.js';
@@ -35,6 +36,8 @@ export interface HeartbeatCycleOptions {
   coreConfigDir: string;
   /** Platform config root. */
   configRoot: string;
+  /** Pre-loaded workspace config (avoids redundant file reads). */
+  workspaceConfig?: WorkspaceConfig;
 }
 
 /**
@@ -67,6 +70,8 @@ export async function runHeartbeatCycle(
   options: HeartbeatCycleOptions,
 ): Promise<void> {
   const { workspacePath, coreConfigDir, configRoot } = options;
+  const wsConfig =
+    options.workspaceConfig ?? loadWorkspaceConfig(workspacePath);
   const heartbeatPath = join(workspacePath, WORKSPACE_FILES.heartbeat);
 
   try {
@@ -84,7 +89,6 @@ export async function runHeartbeatCycle(
 
     // Memory hygiene check (Decision 49)
     if (!declinedNames.has(MEMORY_HEARTBEAT_NAME)) {
-      const wsConfig = loadWorkspaceConfig(workspacePath);
       const memoryEntry = checkMemoryHealth({
         workspacePath,
         budget:
@@ -92,9 +96,6 @@ export async function runHeartbeatCycle(
         warningThreshold:
           wsConfig?.memory?.warningThreshold ??
           WORKSPACE_CONFIG_DEFAULTS.memory.warningThreshold,
-        staleDays:
-          wsConfig?.memory?.staleDays ??
-          WORKSPACE_CONFIG_DEFAULTS.memory.staleDays,
       });
       if (memoryEntry) entries.push(memoryEntry);
     } else {

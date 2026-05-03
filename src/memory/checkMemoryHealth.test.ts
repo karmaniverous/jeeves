@@ -3,7 +3,7 @@
  *
  * @remarks
  * Verifies that `checkMemoryHealth()` produces correct HeartbeatEntry
- * values for budget warnings, stale sections, and healthy states.
+ * values for budget warnings and healthy states.
  */
 
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
@@ -33,7 +33,6 @@ describe('checkMemoryHealth', () => {
   const defaults = {
     budget: WORKSPACE_CONFIG_DEFAULTS.memory.budget,
     warningThreshold: WORKSPACE_CONFIG_DEFAULTS.memory.warningThreshold,
-    staleDays: WORKSPACE_CONFIG_DEFAULTS.memory.staleDays,
   };
 
   it('returns undefined when MEMORY.md does not exist', () => {
@@ -57,7 +56,6 @@ describe('checkMemoryHealth', () => {
       workspacePath: testDir,
       budget: 20_000,
       warningThreshold: 0.8,
-      staleDays: 30,
     });
     expect(result).toBeDefined();
     expect(result?.name).toBe(MEMORY_HEARTBEAT_NAME);
@@ -73,13 +71,12 @@ describe('checkMemoryHealth', () => {
       workspacePath: testDir,
       budget: 20_000,
       warningThreshold: 0.8,
-      staleDays: 30,
     });
     expect(result).toBeDefined();
     expect(result?.content).toContain('**Over budget.**');
   });
 
-  it('returns an entry when stale sections are detected', () => {
+  it('does not flag sections based on dates', () => {
     const staleContent = [
       '## Old Section',
       '- 2024-01-15 did something',
@@ -90,38 +87,19 @@ describe('checkMemoryHealth', () => {
     writeFileSync(join(testDir, 'MEMORY.md'), staleContent);
     const result = checkMemoryHealth({
       workspacePath: testDir,
-      budget: 100_000, // big budget so no budget warning
+      budget: 100_000,
       warningThreshold: 0.8,
-      staleDays: 30,
     });
-    expect(result).toBeDefined();
-    expect(result?.content).toContain('1 stale section');
-    expect(result?.content).toContain('Old Section');
-    expect(result?.content).not.toContain('Fresh Section');
-  });
-
-  it('includes both budget and staleness when both are triggered', () => {
-    const content = 'x'.repeat(17_000);
-    const staleContent = `## Old Section\n- 2024-01-15 old entry\n\n## Filler\n${content}`;
-    writeFileSync(join(testDir, 'MEMORY.md'), staleContent);
-    const result = checkMemoryHealth({
-      workspacePath: testDir,
-      budget: 20_000,
-      warningThreshold: 0.8,
-      staleDays: 30,
-    });
-    expect(result).toBeDefined();
-    expect(result?.content).toContain('Budget:');
-    expect(result?.content).toContain('stale section');
+    // No alert because budget is fine and staleness is removed
+    expect(result).toBeUndefined();
   });
 
   it('respects custom config values', () => {
     writeFileSync(join(testDir, 'MEMORY.md'), '## Notes\n\nSmall file.');
     const result = checkMemoryHealth({
       workspacePath: testDir,
-      budget: 10, // tiny budget
+      budget: 10,
       warningThreshold: 0.5,
-      staleDays: 30,
     });
     expect(result).toBeDefined();
     expect(result?.content).toContain('**Over budget.**');

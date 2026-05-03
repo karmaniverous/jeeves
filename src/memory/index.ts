@@ -17,7 +17,6 @@ export {
 } from './checkWorkspaceFileHealth.js';
 export {
   analyzeMemory,
-  extractMostRecentDate,
   type MemoryHygieneOptions,
   type MemoryHygieneResult,
 } from './memoryHygiene.js';

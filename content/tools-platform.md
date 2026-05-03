@@ -44,8 +44,8 @@ Never manually edit `~/.openclaw/extensions/`. Always use the CLI commands above
 
 ### Reference Templates
 
-<!-- IF_TEMPLATES -->
-Reference templates are available at `__TEMPLATE_PATH__`:
+{{#if templatePath}}
+Reference templates are available at `{{templatePath}}`:
 
 | Template | Purpose |
 |----------|---------|
@@ -53,6 +53,36 @@ Reference templates are available at `__TEMPLATE_PATH__`:
 | `spec-to-code-guide.md` | The spec-to-code development practice — 7-stage iterative process, convergence loops, release gates |
 
 Read these templates when creating new specs, onboarding to new projects, or when asked about the development process.
-<!-- ELSE_TEMPLATES -->
+{{else}}
 > Reference templates not yet installed. Run `npx @karmaniverous/jeeves install` to seed templates.
-<!-- ENDIF_TEMPLATES -->
+{{/if}}
+
+### Post-Upgrade Maintenance
+
+After updating OpenClaw (`npm install -g openclaw@latest` or equivalent), reinstall all Jeeves component plugins to repair install state:
+
+```bash
+npx @karmaniverous/jeeves install
+npx @karmaniverous/jeeves-runner-openclaw install
+npx @karmaniverous/jeeves-watcher-openclaw install
+npx @karmaniverous/jeeves-server-openclaw install
+npx @karmaniverous/jeeves-meta-openclaw install
+```
+
+Then restart the gateway. Plugin installers copy dist files and patch config; reinstalling after an OpenClaw update ensures the extensions directory stays consistent.
+
+### Source Code Preference
+
+{{#if devRepos}}
+When investigating, debugging, or analyzing Jeeves components, always read TypeScript source from dev repos — never compiled `dist/` from the global npm install. Dev repos:
+
+| Component | Dev Repo |
+|-----------|----------|
+{{#each devRepos}}
+| {{@key}} | `{{this}}` |
+{{/each}}
+
+Built code is minified, harder to reason about, and wastes context. Always `git pull` before analysis.
+{{else}}
+> Dev repo paths not configured. Add `core.devRepos` to `jeeves.config.json` to enable source code preference guidance.
+{{/if}}

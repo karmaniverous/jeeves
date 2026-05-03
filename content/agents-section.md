@@ -37,7 +37,7 @@ Periodic checks (email, calendar, mentions) belong in jeeves-runner scripts, not
 ## Platform Surface Conventions
 
 **Slack:**
-- No threaded replies by default
+- Never initiate a threaded reply. Only reply within a thread started by a human.
 - Use `<#C…>` for channel references
 
 **Table formatting:** On channels that do not support Markdown tables (Slack, Discord, WhatsApp, IRC), use code-block tables with aligned columns. Markdown tables are only safe in contexts that render them (GitHub, jeeves-server, files).

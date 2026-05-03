@@ -144,6 +144,128 @@ describe('createComponentWriter', () => {
       vi.useRealTimers();
     });
 
+    it('should reschedule correctly through multiple cycles', async () => {
+      vi.useFakeTimers();
+      const writer = createComponentWriter(
+        makeDescriptor({ refreshIntervalSeconds: 67 }),
+      );
+      const cycleSpy = vi.spyOn(writer, 'cycle').mockResolvedValue(undefined);
+
+      writer.start();
+
+      // Advance past jitter (max 67s)
+      await vi.advanceTimersByTimeAsync(67_000);
+      // First cycle should fire
+      expect(cycleSpy).toHaveBeenCalledTimes(1);
+
+      // Advance past interval for second cycle
+      await vi.advanceTimersByTimeAsync(67_000);
+      expect(cycleSpy).toHaveBeenCalledTimes(2);
+
+      // Advance past interval for third cycle
+      await vi.advanceTimersByTimeAsync(67_000);
+      expect(cycleSpy).toHaveBeenCalledTimes(3);
+
+      writer.stop();
+      vi.useRealTimers();
+    });
+
+    it('should stop preventing further scheduling', async () => {
+      vi.useFakeTimers();
+      const writer = createComponentWriter(
+        makeDescriptor({ refreshIntervalSeconds: 67 }),
+      );
+      const cycleSpy = vi.spyOn(writer, 'cycle').mockResolvedValue(undefined);
+
+      writer.start();
+
+      // Advance past jitter to first cycle
+      await vi.advanceTimersByTimeAsync(67_000);
+      expect(cycleSpy).toHaveBeenCalledTimes(1);
+
+      writer.stop();
+
+      // Advance past several intervals — no more cycles
+      await vi.advanceTimersByTimeAsync(200_000);
+      expect(cycleSpy).toHaveBeenCalledTimes(1);
+
+      vi.useRealTimers();
+    });
+
+    it('should restart correctly when called during a finishing cycle', async () => {
+      vi.useFakeTimers();
+      const writer = createComponentWriter(
+        makeDescriptor({ refreshIntervalSeconds: 67 }),
+      );
+
+      // Use a controllable cycle so we can hold it in-flight
+      let resolveCycle: (() => void) | undefined;
+      const cycleSpy = vi.spyOn(writer, 'cycle').mockImplementation(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveCycle = resolve;
+          }),
+      );
+
+      writer.start();
+
+      // Advance past jitter to trigger first cycle
+      await vi.advanceTimersByTimeAsync(67_000);
+      expect(cycleSpy).toHaveBeenCalledTimes(1);
+
+      // Stop while cycle is still in-flight
+      writer.stop();
+
+      // Call start() while cyclePromise is still pending (isRunning is true)
+      // Before the fix, this would return early without resetting stopped
+      writer.start();
+
+      // Now let the cycle finish — the .finally() should reschedule
+      // because stopped was reset to false by start()
+      resolveCycle?.();
+      await vi.advanceTimersByTimeAsync(0); // flush microtasks
+
+      // Reset to a simple mock for the rescheduled cycle
+      cycleSpy.mockResolvedValue(undefined);
+
+      // Advance past interval — a new cycle should fire
+      await vi.advanceTimersByTimeAsync(67_000);
+      expect(cycleSpy.mock.calls.length).toBeGreaterThanOrEqual(2);
+
+      writer.stop();
+      vi.useRealTimers();
+    });
+
+    it('should resume scheduling after stop then start', async () => {
+      vi.useFakeTimers();
+      const writer = createComponentWriter(
+        makeDescriptor({ refreshIntervalSeconds: 67 }),
+      );
+      const cycleSpy = vi.spyOn(writer, 'cycle').mockResolvedValue(undefined);
+
+      writer.start();
+
+      // Advance past jitter to first cycle
+      await vi.advanceTimersByTimeAsync(67_000);
+      expect(cycleSpy).toHaveBeenCalledTimes(1);
+
+      writer.stop();
+
+      // Advance — no more cycles while stopped
+      await vi.advanceTimersByTimeAsync(67_000);
+      expect(cycleSpy).toHaveBeenCalledTimes(1);
+
+      // Restart
+      writer.start();
+
+      // Advance past new jitter + interval
+      await vi.advanceTimersByTimeAsync(67_000);
+      expect(cycleSpy.mock.calls.length).toBeGreaterThanOrEqual(2);
+
+      writer.stop();
+      vi.useRealTimers();
+    });
+
     it('should not re-enter while a cycle is already running', async () => {
       const writer = createComponentWriter(makeDescriptor());
       let resolveCycle: (() => void) | undefined;

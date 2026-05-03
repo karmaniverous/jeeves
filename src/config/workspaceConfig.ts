@@ -28,6 +28,11 @@ const workspaceCoreConfigSchema = z
     configRoot: z.string().optional().describe('Platform config root path'),
     /** OpenClaw gateway URL. */
     gatewayUrl: z.string().optional().describe('OpenClaw gateway URL'),
+    /** Dev repo paths keyed by component name. */
+    devRepos: z
+      .record(z.string(), z.string())
+      .optional()
+      .describe('Dev repo paths by component name'),
   })
   .partial();
 
@@ -43,13 +48,6 @@ const workspaceMemoryConfigSchema = z
       .max(1)
       .optional()
       .describe('Memory warning threshold'),
-    /** Staleness threshold in days. */
-    staleDays: z
-      .number()
-      .int()
-      .positive()
-      .optional()
-      .describe('Memory staleness threshold in days'),
   })
   .partial();
 
@@ -89,8 +87,6 @@ export const WORKSPACE_CONFIG_DEFAULTS: {
     readonly budget: 20_000;
     /** Default warning threshold as a fraction of budget (80%). */
     readonly warningThreshold: 0.8;
-    /** Default staleness threshold in days. */
-    readonly staleDays: 30;
   };
 } = {
   core: {
@@ -101,7 +97,6 @@ export const WORKSPACE_CONFIG_DEFAULTS: {
   memory: {
     budget: 20_000,
     warningThreshold: 0.8,
-    staleDays: 30,
   },
 };
 
@@ -188,6 +183,12 @@ export function generateWorkspaceJsonSchema(): Record<string, unknown> {
             type: 'string',
             default: WORKSPACE_CONFIG_DEFAULTS.core.gatewayUrl,
           },
+          devRepos: {
+            type: 'object',
+            additionalProperties: { type: 'string' },
+            description:
+              'Dev repo paths by component name (e.g. { "core": "D:\\\\repos\\\\jeeves" })',
+          },
         },
       },
       memory: {
@@ -203,11 +204,6 @@ export function generateWorkspaceJsonSchema(): Record<string, unknown> {
             minimum: 0,
             maximum: 1,
             default: WORKSPACE_CONFIG_DEFAULTS.memory.warningThreshold,
-          },
-          staleDays: {
-            type: 'integer',
-            minimum: 1,
-            default: WORKSPACE_CONFIG_DEFAULTS.memory.staleDays,
           },
         },
       },

@@ -9,6 +9,7 @@
 
 import { join } from 'node:path';
 
+import { loadWorkspaceConfig } from '../config/workspaceConfig.js';
 import { CORE_VERSION, TOOLS_MARKERS } from '../constants/index.js';
 import { WORKSPACE_FILES } from '../constants/paths.js';
 import {
@@ -52,6 +53,7 @@ export class ComponentWriter {
   private readonly gatewayUrl: string | undefined;
   private readonly pendingCleanups = new Set<string>();
   private cyclePromise: Promise<void> | undefined;
+  private stopped = false;
 
   /** @internal */
   constructor(
@@ -86,6 +88,7 @@ export class ComponentWriter {
    * contention on startup.
    */
   start(): void {
+    this.stopped = false;
     if (this.isRunning) return;
 
     // Random jitter up to one full interval to spread initial writes
@@ -99,6 +102,7 @@ export class ComponentWriter {
 
   /** Stop the writer timer. */
   stop(): void {
+    this.stopped = true;
     if (this.jitterTimeout) {
       clearTimeout(this.jitterTimeout);
       this.jitterTimeout = undefined;
@@ -113,7 +117,7 @@ export class ComponentWriter {
     this.timer = setTimeout(() => {
       this.timer = undefined;
       void this.cycle().finally(() => {
-        if (this.isRunning) this.scheduleNextCycle(intervalMs, intervalMs);
+        if (!this.stopped) this.scheduleNextCycle(intervalMs, intervalMs);
       });
     }, delayMs);
   }
@@ -152,16 +156,20 @@ export class ComponentWriter {
           coreVersion: CORE_VERSION,
         });
 
-        // 2. Platform content maintenance
+        // 2. Load workspace config once for the entire cycle
+        const workspaceConfig = loadWorkspaceConfig(workspacePath);
+
+        // 3. Platform content maintenance
         await refreshPlatformContent({
           coreVersion: CORE_VERSION,
           componentName: this.component.name,
           componentVersion: this.component.version,
           servicePackage: this.component.servicePackage,
           pluginPackage: this.component.pluginPackage,
+          workspaceConfig,
         });
 
-        // 3. Cleanup escalation
+        // 4. Cleanup escalation
         if (this.gatewayUrl) {
           scanAndEscalateCleanup(
             [
@@ -180,11 +188,12 @@ export class ComponentWriter {
           );
         }
 
-        // 4. HEARTBEAT orchestration
+        // 5. HEARTBEAT orchestration
         await runHeartbeatCycle({
           workspacePath,
           coreConfigDir: getCoreConfigDir(),
           configRoot: getConfigRoot(),
+          workspaceConfig,
         });
       });
     } catch (err: unknown) {

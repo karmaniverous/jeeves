@@ -67,6 +67,23 @@ describe('loadWorkspaceConfig', () => {
     expect(result?.core?.gatewayUrl).toBeUndefined();
   });
 
+  it('accepts config with core.devRepos', () => {
+    const config = {
+      core: {
+        devRepos: {
+          core: 'D:\\repos\\karmaniverous\\jeeves',
+          watcher: 'D:\\repos\\karmaniverous\\jeeves-watcher',
+        },
+      },
+    };
+    writeFileSync(join(testDir, WORKSPACE_CONFIG_FILE), JSON.stringify(config));
+    const result = loadWorkspaceConfig(testDir);
+    expect(result?.core?.devRepos).toEqual({
+      core: 'D:\\repos\\karmaniverous\\jeeves',
+      watcher: 'D:\\repos\\karmaniverous\\jeeves-watcher',
+    });
+  });
+
   it('accepts config with $schema pointer', () => {
     writeFileSync(
       join(testDir, WORKSPACE_CONFIG_FILE),
@@ -117,7 +134,6 @@ describe('WORKSPACE_CONFIG_DEFAULTS', () => {
   it('has expected default values', () => {
     expect(WORKSPACE_CONFIG_DEFAULTS.memory.budget).toBe(20_000);
     expect(WORKSPACE_CONFIG_DEFAULTS.memory.warningThreshold).toBe(0.8);
-    expect(WORKSPACE_CONFIG_DEFAULTS.memory.staleDays).toBe(30);
     expect(WORKSPACE_CONFIG_DEFAULTS.core.gatewayUrl).toBe(
       'http://127.0.0.1:3000',
     );

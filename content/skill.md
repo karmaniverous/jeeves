@@ -62,7 +62,7 @@ Managed blocks are stationary after initial insertion. Cleanup detection uses Ja
 
 `jeeves.config.json` at workspace root provides shared defaults:
 - Precedence: CLI flags → env vars → file → defaults
-- Namespaced: `core.*` (workspace, configRoot, gatewayUrl) and `memory.*` (budget, warningThreshold, staleDays)
+- Namespaced: `core.*` (workspace, configRoot, gatewayUrl, devRepos) and `memory.*` (budget, warningThreshold)
 - Inspect with `jeeves config [jsonpath]`
 
 ## HEARTBEAT Protocol
