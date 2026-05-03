@@ -67,6 +67,23 @@ describe('loadWorkspaceConfig', () => {
     expect(result?.core?.gatewayUrl).toBeUndefined();
   });
 
+  it('accepts config with core.devRepos', () => {
+    const config = {
+      core: {
+        devRepos: {
+          core: 'D:\\repos\\karmaniverous\\jeeves',
+          watcher: 'D:\\repos\\karmaniverous\\jeeves-watcher',
+        },
+      },
+    };
+    writeFileSync(join(testDir, WORKSPACE_CONFIG_FILE), JSON.stringify(config));
+    const result = loadWorkspaceConfig(testDir);
+    expect(result?.core?.devRepos).toEqual({
+      core: 'D:\\repos\\karmaniverous\\jeeves',
+      watcher: 'D:\\repos\\karmaniverous\\jeeves-watcher',
+    });
+  });
+
   it('accepts config with $schema pointer', () => {
     writeFileSync(
       join(testDir, WORKSPACE_CONFIG_FILE),

@@ -192,6 +192,36 @@ describe('createComponentWriter', () => {
       vi.useRealTimers();
     });
 
+    it('should resume scheduling after stop then start', async () => {
+      vi.useFakeTimers();
+      const writer = createComponentWriter(
+        makeDescriptor({ refreshIntervalSeconds: 67 }),
+      );
+      const cycleSpy = vi.spyOn(writer, 'cycle').mockResolvedValue(undefined);
+
+      writer.start();
+
+      // Advance past jitter to first cycle
+      await vi.advanceTimersByTimeAsync(67_000);
+      expect(cycleSpy).toHaveBeenCalledTimes(1);
+
+      writer.stop();
+
+      // Advance — no more cycles while stopped
+      await vi.advanceTimersByTimeAsync(67_000);
+      expect(cycleSpy).toHaveBeenCalledTimes(1);
+
+      // Restart
+      writer.start();
+
+      // Advance past new jitter + interval
+      await vi.advanceTimersByTimeAsync(67_000);
+      expect(cycleSpy.mock.calls.length).toBeGreaterThanOrEqual(2);
+
+      writer.stop();
+      vi.useRealTimers();
+    });
+
     it('should not re-enter while a cycle is already running', async () => {
       const writer = createComponentWriter(makeDescriptor());
       let resolveCycle: (() => void) | undefined;
