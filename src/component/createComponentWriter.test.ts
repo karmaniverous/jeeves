@@ -144,6 +144,54 @@ describe('createComponentWriter', () => {
       vi.useRealTimers();
     });
 
+    it('should reschedule correctly through multiple cycles', async () => {
+      vi.useFakeTimers();
+      const writer = createComponentWriter(
+        makeDescriptor({ refreshIntervalSeconds: 67 }),
+      );
+      const cycleSpy = vi.spyOn(writer, 'cycle').mockResolvedValue(undefined);
+
+      writer.start();
+
+      // Advance past jitter (max 67s)
+      await vi.advanceTimersByTimeAsync(67_000);
+      // First cycle should fire
+      expect(cycleSpy).toHaveBeenCalledTimes(1);
+
+      // Advance past interval for second cycle
+      await vi.advanceTimersByTimeAsync(67_000);
+      expect(cycleSpy).toHaveBeenCalledTimes(2);
+
+      // Advance past interval for third cycle
+      await vi.advanceTimersByTimeAsync(67_000);
+      expect(cycleSpy).toHaveBeenCalledTimes(3);
+
+      writer.stop();
+      vi.useRealTimers();
+    });
+
+    it('should stop preventing further scheduling', async () => {
+      vi.useFakeTimers();
+      const writer = createComponentWriter(
+        makeDescriptor({ refreshIntervalSeconds: 67 }),
+      );
+      const cycleSpy = vi.spyOn(writer, 'cycle').mockResolvedValue(undefined);
+
+      writer.start();
+
+      // Advance past jitter to first cycle
+      await vi.advanceTimersByTimeAsync(67_000);
+      expect(cycleSpy).toHaveBeenCalledTimes(1);
+
+      writer.stop();
+
+      // Advance past several intervals — no more cycles
+      await vi.advanceTimersByTimeAsync(200_000);
+      expect(cycleSpy).toHaveBeenCalledTimes(1);
+
+      vi.useRealTimers();
+    });
+
     it('should not re-enter while a cycle is already running', async () => {
       const writer = createComponentWriter(makeDescriptor());
       let resolveCycle: (() => void) | undefined;

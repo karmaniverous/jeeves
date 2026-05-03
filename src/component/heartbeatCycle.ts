@@ -92,9 +92,6 @@ export async function runHeartbeatCycle(
         warningThreshold:
           wsConfig?.memory?.warningThreshold ??
           WORKSPACE_CONFIG_DEFAULTS.memory.warningThreshold,
-        staleDays:
-          wsConfig?.memory?.staleDays ??
-          WORKSPACE_CONFIG_DEFAULTS.memory.staleDays,
       });
       if (memoryEntry) entries.push(memoryEntry);
     } else {

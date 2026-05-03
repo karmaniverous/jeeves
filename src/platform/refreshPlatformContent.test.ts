@@ -2,12 +2,19 @@
  * Tests for refreshPlatformContent.
  */
 
-import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { WORKSPACE_CONFIG_FILE } from '../config/workspaceConfig.js';
 import {
   AGENTS_MARKERS,
   SOUL_MARKERS,
@@ -168,7 +175,6 @@ describe('refreshPlatformContent', () => {
       '',
     ].join('\n');
     mkdirSync(workspaceDir, { recursive: true });
-    const { writeFileSync } = await import('node:fs');
     writeFileSync(soulPath, existingContent, 'utf-8');
 
     await refreshPlatformContent({
@@ -180,5 +186,72 @@ describe('refreshPlatformContent', () => {
     expect(parsed.found).toBe(true);
     // User content should be preserved (above the managed block with position: 'bottom')
     expect(parsed.beforeContent).toContain('I am a unique personality.');
+  }, 15_000);
+
+  it('should include post-upgrade maintenance guidance', async () => {
+    await refreshPlatformContent({
+      coreVersion: '0.1.0',
+    });
+
+    const toolsPath = join(workspaceDir, 'TOOLS.md');
+    const content = readFileSync(toolsPath, 'utf-8');
+    const parsed = parseManaged(content, TOOLS_MARKERS);
+    const platform = parsed.sections.find((s) => s.id === 'Platform');
+    expect(platform?.content).toContain('Post-Upgrade Maintenance');
+    expect(platform?.content).toContain(
+      'npx @karmaniverous/jeeves-runner-openclaw install',
+    );
+  }, 15_000);
+
+  it('should include tightened Slack threading rule', async () => {
+    await refreshPlatformContent({
+      coreVersion: '0.1.0',
+    });
+
+    const agentsPath = join(workspaceDir, 'AGENTS.md');
+    const content = readFileSync(agentsPath, 'utf-8');
+    const parsed = parseManaged(content, AGENTS_MARKERS);
+    expect(parsed.managedContent).toContain('Never initiate a threaded reply');
+  }, 15_000);
+
+  it('should render devRepos fallback when not configured', async () => {
+    await refreshPlatformContent({
+      coreVersion: '0.1.0',
+    });
+
+    const toolsPath = join(workspaceDir, 'TOOLS.md');
+    const content = readFileSync(toolsPath, 'utf-8');
+    const parsed = parseManaged(content, TOOLS_MARKERS);
+    const platform = parsed.sections.find((s) => s.id === 'Platform');
+    expect(platform?.content).toContain('Dev repo paths not configured');
+  }, 15_000);
+
+  it('should render devRepos table when configured', async () => {
+    // Write a workspace config with devRepos
+    writeFileSync(
+      join(workspaceDir, WORKSPACE_CONFIG_FILE),
+      JSON.stringify({
+        core: {
+          devRepos: {
+            core: 'D:\\repos\\karmaniverous\\jeeves',
+            watcher: 'D:\\repos\\karmaniverous\\jeeves-watcher',
+          },
+        },
+      }),
+    );
+
+    await refreshPlatformContent({
+      coreVersion: '0.1.0',
+    });
+
+    const toolsPath = join(workspaceDir, 'TOOLS.md');
+    const content = readFileSync(toolsPath, 'utf-8');
+    const parsed = parseManaged(content, TOOLS_MARKERS);
+    const platform = parsed.sections.find((s) => s.id === 'Platform');
+    expect(platform?.content).toContain('Source Code Preference');
+    expect(platform?.content).toContain('core');
+    expect(platform?.content).toContain('D:\\repos\\karmaniverous\\jeeves');
+    expect(platform?.content).toContain('watcher');
+    expect(platform?.content).not.toContain('Dev repo paths not configured');
   }, 15_000);
 });

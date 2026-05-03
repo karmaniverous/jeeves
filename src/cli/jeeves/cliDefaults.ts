@@ -47,8 +47,6 @@ export interface ResolvedCliConfig {
     budget: ResolvedValue<number>;
     /** Resolved warning threshold as a fraction of budget. */
     warningThreshold: ResolvedValue<number>;
-    /** Resolved staleness threshold in days. */
-    staleDays: ResolvedValue<number>;
   };
 }
 
@@ -108,12 +106,6 @@ export function resolveCliConfig(opts: WorkspaceOptions): ResolvedCliConfig {
         readNumericEnv('JEEVES_MEMORY_WARNING_THRESHOLD'),
         fileConfig?.memory?.warningThreshold,
         WORKSPACE_CONFIG_DEFAULTS.memory.warningThreshold,
-      ),
-      staleDays: resolveConfigValue(
-        undefined,
-        readNumericEnv('JEEVES_MEMORY_STALE_DAYS'),
-        fileConfig?.memory?.staleDays,
-        WORKSPACE_CONFIG_DEFAULTS.memory.staleDays,
       ),
     },
   };

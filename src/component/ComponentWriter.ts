@@ -52,6 +52,7 @@ export class ComponentWriter {
   private readonly gatewayUrl: string | undefined;
   private readonly pendingCleanups = new Set<string>();
   private cyclePromise: Promise<void> | undefined;
+  private stopped = false;
 
   /** @internal */
   constructor(
@@ -88,6 +89,8 @@ export class ComponentWriter {
   start(): void {
     if (this.isRunning) return;
 
+    this.stopped = false;
+
     // Random jitter up to one full interval to spread initial writes
     const intervalMs = this.component.refreshIntervalSeconds * 1000;
     const jitterMs = Math.floor(Math.random() * intervalMs);
@@ -99,6 +102,7 @@ export class ComponentWriter {
 
   /** Stop the writer timer. */
   stop(): void {
+    this.stopped = true;
     if (this.jitterTimeout) {
       clearTimeout(this.jitterTimeout);
       this.jitterTimeout = undefined;
@@ -113,7 +117,7 @@ export class ComponentWriter {
     this.timer = setTimeout(() => {
       this.timer = undefined;
       void this.cycle().finally(() => {
-        if (this.isRunning) this.scheduleNextCycle(intervalMs, intervalMs);
+        if (!this.stopped) this.scheduleNextCycle(intervalMs, intervalMs);
       });
     }, delayMs);
   }

@@ -12,12 +12,14 @@ import { cpSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import Handlebars from 'handlebars';
 import { packageDirectorySync } from 'package-directory';
 
 import agentsSectionContent from '../../content/agents-section.md';
 import soulSectionContent from '../../content/soul-section.md';
 import toolsPlatformTemplate from '../../content/tools-platform.md';
 import { writeComponentVersion } from '../component/componentVersions.js';
+import { loadWorkspaceConfig } from '../config/workspaceConfig.js';
 import {
   AGENTS_MARKERS,
   SOUL_MARKERS,
@@ -42,6 +44,17 @@ export interface RefreshPlatformContentOptions {
   pluginPackage?: string;
   /** Staleness threshold override in ms. */
   stalenessThresholdMs?: number;
+}
+
+/** Compiled Handlebars template for the Platform section (cached at module level). */
+const compiledPlatformTemplate = Handlebars.compile(toolsPlatformTemplate, {
+  noEscape: true,
+});
+
+/** Template context for the Platform section. */
+interface PlatformTemplateContext {
+  templatePath?: string;
+  devRepos?: Record<string, string>;
 }
 
 /**
@@ -88,31 +101,13 @@ function copyTemplates(coreConfigDir: string): void {
 }
 
 /**
- * Render the Platform template using simple string replacement.
+ * Render the Platform template using Handlebars.
  *
- * @param templatePath - Path to the templates directory.
+ * @param context - Template context with optional templatePath and devRepos.
  * @returns Rendered platform content string.
  */
-function renderPlatformTemplate(templatePath: string): string {
-  const templatesAvailable = existsSync(templatePath);
-
-  let content = toolsPlatformTemplate;
-
-  // Handle <!-- IF_TEMPLATES --> ... <!-- ELSE_TEMPLATES --> ... <!-- ENDIF_TEMPLATES --> block
-  const ifRegex =
-    /<!-- IF_TEMPLATES -->([\s\S]*?)<!-- ELSE_TEMPLATES -->([\s\S]*?)<!-- ENDIF_TEMPLATES -->/;
-  const match = ifRegex.exec(content);
-  if (match) {
-    content = content.replace(
-      match[0],
-      templatesAvailable ? match[1] : match[2],
-    );
-  }
-
-  // Replace __TEMPLATE_PATH__ with the actual path
-  content = content.replace(/__TEMPLATE_PATH__/g, templatePath);
-
-  return content;
+function renderPlatformTemplate(context: PlatformTemplateContext): string {
+  return compiledPlatformTemplate(context);
 }
 
 /**
@@ -147,7 +142,11 @@ export async function refreshPlatformContent(
 
   // 2. Render Platform template
   const templatePath = join(coreConfigDir, TEMPLATES_DIR);
-  const platformContent = renderPlatformTemplate(templatePath);
+  const wsConfig = loadWorkspaceConfig(workspacePath);
+  const platformContent = renderPlatformTemplate({
+    templatePath: existsSync(templatePath) ? templatePath : undefined,
+    devRepos: wsConfig?.core?.devRepos,
+  });
 
   // 3. Write TOOLS.md Platform section
   const toolsPath = join(workspacePath, WORKSPACE_FILES.tools);

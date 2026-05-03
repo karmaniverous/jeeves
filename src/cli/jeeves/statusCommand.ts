@@ -115,7 +115,6 @@ export function registerStatusCommand(program: Command): void {
         workspacePath: getWorkspacePath(),
         budget: resolved.memory.budget.value,
         warningThreshold: resolved.memory.warningThreshold.value,
-        staleDays: resolved.memory.staleDays.value,
       });
 
       console.log('Memory hygiene');
@@ -132,7 +131,6 @@ export function registerStatusCommand(program: Command): void {
         console.log(
           `Chars: ${String(memory.charCount)} / ${String(memory.budget)} (${String(usagePct)}%) — ${status}`,
         );
-        console.log(`Stale candidates: ${String(memory.staleCandidates)}`);
       }
 
       console.log();
