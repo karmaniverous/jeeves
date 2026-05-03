@@ -129,6 +129,6 @@ function isExecError(err: unknown): err is { status: number } {
     typeof err === 'object' &&
     err !== null &&
     'status' in err &&
-    typeof (err as { status: unknown }).status === 'number'
+    typeof err.status === 'number'
   );
 }

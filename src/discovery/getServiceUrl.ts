@@ -40,11 +40,8 @@ export function getServiceUrl(
   if (coreUrl) return coreUrl;
 
   // 3. Fall back to port constants
-  const port: number | undefined = DEFAULT_PORTS[serviceName] as
-    | number
-    | undefined;
-  if (port !== undefined) {
-    return `http://127.0.0.1:${String(port)}`;
+  if (serviceName in DEFAULT_PORTS) {
+    return `http://127.0.0.1:${String(DEFAULT_PORTS[serviceName])}`;
   }
 
   throw new Error(

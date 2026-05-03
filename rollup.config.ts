@@ -59,8 +59,8 @@ const commonAliases: Alias[] = [];
 const commonInputOptions: InputOptions = {
   input: 'src/index.ts',
   external: [
-    ...Object.keys((pkg as unknown as Package).dependencies ?? {}),
-    ...Object.keys((pkg as unknown as Package).peerDependencies ?? {}),
+    ...Object.keys(pkg.dependencies ?? {}),
+    ...Object.keys(pkg.peerDependencies ?? {}),
     'tslib',
   ],
   plugins: [aliasPlugin({ entries: commonAliases }), ...commonPlugins],

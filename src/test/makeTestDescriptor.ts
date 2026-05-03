@@ -46,5 +46,5 @@ export function makeTestDescriptor(
     refreshIntervalSeconds: 71,
     generateToolsContent: () => 'content',
     ...overrides,
-  } as JeevesComponentDescriptor;
+  };
 }

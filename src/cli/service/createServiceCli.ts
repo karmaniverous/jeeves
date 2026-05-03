@@ -276,12 +276,7 @@ export function createServiceCli(
 
   // Apply custom CLI commands if provided
   if (descriptor.customCliCommands) {
-    // Cast required: @commander-js/extra-typings Command has generic type
-    // parameters that don't align with the descriptor's base Command type.
-    // The descriptor can't know the parent Command's exact generic parameters
-    // at definition time. The cast is safe — customCliCommands only adds
-    // subcommands and doesn't depend on the parent's generic state.
-    descriptor.customCliCommands(program as unknown as Command);
+    descriptor.customCliCommands(program);
   }
 
   return program;
