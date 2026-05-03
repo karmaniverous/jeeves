@@ -19,7 +19,10 @@ import agentsSectionContent from '../../content/agents-section.md';
 import soulSectionContent from '../../content/soul-section.md';
 import toolsPlatformTemplate from '../../content/tools-platform.md';
 import { writeComponentVersion } from '../component/componentVersions.js';
-import { loadWorkspaceConfig } from '../config/workspaceConfig.js';
+import {
+  loadWorkspaceConfig,
+  type WorkspaceConfig,
+} from '../config/workspaceConfig.js';
 import {
   AGENTS_MARKERS,
   SOUL_MARKERS,
@@ -44,6 +47,8 @@ export interface RefreshPlatformContentOptions {
   pluginPackage?: string;
   /** Staleness threshold override in ms. */
   stalenessThresholdMs?: number;
+  /** Pre-loaded workspace config (avoids redundant reads when caller already loaded it). */
+  workspaceConfig?: WorkspaceConfig;
 }
 
 /** Compiled Handlebars template for the Platform section (cached at module level). */
@@ -125,6 +130,7 @@ export async function refreshPlatformContent(
     servicePackage,
     pluginPackage,
     stalenessThresholdMs,
+    workspaceConfig,
   } = options;
 
   const workspacePath = getWorkspacePath();
@@ -142,7 +148,7 @@ export async function refreshPlatformContent(
 
   // 2. Render Platform template
   const templatePath = join(coreConfigDir, TEMPLATES_DIR);
-  const wsConfig = loadWorkspaceConfig(workspacePath);
+  const wsConfig = workspaceConfig ?? loadWorkspaceConfig(workspacePath);
   const platformContent = renderPlatformTemplate({
     templatePath: existsSync(templatePath) ? templatePath : undefined,
     devRepos: wsConfig?.core?.devRepos,

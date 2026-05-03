@@ -9,6 +9,7 @@
 
 import { join } from 'node:path';
 
+import { loadWorkspaceConfig } from '../config/workspaceConfig.js';
 import { CORE_VERSION, TOOLS_MARKERS } from '../constants/index.js';
 import { WORKSPACE_FILES } from '../constants/paths.js';
 import {
@@ -156,16 +157,20 @@ export class ComponentWriter {
           coreVersion: CORE_VERSION,
         });
 
-        // 2. Platform content maintenance
+        // 2. Load workspace config once for the entire cycle
+        const workspaceConfig = loadWorkspaceConfig(workspacePath);
+
+        // 3. Platform content maintenance
         await refreshPlatformContent({
           coreVersion: CORE_VERSION,
           componentName: this.component.name,
           componentVersion: this.component.version,
           servicePackage: this.component.servicePackage,
           pluginPackage: this.component.pluginPackage,
+          workspaceConfig: workspaceConfig ?? undefined,
         });
 
-        // 3. Cleanup escalation
+        // 4. Cleanup escalation
         if (this.gatewayUrl) {
           scanAndEscalateCleanup(
             [
@@ -184,11 +189,12 @@ export class ComponentWriter {
           );
         }
 
-        // 4. HEARTBEAT orchestration
+        // 5. HEARTBEAT orchestration
         await runHeartbeatCycle({
           workspacePath,
           coreConfigDir: getCoreConfigDir(),
           configRoot: getConfigRoot(),
+          workspaceConfig: workspaceConfig ?? undefined,
         });
       });
     } catch (err: unknown) {
