@@ -88,9 +88,8 @@ export class ComponentWriter {
    * contention on startup.
    */
   start(): void {
-    if (this.isRunning) return;
-
     this.stopped = false;
+    if (this.isRunning) return;
 
     // Random jitter up to one full interval to spread initial writes
     const intervalMs = this.component.refreshIntervalSeconds * 1000;
@@ -167,7 +166,7 @@ export class ComponentWriter {
           componentVersion: this.component.version,
           servicePackage: this.component.servicePackage,
           pluginPackage: this.component.pluginPackage,
-          workspaceConfig: workspaceConfig ?? undefined,
+          workspaceConfig,
         });
 
         // 4. Cleanup escalation
@@ -194,7 +193,7 @@ export class ComponentWriter {
           workspacePath,
           coreConfigDir: getCoreConfigDir(),
           configRoot: getConfigRoot(),
-          workspaceConfig: workspaceConfig ?? undefined,
+          workspaceConfig,
         });
       });
     } catch (err: unknown) {
