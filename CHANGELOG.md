@@ -2,11 +2,25 @@
 
 All notable changes to this project will be documented in this file. Dates are displayed in UTC.
 
+#### [0.5.9](https://github.com/karmaniverous/jeeves/compare/0.5.8...0.5.9)
+
+- [059] feat: ComponentWriter lifecycle fix, staleness removal, Handlebars migration, content updates, docs [`#88`](https://github.com/karmaniverous/jeeves/pull/88)
+- [059] chore: bump version to 0.5.9, update deps, fix lint warnings from updated eslint rules [`6510473`](https://github.com/karmaniverous/jeeves/commit/6510473a3a820080428b4d283d914b89e37ffe14)
+- [059] [85,86,87,76,79,72] feat: ComponentWriter lifecycle fix, staleness removal, Handlebars migration, content updates, docs [`aa57108`](https://github.com/karmaniverous/jeeves/commit/aa571089c89b2333cac92b0e92f7c41da6f41062)
+- npm audit fix [`766519f`](https://github.com/karmaniverous/jeeves/commit/766519fa2c48ba3fcf795f041f6e6e0ff8f90896)
+- [059] fix: race condition in start() during finishing cycle, remove redundant nullish coalescing [`a831a30`](https://github.com/karmaniverous/jeeves/commit/a831a30270af6832e99b8ab42a22d530037996b4)
+- [059] test: add restart lifecycle and devRepos schema coverage [`7469dc3`](https://github.com/karmaniverous/jeeves/commit/7469dc38c2302bdbe6d67f28b6b0885d713d3da6)
+- [059] refactor: hoist workspace config load to ComponentWriter cycle (DRY) [`203078b`](https://github.com/karmaniverous/jeeves/commit/203078b925e84fdec08b370454cb41ccdc53c29c)
+- [059] fix: revert version bump (release is owner-controlled) [`06f8d5a`](https://github.com/karmaniverous/jeeves/commit/06f8d5a776a4caed0ac8bf685a832078bcd514d6)
+
 #### [0.5.8](https://github.com/karmaniverous/jeeves/compare/0.5.7...0.5.8)
+
+> 22 April 2026
 
 - fix: resolve config apply path from registered override (#83) + downgrade transient fetch errors (#77) [`#84`](https://github.com/karmaniverous/jeeves/pull/84)
 - [83] fix: resolve config apply path from registered override (#83) and downgrade transient fetch errors to concise warnings [`#77`](https://github.com/karmaniverous/jeeves/pull/77)
 - [83] fix: traverse full error cause chain for transient classification [`ca3bc94`](https://github.com/karmaniverous/jeeves/commit/ca3bc9480dd86a1aab9ae558e9a8ef6f42d93045)
+- chore: release v0.5.8 [`693730e`](https://github.com/karmaniverous/jeeves/commit/693730e55245603981a5cbd5ed7baf1d916e38b1)
 
 #### [0.5.7](https://github.com/karmaniverous/jeeves/compare/0.5.6...0.5.7)
 
