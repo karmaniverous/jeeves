@@ -23,7 +23,7 @@ import {
   writeHeartbeatSection,
 } from '../managed/heartbeat.js';
 import { refreshPlatformContent } from './refreshPlatformContent.js';
-import { seedSkill } from './seedSkill.js';
+import { seedSkills } from './seedSkills.js';
 
 /** Options for seeding content. */
 export interface SeedContentOptions {
@@ -89,6 +89,6 @@ export async function seedContent(options: SeedContentOptions): Promise<void> {
   }));
   await writeHeartbeatSection(heartbeatPath, entries);
 
-  // Seed jeeves workspace skill (Decision 48: overwrite-on-install)
-  seedSkill(getWorkspacePath());
+  // Seed all bundled platform skills (Decision 48: overwrite-on-install)
+  seedSkills(getWorkspacePath());
 }

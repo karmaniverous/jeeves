@@ -27,7 +27,7 @@ import {
   parseHeartbeat,
 } from '../../managed/heartbeat.js';
 import { removeManagedSection } from '../../managed/removeManagedSection.js';
-import { seedSkill } from '../../platform/seedSkill.js';
+import { seedSkills } from '../../platform/seedSkills.js';
 import {
   getPackageRoot,
   patchConfig,
@@ -192,10 +192,10 @@ export function createPluginCli(options: CreatePluginCliOptions): Command {
           }
 
           try {
-            seedSkill(ws);
-            console.log('  ✓ Jeeves skill seeded');
+            seedSkills(ws);
+            console.log('  ✓ Platform skills seeded');
           } catch {
-            console.log('  ⚠ Could not seed Jeeves skill');
+            console.log('  ⚠ Could not seed platform skills');
           }
         }
       } catch {

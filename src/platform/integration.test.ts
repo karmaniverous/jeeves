@@ -62,6 +62,21 @@ describe('end-to-end integration', () => {
     expect(soulParsed.found).toBe(true);
     expect(soulParsed.versionStamp?.version).toBe('0.1.0');
 
+    // Verify all bundled skills seeded
+    const skillNames = [
+      'jeeves',
+      'coding',
+      'slack-bot-provisioner',
+      'operations',
+      'playbooks',
+    ];
+    for (const name of skillNames) {
+      const skillPath = join(workspaceDir, 'skills', name, 'SKILL.md');
+      expect(existsSync(skillPath)).toBe(true);
+      const skillContent = readFileSync(skillPath, 'utf-8');
+      expect(skillContent.length).toBeGreaterThan(0);
+    }
+
     // Verify config and templates created
     expect(existsSync(join(configDir, 'jeeves-core', 'config.json'))).toBe(
       true,

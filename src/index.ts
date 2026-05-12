@@ -157,6 +157,7 @@ export {
   seedContent,
   type SeedContentOptions,
   seedSkill,
+  seedSkills,
 } from './platform/index.js';
 export {
   connectionFail,
