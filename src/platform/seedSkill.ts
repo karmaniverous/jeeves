@@ -1,29 +1,20 @@
 /**
- * Skill seeding: write the `jeeves` workspace skill unconditionally.
+ * Backward-compatible re-export of `seedSkills`.
  *
  * @remarks
- * The skill file is entirely generated — no user-authored content (Decision 48).
- * Every installer (core CLI and component plugins) writes it unconditionally.
- * Content is inlined at build time via `rollup-plugin-md.ts`.
+ * Delegates to `seedSkills` which seeds all bundled platform skills.
+ * Retained for API compatibility with existing component plugins.
+ *
+ * @module
  */
 
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
-
-import skillContent from '../../content/skill.md';
-import { JEEVES_SKILL_DIR, SKILLS_DIR } from '../constants/paths.js';
+import { seedSkills } from './seedSkills.js';
 
 /**
- * Seed the jeeves workspace skill file.
+ * Seed all bundled platform skills into the workspace.
  *
  * @param workspacePath - Workspace root directory.
  */
 export function seedSkill(workspacePath: string): void {
-  const skillDir = join(workspacePath, SKILLS_DIR, JEEVES_SKILL_DIR);
-  if (!existsSync(skillDir)) {
-    mkdirSync(skillDir, { recursive: true });
-  }
-
-  const skillPath = join(skillDir, 'SKILL.md');
-  writeFileSync(skillPath, skillContent, 'utf-8');
+  seedSkills(workspacePath);
 }
