@@ -2,7 +2,18 @@
 
 All notable changes to this project will be documented in this file. Dates are displayed in UTC.
 
+#### [0.5.10](https://github.com/karmaniverous/jeeves/compare/0.5.9...0.5.10)
+
+- feat: bundle generic platform skills in seedContent (#94) [`#96`](https://github.com/karmaniverous/jeeves/pull/96)
+- chore: move changelog generation to after:bump hook [`#91`](https://github.com/karmaniverous/jeeves/pull/91)
+- feat: bundle generic platform skills in seedContent [`#94`](https://github.com/karmaniverous/jeeves/pull/94)
+- chore: add npm-pack-check CI workflow [`#89`](https://github.com/karmaniverous/jeeves/pull/89)
+- chore: update major deps (eslint-plugin-simple-import-sort 13, release-it 20, typescript 6) [`724d0e1`](https://github.com/karmaniverous/jeeves/commit/724d0e1b487bd796ed3f625b866c7f435012f451)
+- chore: add npm publish safety net (.npmignore + gitignore *.local) [`1ddab3b`](https://github.com/karmaniverous/jeeves/commit/1ddab3be9b9dc8928ff99582475546b7d46d0b2e)
+
 #### [0.5.9](https://github.com/karmaniverous/jeeves/compare/0.5.8...0.5.9)
+
+> 3 May 2026
 
 - [059] feat: ComponentWriter lifecycle fix, staleness removal, Handlebars migration, content updates, docs [`#88`](https://github.com/karmaniverous/jeeves/pull/88)
 - [059] chore: bump version to 0.5.9, update deps, fix lint warnings from updated eslint rules [`6510473`](https://github.com/karmaniverous/jeeves/commit/6510473a3a820080428b4d283d914b89e37ffe14)
@@ -11,6 +22,7 @@ All notable changes to this project will be documented in this file. Dates are d
 - [059] fix: race condition in start() during finishing cycle, remove redundant nullish coalescing [`a831a30`](https://github.com/karmaniverous/jeeves/commit/a831a30270af6832e99b8ab42a22d530037996b4)
 - [059] test: add restart lifecycle and devRepos schema coverage [`7469dc3`](https://github.com/karmaniverous/jeeves/commit/7469dc38c2302bdbe6d67f28b6b0885d713d3da6)
 - [059] refactor: hoist workspace config load to ComponentWriter cycle (DRY) [`203078b`](https://github.com/karmaniverous/jeeves/commit/203078b925e84fdec08b370454cb41ccdc53c29c)
+- chore: release v0.5.9 [`71f81d6`](https://github.com/karmaniverous/jeeves/commit/71f81d6ac320cfa5ae746712aa3b9cecb4e4f073)
 - [059] fix: revert version bump (release is owner-controlled) [`06f8d5a`](https://github.com/karmaniverous/jeeves/commit/06f8d5a776a4caed0ac8bf685a832078bcd514d6)
 
 #### [0.5.8](https://github.com/karmaniverous/jeeves/compare/0.5.7...0.5.8)
