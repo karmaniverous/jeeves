@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [unreleased]
+
+### 💼 Other
+
+- [V0-5] fix: reject Windows drive-letter paths on non-Windows platforms (closes #100)
+
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- [V0-5] feat: hoist substituteEnvVars to core (closes #90)
+
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- [V0-5] feat: hoist Slack file download fallback to platform content (closes #93)
+
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- [V0-5] chore: update dependencies
+- [V0-5] fix: validate drive-letter paths before resolve() in initFromOptions (closes #100)
+- [V0-5] test: add substituteEnvVars immutability test
+- [V0-5] chore: update lefthook, fix lint from typescript-eslint 8.60
+- Npm audit fix
+
+### ⚙️ Miscellaneous Tasks
+
+- Migrate changelog to git-cliff (closes #95)
 ## [0.5.10] - 2026-05-13
 
 ### 🚀 Features
@@ -361,7 +383,7 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
 
 ### 🐛 Bug Fixes
 
-- Resolve commander ESM import failure in published CLI build (#41)
+- Resolve commander ESM import failure in published CLI build (#41) ([#41](https://github.com/karmaniverous/jeeves/pull/41))
 - Export all new v0.4.0 public API from src/index.ts
 - Address Gemini review comments
 
