@@ -4,6 +4,7 @@
  * @packageDocumentation
  */
 
+export { substituteEnvVars } from './substituteEnvVars.js';
 export {
   type ConfigProvenance,
   generateWorkspaceJsonSchema,
