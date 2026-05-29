@@ -56,7 +56,7 @@ describe('substituteEnvVars', () => {
       host: '${TEST_VAR}',
       nested: { port: '${OTHER_VAR}' },
     };
-    const frozen = JSON.parse(JSON.stringify(input));
+    const frozen = JSON.parse(JSON.stringify(input)) as typeof input;
 
     const result = substituteEnvVars(input);
 
