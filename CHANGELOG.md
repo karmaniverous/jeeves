@@ -1,335 +1,640 @@
-### Changelog
+# Changelog
 
-All notable changes to this project will be documented in this file. Dates are displayed in UTC.
+All notable changes to this project will be documented in this file.
 
-#### [0.5.10](https://github.com/karmaniverous/jeeves/compare/0.5.9...0.5.10)
+## [0.5.10] - 2026-05-13
 
-- feat: bundle generic platform skills in seedContent (#94) [`#96`](https://github.com/karmaniverous/jeeves/pull/96)
-- chore: move changelog generation to after:bump hook [`#91`](https://github.com/karmaniverous/jeeves/pull/91)
-- feat: bundle generic platform skills in seedContent [`#94`](https://github.com/karmaniverous/jeeves/pull/94)
-- chore: add npm-pack-check CI workflow [`#89`](https://github.com/karmaniverous/jeeves/pull/89)
-- chore: update major deps (eslint-plugin-simple-import-sort 13, release-it 20, typescript 6) [`724d0e1`](https://github.com/karmaniverous/jeeves/commit/724d0e1b487bd796ed3f625b866c7f435012f451)
-- chore: add npm publish safety net (.npmignore + gitignore *.local) [`1ddab3b`](https://github.com/karmaniverous/jeeves/commit/1ddab3be9b9dc8928ff99582475546b7d46d0b2e)
+### 🚀 Features
 
-#### [0.5.9](https://github.com/karmaniverous/jeeves/compare/0.5.8...0.5.9)
+- Bundle generic platform skills in seedContent (#94)
 
-> 3 May 2026
+### ⚙️ Miscellaneous Tasks
 
-- [059] feat: ComponentWriter lifecycle fix, staleness removal, Handlebars migration, content updates, docs [`#88`](https://github.com/karmaniverous/jeeves/pull/88)
-- [059] chore: bump version to 0.5.9, update deps, fix lint warnings from updated eslint rules [`6510473`](https://github.com/karmaniverous/jeeves/commit/6510473a3a820080428b4d283d914b89e37ffe14)
-- [059] [85,86,87,76,79,72] feat: ComponentWriter lifecycle fix, staleness removal, Handlebars migration, content updates, docs [`aa57108`](https://github.com/karmaniverous/jeeves/commit/aa571089c89b2333cac92b0e92f7c41da6f41062)
-- npm audit fix [`766519f`](https://github.com/karmaniverous/jeeves/commit/766519fa2c48ba3fcf795f041f6e6e0ff8f90896)
-- [059] fix: race condition in start() during finishing cycle, remove redundant nullish coalescing [`a831a30`](https://github.com/karmaniverous/jeeves/commit/a831a30270af6832e99b8ab42a22d530037996b4)
-- [059] test: add restart lifecycle and devRepos schema coverage [`7469dc3`](https://github.com/karmaniverous/jeeves/commit/7469dc38c2302bdbe6d67f28b6b0885d713d3da6)
-- [059] refactor: hoist workspace config load to ComponentWriter cycle (DRY) [`203078b`](https://github.com/karmaniverous/jeeves/commit/203078b925e84fdec08b370454cb41ccdc53c29c)
-- chore: release v0.5.9 [`71f81d6`](https://github.com/karmaniverous/jeeves/commit/71f81d6ac320cfa5ae746712aa3b9cecb4e4f073)
-- [059] fix: revert version bump (release is owner-controlled) [`06f8d5a`](https://github.com/karmaniverous/jeeves/commit/06f8d5a776a4caed0ac8bf685a832078bcd514d6)
+- Add npm publish safety net (.npmignore + gitignore *.local)
+- Add npm-pack-check CI workflow
+- Move changelog generation to after:bump hook
+- Update major deps (eslint-plugin-simple-import-sort 13, release-it 20, typescript 6)
+- Release v0.5.10
+## [0.5.9] - 2026-05-03
 
-#### [0.5.8](https://github.com/karmaniverous/jeeves/compare/0.5.7...0.5.8)
+### 💼 Other
 
-> 22 April 2026
+- [059] [85,86,87,76,79,72] feat: ComponentWriter lifecycle fix, staleness removal, Handlebars migration, content updates, docs
 
-- fix: resolve config apply path from registered override (#83) + downgrade transient fetch errors (#77) [`#84`](https://github.com/karmaniverous/jeeves/pull/84)
-- [83] fix: resolve config apply path from registered override (#83) and downgrade transient fetch errors to concise warnings [`#77`](https://github.com/karmaniverous/jeeves/pull/77)
-- [83] fix: traverse full error cause chain for transient classification [`ca3bc94`](https://github.com/karmaniverous/jeeves/commit/ca3bc9480dd86a1aab9ae558e9a8ef6f42d93045)
-- chore: release v0.5.8 [`693730e`](https://github.com/karmaniverous/jeeves/commit/693730e55245603981a5cbd5ed7baf1d916e38b1)
+- Fix ComponentWriter reschedule race by adding explicit `stopped` flag (#85)
+- Remove flawed memory staleness heuristics (staleDays, extractMostRecentDate) (#86)
+- Migrate content templating from bespoke comment-conditionals to Handlebars (#87)
+- Add handlebars runtime dependency for template rendering
+- Tighten Slack threading rule to prohibit bot-initiated threads (#87)
+- Add Post-Upgrade Maintenance guidance to Platform section (#76)
+- Add Source Code Preference with devRepos config mapping (#79)
+- Add devRepos to workspace core config schema and JSON Schema
+- Update platform-overview.md with HEARTBEAT flows and dual-layer locking (#72)
+- Remove staleness references from documentation and README
 
-#### [0.5.7](https://github.com/karmaniverous/jeeves/compare/0.5.6...0.5.7)
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- [059] chore: bump version to 0.5.9, update deps, fix lint warnings from updated eslint rules
 
-> 15 April 2026
+- Bump version to 0.5.9
+- Update safe minor/patch dependencies
+- Remove unnecessary type assertions flagged by updated typescript-eslint
 
-- feat: condense managed content and rewrite HEARTBEAT alerts [`#82`](https://github.com/karmaniverous/jeeves/pull/82)
-- fix: use dynamic budget in HEARTBEAT alert text [`aa28478`](https://github.com/karmaniverous/jeeves/commit/aa284784144c7a375b75426b8ea1c1bb9c3a5905)
-- chore: release v0.5.7 [`85569f8`](https://github.com/karmaniverous/jeeves/commit/85569f80beb0731be995a126d1708c50fee6a26a)
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- [059] fix: revert version bump (release is owner-controlled)
+- [059] refactor: hoist workspace config load to ComponentWriter cycle (DRY)
+- [059] test: add restart lifecycle and devRepos schema coverage
+- [059] fix: race condition in start() during finishing cycle, remove redundant nullish coalescing
+- Npm audit fix
 
-#### [0.5.6](https://github.com/karmaniverous/jeeves/compare/0.5.5...0.5.6)
+### ⚙️ Miscellaneous Tasks
 
-> 8 April 2026
+- Release v0.5.9
+## [0.5.8] - 2026-04-22
 
-- fix: serialize managed content writer cycle [`#78`](https://github.com/karmaniverous/jeeves/pull/78)
-- fix: preserve file lock safety for managed writes [`804a019`](https://github.com/karmaniverous/jeeves/commit/804a01941ac207af74f4b2ebdd4d95f6495a7afa)
-- npm audit fix [`275ccc1`](https://github.com/karmaniverous/jeeves/commit/275ccc14181ed1925d6d89341635ebe485332580)
-- fix: prevent component writer cycle reentry [`2f9a9d6`](https://github.com/karmaniverous/jeeves/commit/2f9a9d6391d3295cd23b3ff05706c7570b53a36d)
-- chore: release v0.5.6 [`0e07dba`](https://github.com/karmaniverous/jeeves/commit/0e07dba88c71251017aaf96b4ce3a766a208c0b2)
+### 💼 Other
 
-#### [0.5.5](https://github.com/karmaniverous/jeeves/compare/0.5.4...0.5.5)
+- [83] fix: resolve config apply path from registered override (#83) and downgrade transient fetch errors to concise warnings (#77)
 
-> 5 April 2026
+Add registerComponentConfigPath/getComponentConfigPath to init state so
+components can register their actual --config path after startup.
+configApplyHandler now reads from the registered path when available,
+falling back to the derived configRoot path.
 
-- fix: preserve dist/ subdirectory in plugin install layout [`#75`](https://github.com/karmaniverous/jeeves/pull/75)
-- [73] fix: preserve dist/ subdirectory in plugin install layout [`#73`](https://github.com/karmaniverous/jeeves/issues/73)
-- chore: release v0.5.5 [`dd45497`](https://github.com/karmaniverous/jeeves/commit/dd454977e5a455884d842df3c77608023adfd13a)
+Add isTransientError classifier (ECONNRESET, ETIMEDOUT, AbortError, etc.)
+and use it in createAsyncContentCache default error handler to emit
+single-line warnings for recoverable network failures while preserving
+full stack traces for unexpected errors.
 
-#### [0.5.4](https://github.com/karmaniverous/jeeves/compare/0.5.3...0.5.4)
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- [83] fix: traverse full error cause chain for transient classification
 
-> 5 April 2026
+### ⚙️ Miscellaneous Tasks
 
-- fix: replace distDir with importMetaUrl in createPluginCli [`#74`](https://github.com/karmaniverous/jeeves/pull/74)
-- [73] fix: replace distDir param with importMetaUrl in createPluginCli [`#73`](https://github.com/karmaniverous/jeeves/issues/73)
-- npm audit fix [`14b34f8`](https://github.com/karmaniverous/jeeves/commit/14b34f8e4bc59e140a2029cae4441cd32e0fc1d6)
-- chore: release v0.5.4 [`ccc0733`](https://github.com/karmaniverous/jeeves/commit/ccc0733b415bab1dd9375547bad8e71e8445a194)
-- [73] fix: validate dist directory exists before copying [`a50cf74`](https://github.com/karmaniverous/jeeves/commit/a50cf745d19d0a81e75b61f1e9111acaf67b6f87)
+- Release v0.5.8
+## [0.5.7] - 2026-04-15
 
-#### [0.5.3](https://github.com/karmaniverous/jeeves/compare/0.5.1...0.5.3)
+### 🚀 Features
 
-> 5 April 2026
+- Condense managed content and rewrite HEARTBEAT alerts
 
-- feat: v0.5.2 patch release [`#71`](https://github.com/karmaniverous/jeeves/pull/71)
-- [0-5] feat: v0.5.2 patch release [`317bad1`](https://github.com/karmaniverous/jeeves/commit/317bad179c14dcf3bfdd52648e28d1db62f25dc8)
-- [0-5] fix: complete v0.5.2 spec implementation [`788960a`](https://github.com/karmaniverous/jeeves/commit/788960a519001178c04502e5f27bd5937c58a720)
-- [0-5] refactor: SOLID/DRY pass across codebase [`3abf81b`](https://github.com/karmaniverous/jeeves/commit/3abf81b09f52c8f50f3cff5df13329d9e17b709f)
-- [0-5] fix: address Gemini review feedback on PR #71 [`0cbb984`](https://github.com/karmaniverous/jeeves/commit/0cbb984102ec1d6ecf9780a83adb4085d6667516)
-- [0-5] test: add missing test coverage for utils and workspace health [`59a2688`](https://github.com/karmaniverous/jeeves/commit/59a2688c69e758fe2bc6672cd0c08a69bd333542)
-- chore: release v0.5.3 [`99431cf`](https://github.com/karmaniverous/jeeves/commit/99431cfdfd5abbf7ca08ff1738abeef32055616a)
-- [0-5] docs: sync docs with v0.5.2 implementation [`ff92f47`](https://github.com/karmaniverous/jeeves/commit/ff92f471e8e6710cde44d92b3c4d50cd7a1516c6)
+### 🐛 Bug Fixes
 
-#### [0.5.1](https://github.com/karmaniverous/jeeves/compare/0.5.0...0.5.1)
+- Use dynamic budget in HEARTBEAT alert text
 
-> 3 April 2026
+### ⚙️ Miscellaneous Tasks
 
-- feat: HEARTBEAT memory hygiene integration (Phase 9) [`#64`](https://github.com/karmaniverous/jeeves/pull/64)
-- feat: integrate memory hygiene into HEARTBEAT cycle (Phase 9) [`5310da9`](https://github.com/karmaniverous/jeeves/commit/5310da9213e659e4069a7953b5f7c76fe95342cc)
-- chore: release v0.5.1 [`aa2be84`](https://github.com/karmaniverous/jeeves/commit/aa2be842d2ca3ba96e101e97f0b66e0194f73e36)
-- docs: update skill with HEARTBEAT memory integration [`79a0ffb`](https://github.com/karmaniverous/jeeves/commit/79a0ffb36a1f51f32c67c6bc60e436106e598030)
-- lint:fix [`eac4771`](https://github.com/karmaniverous/jeeves/commit/eac47711e3b38ca9904fd27028c5a3c53460a32d)
-- fix: add .js extension to test import (Gemini review) [`5cd00bf`](https://github.com/karmaniverous/jeeves/commit/5cd00bf90c776615c81f65186d774a59bc1fd7d6)
+- Release v0.5.7
+## [0.5.6] - 2026-04-08
 
-#### [0.5.0](https://github.com/karmaniverous/jeeves/compare/0.4.7...0.5.0)
+### 🐛 Bug Fixes
 
-> 2 April 2026
+- Serialize managed content writer cycle
+- Preserve file lock safety for managed writes
+- Prevent component writer cycle reentry
 
-- feat: memory hygiene, skill seeding, SOLID/DRY pass, docs sync (Phases 7-8) [`#63`](https://github.com/karmaniverous/jeeves/pull/63)
-- feat: shared workspace config loader (Phase 6) [`#62`](https://github.com/karmaniverous/jeeves/pull/62)
-- feat: active cleanup escalation (Phase 5) [`#61`](https://github.com/karmaniverous/jeeves/pull/61)
-- feat: managed content safety rewrite (Phase 4) [`#60`](https://github.com/karmaniverous/jeeves/pull/60)
-- feat: Node 22 runtime floor (Phase 3) [`#59`](https://github.com/karmaniverous/jeeves/pull/59)
-- feat: shared workspace config loader and jeeves config command [`07813e2`](https://github.com/karmaniverous/jeeves/commit/07813e279322a9baa3522cce9be9fdc01636f817)
-- feat: memory hygiene + deployed jeeves skill (Phase 7) [`e70afb0`](https://github.com/karmaniverous/jeeves/commit/e70afb0006921990081d6526f3f1da573fe6517f)
-- feat: escalate cleanup via gateway session spawn [`9411676`](https://github.com/karmaniverous/jeeves/commit/9411676102c8b906ed8bd9007dd236bb976659a5)
-- refactor: extract heartbeat cycle and cleanup scan from ComponentWriter [`c58f13d`](https://github.com/karmaniverous/jeeves/commit/c58f13dbe1a8aa96a5af4649c4a8223e61e71b65)
-- fix: address Gemini review — cross-contamination and orphaned markers [`e591c82`](https://github.com/karmaniverous/jeeves/commit/e591c823c32b4f667d06b5214977b18b74503bf5)
-- chore: remove Phase 5 files accidentally included in Phase 4 PR [`613e388`](https://github.com/karmaniverous/jeeves/commit/613e3885dbe122260da8ffb6fa16fee5f4b1798b)
-- feat: keep managed blocks stationary and move cleanup warning inside block [`7c30c57`](https://github.com/karmaniverous/jeeves/commit/7c30c5723e1090f13937acc35962476ac77dcaf3)
-- docs: sync README and guides with v0.5.0 features [`f6c0b83`](https://github.com/karmaniverous/jeeves/commit/f6c0b830c4ab93e51652bbde6d3c740f784eff64)
-- feat: Node 22 runtime floor [`fcd61fe`](https://github.com/karmaniverous/jeeves/commit/fcd61fec6b61b1cf1889d0493d7381b746cc8c34)
-- fix: address Gemini review — env guard, absolute paths, warn on bad config, dynamic output [`a55a446`](https://github.com/karmaniverous/jeeves/commit/a55a446888960a2c785f8266ffc3cad2198fc7fc)
-- chore: release v0.5.0 [`f47eeca`](https://github.com/karmaniverous/jeeves/commit/f47eeca046efbeeda837b4b1ff1e70ffcc131452)
-- fix: address Gemini review — remove redundant check, deduplicate escalation [`b47a489`](https://github.com/karmaniverous/jeeves/commit/b47a4892ab34501ab0270ac7df73f065f4527307)
-- refactor: use semver.major() for Node version check [`d86b3ae`](https://github.com/karmaniverous/jeeves/commit/d86b3aecaa07ec9b993c9ce8106c66bdae13eb6a)
-- fix: address Gemini review — zero-budget guard, remove redundant replace [`c6595e2`](https://github.com/karmaniverous/jeeves/commit/c6595e214825a19aac258cefa2d501b681cf0425)
-
-#### [0.4.7](https://github.com/karmaniverous/jeeves/compare/0.4.6...0.4.7)
-
-> 2 April 2026
-
-- feat: v0.5.0 Phase 1 — Plugin installer fix + utility hoist [`#58`](https://github.com/karmaniverous/jeeves/pull/58)
-- feat: plugin installer fix + utility hoist + getPackageVersion [`#57`](https://github.com/karmaniverous/jeeves/pull/57)
-- feat: plugin installer fix + utility hoist + getPackageVersion (#57) [`#57`](https://github.com/karmaniverous/jeeves/issues/57)
-- test: fill test gaps for Phase 1 validation [`683d96c`](https://github.com/karmaniverous/jeeves/commit/683d96c3ec614b5dee214423a830e847771b3192)
-- chore: release v0.4.7 [`9f837f9`](https://github.com/karmaniverous/jeeves/commit/9f837f91badc48a3f0726cccbc04a51d4fcb81d2)
-
-#### [0.4.6](https://github.com/karmaniverous/jeeves/compare/0.4.5...0.4.6)
-
-> 31 March 2026
-
-- fix: call init() before descriptor.run() in start command [`#54`](https://github.com/karmaniverous/jeeves/pull/54)
-- [53] fix: call init() before descriptor.run() in start command [`27a9aea`](https://github.com/karmaniverous/jeeves/commit/27a9aeac87a8dec4635723b28b9a4c0a470fc5db)
-- chore: release v0.4.6 [`fb7e67d`](https://github.com/karmaniverous/jeeves/commit/fb7e67d27383e7dfcc35df53e226cefe95fb7669)
-
-#### [0.4.5](https://github.com/karmaniverous/jeeves/compare/0.4.4...0.4.5)
-
-> 30 March 2026
-
-- fix: replace spawn recursion with descriptor.run in start command [`#52`](https://github.com/karmaniverous/jeeves/pull/52)
-- [51] fix: replace spawn recursion with descriptor.run in start command [`6827943`](https://github.com/karmaniverous/jeeves/commit/68279432f0d36a825e9141c99568f21556df1ac5)
-- chore: release v0.4.5 [`290f938`](https://github.com/karmaniverous/jeeves/commit/290f9387b219758e268985ded7b5a1ac5938f8e8)
-- [51] chore: remove temp scripts [`95fe447`](https://github.com/karmaniverous/jeeves/commit/95fe44744fc4a341cac85381bb9c055d7989c6b0)
-- [51] chore: remove remaining temp scripts [`7702b34`](https://github.com/karmaniverous/jeeves/commit/7702b3429f9621ec61e83a5ff1f8c684ed4b06b0)
-
-#### [0.4.4](https://github.com/karmaniverous/jeeves/compare/0.4.3...0.4.4)
-
-> 30 March 2026
-
-- fix: atomicWrite temp file leak + semver guard for dev/test [`#49`](https://github.com/karmaniverous/jeeves/pull/49)
-- chore: update dependencies [`#48`](https://github.com/karmaniverous/jeeves/pull/48)
-- fix: clean up temp files on failed atomic write + guard invalid semver in tests [`6a3bdc5`](https://github.com/karmaniverous/jeeves/commit/6a3bdc54f7039a18efdd53bfd77c13be5ba97042)
-- chore: release v0.4.4 [`6203283`](https://github.com/karmaniverous/jeeves/commit/6203283925ea290730fa98e2a1bd39a722c8114f)
-
-#### [0.4.3](https://github.com/karmaniverous/jeeves/compare/0.4.2...0.4.3)
-
-> 29 March 2026
-
-- fix: config CLI tree and config apply wire format [`#47`](https://github.com/karmaniverous/jeeves/pull/47)
-- chore: release v0.4.3 [`b8fde1b`](https://github.com/karmaniverous/jeeves/commit/b8fde1b6d46369a5e6c8e95e955f529ed56a28e8)
-
-#### [0.4.2](https://github.com/karmaniverous/jeeves/compare/0.4.1...0.4.2)
-
-> 29 March 2026
-
-- feat: add customMerge hook to createConfigApplyHandler [`#46`](https://github.com/karmaniverous/jeeves/pull/46)
-- chore: release v0.4.2 [`6988cd1`](https://github.com/karmaniverous/jeeves/commit/6988cd162d0f340a190d1cb8ba2ea2a1ef283fd3)
-- fix: defensive nullish coalescing in customMerge test mock [`f31ae20`](https://github.com/karmaniverous/jeeves/commit/f31ae20a33d37d1dbd36c76817f70c6af5a063c3)
-
-#### [0.4.1](https://github.com/karmaniverous/jeeves/compare/0.4.0...0.4.1)
-
-> 29 March 2026
-
-- feat: v0.5.0 — Component SDK (factory-driven CLI, plugin tools, HTTP handlers) [`#45`](https://github.com/karmaniverous/jeeves/pull/45)
-- feat: phase 1 - descriptor schema, status handler, plugin CLI [`362236e`](https://github.com/karmaniverous/jeeves/commit/362236ef8d255768750ad39593054dcbb3fe1e54)
-- feat: phase 2 - service manager, config apply handler, writer migration [`0cd10ed`](https://github.com/karmaniverous/jeeves/commit/0cd10ed86ae631f3a40194f2f76b07dcfdd5b68c)
-- feat: phase 3 - service CLI factory, plugin toolset factory [`4f50567`](https://github.com/karmaniverous/jeeves/commit/4f50567755fb501c07a2cb7623feaf92a746de0e)
-- refactor: remove dead JeevesComponent types and extract shared test helper [`24cc305`](https://github.com/karmaniverous/jeeves/commit/24cc305d1c8e10f035d6a4e220b7257a06898926)
-- feat: phase 4 - unified CLI with dynamic subcommand discovery [`9e541b1`](https://github.com/karmaniverous/jeeves/commit/9e541b1daaf8ad9e57b10462af7c659112dab599)
-- test: add CLI integration tests for createServiceCli [`56b6b8e`](https://github.com/karmaniverous/jeeves/commit/56b6b8e8ac873c6c1731def01013a18ce5243953)
-- fix: address Gemini review comments [`686aff1`](https://github.com/karmaniverous/jeeves/commit/686aff1bb0fd16137599f0c931537a5408be9340)
-- chore: release v0.4.1 [`42bbdd5`](https://github.com/karmaniverous/jeeves/commit/42bbdd55a0af1d36f85cda13d256757b052b93ea)
-- chore: remove temp commit script [`7e8c484`](https://github.com/karmaniverous/jeeves/commit/7e8c484cc2cfb9877c51e4512cddfbe28e385b51)
-- fix: increase timeout for discoverComponents tests [`7bda59c`](https://github.com/karmaniverous/jeeves/commit/7bda59ce7b5264364c9cdc46c9fa8f5c8265b977)
+### 💼 Other
 
-#### [0.4.0](https://github.com/karmaniverous/jeeves/compare/0.3.1...0.4.0)
+- Npm audit fix
 
-> 29 March 2026
+### ⚙️ Miscellaneous Tasks
 
-- feat: v0.4.0 — HEARTBEAT bootstrap, bind address, position, CLI fix [`#44`](https://github.com/karmaniverous/jeeves/pull/44)
-- fix: resolve commander ESM import failure in published CLI build [`#41`](https://github.com/karmaniverous/jeeves/pull/41)
-- feat: C9 heading-based HEARTBEAT section writer [`9acc940`](https://github.com/karmaniverous/jeeves/commit/9acc9400f6dd644060033b642301cbd2d7ac3e6f)
-- feat: C10 HEARTBEAT health orchestration [`055469c`](https://github.com/karmaniverous/jeeves/commit/055469c97fe51fcf66b03f458c9e03c0a30031da)
-- feat: C3 getBindAddress + C7 getServiceState [`e92c75c`](https://github.com/karmaniverous/jeeves/commit/e92c75c1ea68fad62a5d4d7cea1003b637aeb733)
-- test: orchestrator unit tests (10 cases) [`ba5f07e`](https://github.com/karmaniverous/jeeves/commit/ba5f07eb722444ac55a86899a32a520f66eb1dcd)
-- feat: v0.4.0 infrastructure (C2-C6, C8) [`22bd62d`](https://github.com/karmaniverous/jeeves/commit/22bd62d735e53d31ff0af4fb1eebcf75b4b711b0)
-- chore: pass all quality gates (lint, knip, typecheck) [`134a1b9`](https://github.com/karmaniverous/jeeves/commit/134a1b91584126e46f2df1ae12620f2c8226f193)
-- refactor: SOLID/DRY cleanup [`c50fefe`](https://github.com/karmaniverous/jeeves/commit/c50fefe3eb6c2c5ac266c88d6adc8f2c161a6189)
-- test: fill coverage gaps [`c570ecc`](https://github.com/karmaniverous/jeeves/commit/c570ecca91b33e2e90865e4deb148d300094e60c)
-- npm audit fix [`166d157`](https://github.com/karmaniverous/jeeves/commit/166d157ff13643064d0767f2afb92bdaa8abd739)
-- feat: C11 CLI writes initial HEARTBEAT + C12 AGENTS content update [`bfb399c`](https://github.com/karmaniverous/jeeves/commit/bfb399cd4b906cc78cdcd78e9cac51ad498cccc9)
-- fix: address Gemini review comments [`781446a`](https://github.com/karmaniverous/jeeves/commit/781446a960a035211113ffcb07afd1d698a122c9)
-- feat: proactive update alerts in HEARTBEAT [`8cff4be`](https://github.com/karmaniverous/jeeves/commit/8cff4be03d80e4ec95ad2e24067866411158d6b0)
-- chore: release v0.4.0 [`9ae5ac6`](https://github.com/karmaniverous/jeeves/commit/9ae5ac6d45b5bebc01a7a612c12a06df3184f720)
-- fix: export all new v0.4.0 public API from src/index.ts [`a3bab50`](https://github.com/karmaniverous/jeeves/commit/a3bab5063dfbffec107af6d15b2d1d46694c4a72)
-- feat: proactive session-start bootstrap via AGENTS directive [`627f067`](https://github.com/karmaniverous/jeeves/commit/627f067b69d04b8a84f18957698938f1b15b8bef)
+- Release v0.5.6
+## [0.5.5] - 2026-04-05
 
-#### [0.3.1](https://github.com/karmaniverous/jeeves/compare/0.3.0...0.3.1)
+### 💼 Other
 
-> 25 March 2026
+- [73] fix: preserve dist/ subdirectory in plugin install layout
 
-- fix: double shebang, CORE_VERSION stamp, cross-contamination [`#39`](https://github.com/karmaniverous/jeeves/pull/39)
-- fix: remove double shebang from CLI entry point [`#32`](https://github.com/karmaniverous/jeeves/issues/32)
-- docs: add TSDoc to inline type properties in PluginApi and ToolResult [`03ac1e4`](https://github.com/karmaniverous/jeeves/commit/03ac1e45e812b609b7c6c485a74dd5c9a919729b)
-- refactor: move ALL_MARKERS to constants/markers.ts as single source of truth [`13bbc6c`](https://github.com/karmaniverous/jeeves/commit/13bbc6c7a8f0a0979ec9fd152a12f4cd8de9bbf0)
-- chore: release v0.3.1 [`e684b64`](https://github.com/karmaniverous/jeeves/commit/e684b646f4352eba49e7af2da5f34200f3015257)
-- content: strengthen managed section content for 0.3.1 [`8560a03`](https://github.com/karmaniverous/jeeves/commit/8560a03c524e21a5e29fb01a585103d34c766f71)
-
-#### [0.3.0](https://github.com/karmaniverous/jeeves/compare/0.2.0...0.3.0)
-
-> 22 March 2026
-
-- feat: v0.3.0 — remove cross-service probing, SDK cleanup, content updates [`#36`](https://github.com/karmaniverous/jeeves/pull/36)
-- [V0-3] feat: implement v0.3.0 dev plan — remove probing, SDK cleanup, content updates [`e0766a7`](https://github.com/karmaniverous/jeeves/commit/e0766a7cb5620a7edd412a89c85c22a16ab7772d)
-- [V0-3] test: close coverage gaps — fetchWithTimeout, statusCommand, template branches [`60a08b0`](https://github.com/karmaniverous/jeeves/commit/60a08b0664f9526974aca454ff6b3881f1399d99)
-- [V0-3] refactor: SOLID/DRY cleanup — extract fetchWithTimeout, remove deprecated re-export [`92a5932`](https://github.com/karmaniverous/jeeves/commit/92a59322242c3fcbfd24650722e8f205cb2740b2)
-- [V0-3] fix: remove dead code, replace Handlebars markers with HTML comments [`445be09`](https://github.com/karmaniverous/jeeves/commit/445be096bbb7585449f84d76c0a29ae99dad51ae)
-- [V0-3] test: remove trivial tests — type-assignability checks, tautological assertions [`bbb244c`](https://github.com/karmaniverous/jeeves/commit/bbb244c1dab279ac2de0d477b260badbf74e7304)
-- chore: release v0.3.0 [`dd07a46`](https://github.com/karmaniverous/jeeves/commit/dd07a46e1cdf3ebbe7b147e886ef04ff92b76025)
-- [V0-3] chore: remove temp script [`188d5c1`](https://github.com/karmaniverous/jeeves/commit/188d5c17522ef9e12f9d74179d70baa46844eeca)
-
-#### [0.2.0](https://github.com/karmaniverous/jeeves/compare/0.1.6...0.2.0)
-
-> 20 March 2026
-
-- feat: v0.2.0 Plugin SDK, managed content, config query [`#6`](https://github.com/karmaniverous/jeeves/pull/6)
-- [V0-2] feat: Phase 1 — Plugin SDK types and utilities [`bd9b3c1`](https://github.com/karmaniverous/jeeves/commit/bd9b3c1742378a7f5825d99f01b397b29148a607)
-- [V0-2] feat: Phase 2 — Managed content removal, semver fix, component versions [`80a1f40`](https://github.com/karmaniverous/jeeves/commit/80a1f409865e014f95161d93a1828e9b3863141b)
-- [V0-2] docs: update README and guides for v0.2.0 Plugin SDK [`293ac2a`](https://github.com/karmaniverous/jeeves/commit/293ac2a9dc17e1a6a8ac2e9852944bc18414039f)
-- [V0-2] fix: patch tools.alsoAllow, read component versions in platform refresh, consolidate resolveWorkspacePath [`b1466a0`](https://github.com/karmaniverous/jeeves/commit/b1466a0858d3f4477f7a71439bc0087ad9c9da95)
-- [V0-2] refactor: extract shared fileOps (atomicWrite, withFileLock, constants) from managed section files [`f429df6`](https://github.com/karmaniverous/jeeves/commit/f429df6d3a11e02b8466b602148ce554d612797e)
-- [V0-2] refactor: extract buildServiceRows from refreshPlatformContent [`d705be3`](https://github.com/karmaniverous/jeeves/commit/d705be30b3d24ee97b22d9005d0c90853b90cd53)
-- [V0-2] feat: Phase 3 — Config query handler with JSONPath support [`c1e80a9`](https://github.com/karmaniverous/jeeves/commit/c1e80a9d1901cd142dca3296d9b643d2e3131737)
-- npm audit fix [`0393220`](https://github.com/karmaniverous/jeeves/commit/0393220510cf9e91217ed8940aa5327951805502)
-- [V0-2] refactor: extract ManagedMarkers interface from inline types [`502eba4`](https://github.com/karmaniverous/jeeves/commit/502eba478fcf3bc99b312e5af37fbeec4595d36b)
-- chore: release v0.2.0 [`a270358`](https://github.com/karmaniverous/jeeves/commit/a2703585d2e115a25cb1287664d1b4d73881df1f)
-- [V0-2] chore: remove stray _push.cjs helper script [`6c0c1d8`](https://github.com/karmaniverous/jeeves/commit/6c0c1d8f2d54a955bf522c2d7c9f72409f671852)
-- [V0-2] test: add 400 error path test for invalid JSONPath in configQuery [`57c9b63`](https://github.com/karmaniverous/jeeves/commit/57c9b63a9f66e4afb545c7032e055b0d5c0fb4c0)
-
-#### [0.1.6](https://github.com/karmaniverous/jeeves/compare/0.1.5...0.1.6)
-
-> 18 March 2026
-
-- fix: CORE_VERSION inlining, H1 titles, merge Service Health table [`#5`](https://github.com/karmaniverous/jeeves/pull/5)
-- fix: inline CORE_VERSION at build time, add H1 titles to SOUL/AGENTS, merge Service Health into Platform table [`2211301`](https://github.com/karmaniverous/jeeves/commit/2211301022f6b67221942c462c2985b99f823d4b)
-- chore: release v0.1.6 [`4600fa6`](https://github.com/karmaniverous/jeeves/commit/4600fa600058a8d42936c8fd3fecf1c0045ed037)
-
-#### [0.1.5](https://github.com/karmaniverous/jeeves/compare/0.1.4...0.1.5)
-
-> 18 March 2026
-
-- fix: check config workspace before resolvePath (resolvePath returns cwd, not workspace) [`cbe441a`](https://github.com/karmaniverous/jeeves/commit/cbe441a4f7897f1ed981871cc063236afc488501)
-- chore: release v0.1.5 [`69296ce`](https://github.com/karmaniverous/jeeves/commit/69296ce242a456ac3134fcad1963c7de2362ff79)
-
-#### [0.1.4](https://github.com/karmaniverous/jeeves/compare/0.1.3...0.1.4)
-
-> 18 March 2026
-
-- fix: add resolveWorkspacePath to core [`#4`](https://github.com/karmaniverous/jeeves/pull/4)
-- fix: add resolveWorkspacePath to core (fixes writer writing to system32 when gateway cwd is C:\Windows\system32) [`b1b82ab`](https://github.com/karmaniverous/jeeves/commit/b1b82abe64327d5c40205bc9234705a95a64b273)
-- chore: release v0.1.4 [`98cf6d5`](https://github.com/karmaniverous/jeeves/commit/98cf6d5c13c8c58f79c42820556339659b216662)
-
-#### [0.1.3](https://github.com/karmaniverous/jeeves/compare/0.1.2...0.1.3)
-
-> 18 March 2026
-
-- fix: inline content files at build time (fixes empty managed sections when bundled) [`#3`](https://github.com/karmaniverous/jeeves/pull/3)
-- fix: inline content files at build time via rollup md plugin (fixes empty managed sections when bundled into consumers) [`4b49be7`](https://github.com/karmaniverous/jeeves/commit/4b49be768009b328aa424e3636c2b5f90911e8fc)
-- chore: release v0.1.3 [`932ab91`](https://github.com/karmaniverous/jeeves/commit/932ab9117d917e604297661131ec549fc414b0d6)
-
-#### [0.1.2](https://github.com/karmaniverous/jeeves/compare/0.1.1...0.1.2)
-
-> 18 March 2026
-
-- fix: use package-directory for content file resolution [`#2`](https://github.com/karmaniverous/jeeves/pull/2)
-- fix: use package-directory for content file resolution (fixes empty managed sections) [`85f2f38`](https://github.com/karmaniverous/jeeves/commit/85f2f381ea7060af5dc6f6110857edeeb38148f3)
-- chore: release v0.1.2 [`b4f7038`](https://github.com/karmaniverous/jeeves/commit/b4f70380f40de95fe33b673484b249e10930cf59)
-
-#### [0.1.1](https://github.com/karmaniverous/jeeves/compare/0.1.0...0.1.1)
-
-> 18 March 2026
-
-- feat: add async content cache helper for sync generateToolsContent [`b0ea44e`](https://github.com/karmaniverous/jeeves/commit/b0ea44e7c26e257402e258e831d558b77edb61a2)
-- fix: use package-directory instead of hand-rolled package.json resolution [`b9dc559`](https://github.com/karmaniverous/jeeves/commit/b9dc5596fddc8d76ccf072312b08df25a3f13eb1)
-- fix: resolve package.json from dist/ via directory walk (fixes MODULE_NOT_FOUND when consumed as dependency) [`96518d5`](https://github.com/karmaniverous/jeeves/commit/96518d52f47ddc56c324d5befa05f1418bf444e1)
-- chore: release v0.1.1 [`dd246b8`](https://github.com/karmaniverous/jeeves/commit/dd246b8e2a8d08c0c595184b866a1bd28eecc937)
-
-#### 0.1.0
-
-> 18 March 2026
-
-- feat: jeeves-core v0.1.0 — library, content, CLI, integration tests [`#1`](https://github.com/karmaniverous/jeeves/pull/1)
-- Initial commit [`126f0b9`](https://github.com/karmaniverous/jeeves/commit/126f0b9bf62f78c33901826e55c5e0efceb3d683)
-- feat: core library foundation (Tasks 1-6a, 7-9) [`d273e1f`](https://github.com/karmaniverous/jeeves/commit/d273e1f3db6b2b535997d3f0c0b6c170b25d5e75)
-- feat: Tasks 10, 16-22 — refreshPlatformContent, CLI commands, integration tests [`47b9c7e`](https://github.com/karmaniverous/jeeves/commit/47b9c7ee0ee83a9df8df89920f8768f879296a7b)
-- feat: author content files for Tasks 11-15 [`a3c5399`](https://github.com/karmaniverous/jeeves/commit/a3c539991645ffd17c13d04fcac9e3f26dede137)
-- docs: author README, TypeDoc guides, fix all TSDoc warnings [`126d6c0`](https://github.com/karmaniverous/jeeves/commit/126d6c0385b190fab425278f5b2d0a484d972bdc)
-- chore: release v0.1.0 [`729a638`](https://github.com/karmaniverous/jeeves/commit/729a638e18f49d9e80c3989cbe3ec839a48f2748)
-- docs: first-person SOUL, move operational gates to AGENTS, README storytelling + pronouns + links [`a0e38de`](https://github.com/karmaniverous/jeeves/commit/a0e38dec5637825efca132513b5397a5fcd2c35f)
-- docs: rewrite README - Jeeves bootstraps an identity, not just plumbing [`3930433`](https://github.com/karmaniverous/jeeves/commit/39304337915965cb7244850b0d2cd41583f960a6)
-- docs: add PlantUML diagrams, front matter titles, team narrative, remove template diagrams [`f27db2c`](https://github.com/karmaniverous/jeeves/commit/f27db2cf653972389e12421affe4471636590546)
-- fix: add DO NOT EDIT to markers, H1 title in section mode, fix tests to use constants [`f02abc2`](https://github.com/karmaniverous/jeeves/commit/f02abc293f52de22ef9138310555a41a6fd56ae4)
-- docs: README rewrite - tell the story, don't sell it [`a27aa7d`](https://github.com/karmaniverous/jeeves/commit/a27aa7d2b4956df0e119e93d5e93625f38fa1948)
-- refactor: extract shared CLI defaults to cliDefaults.ts (DRY) [`cafcfd5`](https://github.com/karmaniverous/jeeves/commit/cafcfd555617a40e2a58ba94a262257418299a0e)
-- docs: em-dash discipline - add AGENTS rule, fix misuse across all docs + content [`3e4f2d8`](https://github.com/karmaniverous/jeeves/commit/3e4f2d820442aef702764345b97dfb3b42f96c48)
-- refactor: extract sortSectionsByOrder, use CLEANUP_FLAG constant (DRY) [`ec78b42`](https://github.com/karmaniverous/jeeves/commit/ec78b425910beea7d05f3e45cac9c2a6a5e431d3)
-- test: remove trivial constant-assertion tests (ports, sections) [`f0947f4`](https://github.com/karmaniverous/jeeves/commit/f0947f4fe4d3a7ab4637584f2aecd68ff14b8ffe)
-- fix: read CORE_VERSION from package.json instead of hardcoding [`db4bc24`](https://github.com/karmaniverous/jeeves/commit/db4bc242a2c77d42df46be3856065f69421cc3c7)
-- docs: dynamic files, component onboarding narrative, restore haiku + footer [`ec75a16`](https://github.com/karmaniverous/jeeves/commit/ec75a16e786ac7bc2c0785381a5e17e3e6430518)
-- Update README with clearer installation and identity info [`8bd2aeb`](https://github.com/karmaniverous/jeeves/commit/8bd2aebb9f19228429b677fda3976a3df4e71070)
-- Revise Genesis section and attribution wording [`6955794`](https://github.com/karmaniverous/jeeves/commit/6955794795c07636a0e315f96b8b9d689e6a9fa9)
-- Refactor poem layout in soul-section.md [`3385f52`](https://github.com/karmaniverous/jeeves/commit/3385f52d85fa9ddc8ebbc866429a1f4bed05e1e7)
-- updated settings [`7194465`](https://github.com/karmaniverous/jeeves/commit/71944657bd3b2227e1adb4108039186c2c4e9571)
-- diagrams: white background instead of transparent [`c62237b`](https://github.com/karmaniverous/jeeves/commit/c62237bddf5e89afcfe31ec5f54934aeb65fce37)
-- Update documentation links in README.md [`a4f63c4`](https://github.com/karmaniverous/jeeves/commit/a4f63c40bb66eb1dba660e756f22b5529c5e02a1)
-- ci: add top-level permissions to docs workflow (fix startup_failure) [`035eb2a`](https://github.com/karmaniverous/jeeves/commit/035eb2aa1f2223364ee3a5bdafb9cfae8c9062ac)
-- Update README.md [`3cee9e3`](https://github.com/karmaniverous/jeeves/commit/3cee9e3af92014f11555794f5dc389fc0a78b59d)
-- Remove historical context from README [`d215c34`](https://github.com/karmaniverous/jeeves/commit/d215c34e0aec335daa06208b9a6593138223c68f)
-- Change header order in README.md [`9014e86`](https://github.com/karmaniverous/jeeves/commit/9014e869b62b9fd61b79af131de2b5b88fd48644)
-- Update project title in README with emoji [`de4c2a5`](https://github.com/karmaniverous/jeeves/commit/de4c2a59debbebe05e3eabba2219e2273db692ce)
-- Refactor OpenClaw description for clarity [`d67d89e`](https://github.com/karmaniverous/jeeves/commit/d67d89eee86d33e9a37944518b6552e0aca64d92)
-- docs: clarify OpenClaw vs Jeeves responsibilities [`4a173a7`](https://github.com/karmaniverous/jeeves/commit/4a173a7884d8aa3cfb9d3a662046bc347895bb50)
+copyDistFiles was copying dist contents flat into the extension root,
+but package.json (main: dist/index.js) and openclaw.plugin.json
+(skills: ["dist/skills/..."]) both expect a dist/ subdirectory.
+
+Change copyDistFiles target from extensionsDir to
+join(extensionsDir, 'dist') so the installed layout matches
+the manifest paths.
+
+Closes #73
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v0.5.5
+## [0.5.4] - 2026-04-05
+
+### 💼 Other
+
+- [73] fix: replace distDir param with importMetaUrl in createPluginCli
+
+createPluginCli now derives the package root internally via
+packageDirectorySync and appends /dist, instead of trusting
+callers to compute distDir. This fixes:
+
+1. Server plugin skill path mismatch (distDir pointed to dist/,
+   flattening the copy and breaking the skill path declared in
+   openclaw.plugin.json)
+2. Three plugins overcopying the entire package root into
+   extensions (README, LICENSE, content/, etc.)
+
+Also extracts getPackageRoot() as a new exported helper and
+refactors getPackageVersion() to use it.
+
+BREAKING CHANGE: CreatePluginCliOptions.distDir replaced by
+importMetaUrl. All plugin consumers must update their cli.ts.
+
+Closes #73
+- [73] fix: validate dist directory exists before copying
+
+Add explicit existence check for distDir before calling copyDistFiles.
+Provides a clear error message if the plugin hasn't been built,
+instead of a cryptic ENOENT from readdirSync.
+
+Addresses review feedback from gemini-code-assist.
+- Npm audit fix
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v0.5.4
+## [0.5.3] - 2026-04-05
+
+### 💼 Other
+
+- [0-5] feat: v0.5.2 patch release
+
+- #66: atomicWrite EPERM retry + ComponentWriter startup jitter
+- #67: remove hourglass instruction from managed AGENTS section
+- #68: plugin installer provenance records (plugins.installs)
+- #69: workspace file size monitoring in HEARTBEAT cycle
+- #70: remove OpenClaw default duplication from managed sections
+- [0-5] fix: complete v0.5.2 spec implementation
+
+- document workspace file size monitoring in skill content
+- respect declined HEARTBEAT headings for workspace file alerts
+- add unit tests for workspace file health checks
+- [0-5] refactor: SOLID/DRY pass across codebase
+
+DRY: extract getErrorMessage() utility — replaced 13 duplicate
+     `err instanceof Error ? err.message : String(err)` patterns
+DRY: extract escapeForRegex() — replaced 3 duplicate regex escape patterns
+SRP: extract handleCommandError() in createServiceCli — replaced 5 duplicate
+     error-handling blocks in service management commands
+- [0-5] test: add missing test coverage for utils and workspace health
+
+- add utils.test.ts: getErrorMessage with Error, subclass, string, number, null, undefined, object
+- validates no trivial tests exist in touched code
+- [0-5] docs: sync docs with v0.5.2 implementation
+
+- README.md: fix staleDays default (90 → 30, matches WORKSPACE_CONFIG_DEFAULTS)
+- README.md: fix resolveConfigValue signature (positional params, not options object)
+- README.md: add installRecord param and plugins.installs to patchConfig description
+- README.md: clarify loadWorkspaceConfig return behaviour (no warning on missing file)
+- content/skill.md: correct workspace file monitoring threshold — not configurable
+  via jeeves.config.json (heartbeatCycle calls checkWorkspaceFileHealth without
+  passing wsConfig values, so the 80% threshold is a fixed default)
+
+Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>
+- [0-5] fix: address Gemini review feedback on PR #71
+
+- fix: parseHeartbeat regex now recognizes workspace file headings
+  (AGENTS.md, SOUL.md, etc.) so users can decline alerts
+- fix: atomicWrite temp filenames include target basename + UUID
+  to prevent collision in concurrent writes
+- fix: CRLF-safe orphaned marker cleanup regex in updateManagedSection
+- refactor: patchConfig uses function overloads to enforce installRecord
+  on 'add' mode at the type level
+- test: add heartbeat parser test for workspace file heading recognition
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v0.5.3
+## [0.5.1] - 2026-04-03
+
+### 🚀 Features
+
+- Integrate memory hygiene into HEARTBEAT cycle (Phase 9)
+
+### 🐛 Bug Fixes
+
+- Add .js extension to test import (Gemini review)
+
+### 💼 Other
+
+- Fix
+
+### 📚 Documentation
+
+- Update skill with HEARTBEAT memory integration
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v0.5.1
+## [0.5.0] - 2026-04-02
+
+### 🚀 Features
+
+- Node 22 runtime floor
+- Keep managed blocks stationary and move cleanup warning inside block
+- Escalate cleanup via gateway session spawn
+- Shared workspace config loader and jeeves config command
+- Memory hygiene + deployed jeeves skill (Phase 7)
+
+### 🐛 Bug Fixes
+
+- Address Gemini review — cross-contamination and orphaned markers
+- Address Gemini review — remove redundant check, deduplicate escalation
+- Address Gemini review — env guard, absolute paths, warn on bad config, dynamic output
+- Address Gemini review — zero-budget guard, remove redundant replace
+
+### 🚜 Refactor
+
+- Use semver.major() for Node version check
+- Extract heartbeat cycle and cleanup scan from ComponentWriter
+
+### 📚 Documentation
+
+- Sync README and guides with v0.5.0 features
+
+### ⚙️ Miscellaneous Tasks
+
+- Remove Phase 5 files accidentally included in Phase 4 PR
+- Release v0.5.0
+## [0.4.7] - 2026-04-02
+
+### 🚀 Features
+
+- Plugin installer fix + utility hoist + getPackageVersion (#57)
+
+### 🧪 Testing
+
+- Fill test gaps for Phase 1 validation
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v0.4.7
+## [0.4.6] - 2026-03-31
+
+### 💼 Other
+
+- [53] fix: call init() before descriptor.run() in start command
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v0.4.6
+## [0.4.5] - 2026-03-30
+
+### 💼 Other
+
+- [51] fix: replace spawn recursion with descriptor.run in start command
+- [51] chore: remove temp scripts
+- [51] chore: remove remaining temp scripts
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v0.4.5
+## [0.4.4] - 2026-03-30
+
+### 🐛 Bug Fixes
+
+- Clean up temp files on failed atomic write + guard invalid semver in tests
+
+### ⚙️ Miscellaneous Tasks
+
+- Update dependencies
+- Release v0.4.4
+## [0.4.3] - 2026-03-29
+
+### 🐛 Bug Fixes
+
+- Config CLI tree and config apply wire format
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v0.4.3
+## [0.4.2] - 2026-03-29
+
+### 🚀 Features
+
+- Add customMerge hook to createConfigApplyHandler
+
+### 🐛 Bug Fixes
+
+- Defensive nullish coalescing in customMerge test mock
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v0.4.2
+## [0.4.1] - 2026-03-29
+
+### 🚀 Features
+
+- Phase 1 - descriptor schema, status handler, plugin CLI
+- Phase 2 - service manager, config apply handler, writer migration
+- Phase 3 - service CLI factory, plugin toolset factory
+- Phase 4 - unified CLI with dynamic subcommand discovery
+
+### 🐛 Bug Fixes
+
+- Increase timeout for discoverComponents tests
+- Address Gemini review comments
+
+### 🚜 Refactor
+
+- Remove dead JeevesComponent types and extract shared test helper
+
+### 🧪 Testing
+
+- Add CLI integration tests for createServiceCli
+
+### ⚙️ Miscellaneous Tasks
+
+- Remove temp commit script
+- Release v0.4.1
+## [0.4.0] - 2026-03-29
+
+### 🚀 Features
+
+- V0.4.0 infrastructure (C2-C6, C8)
+- C3 getBindAddress + C7 getServiceState
+- C9 heading-based HEARTBEAT section writer
+- C10 HEARTBEAT health orchestration
+- C11 CLI writes initial HEARTBEAT + C12 AGENTS content update
+- Proactive session-start bootstrap via AGENTS directive
+- Proactive update alerts in HEARTBEAT
+
+### 🐛 Bug Fixes
+
+- Resolve commander ESM import failure in published CLI build (#41)
+- Export all new v0.4.0 public API from src/index.ts
+- Address Gemini review comments
+
+### 💼 Other
+
+- Npm audit fix
+
+### 🚜 Refactor
+
+- SOLID/DRY cleanup
+
+### 🧪 Testing
+
+- Orchestrator unit tests (10 cases)
+- Fill coverage gaps
+
+### ⚙️ Miscellaneous Tasks
+
+- Pass all quality gates (lint, knip, typecheck)
+- Release v0.4.0
+## [0.3.1] - 2026-03-25
+
+### 🐛 Bug Fixes
+
+- Remove double shebang from CLI entry point
+
+### 💼 Other
+
+- Strengthen managed section content for 0.3.1
+
+### 🚜 Refactor
+
+- Move ALL_MARKERS to constants/markers.ts as single source of truth
+
+### 📚 Documentation
+
+- Add TSDoc to inline type properties in PluginApi and ToolResult
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v0.3.1
+## [0.3.0] - 2026-03-22
+
+### 💼 Other
+
+- [V0-3] feat: implement v0.3.0 dev plan — remove probing, SDK cleanup, content updates
+
+- Fix DEFAULT_CORE_VERSION to use CORE_VERSION from constants (#32)
+- Remove probing from writer cycle: delete probe.ts, buildServiceRows.ts (#34)
+- Remove health table and unhealthy services block from tools-platform.md
+- Replace Handlebars with simple string replacement, uninstall handlebars
+- Remove probeTimeoutMs from ComponentWriter, createComponentWriter, seedContent
+- Remove serviceVersion from ComponentVersionEntry and WriteComponentVersionOptions
+- Rewrite status command to use readComponentVersions + direct fetch
+- Remove PluginApiLike type alias (v0.3.0 removal)
+- Add resolveOptionalPluginSetting to plugin/resolve.ts with tests
+- Add "Do Not Execute Untested Code" hard gate to soul-section.md
+- Strengthen "Check PR State Before Pushing" rule in agents-section.md
+- Add Spec Hygiene rules to spec.md template
+- Clean up all barrel file exports for deleted items
+
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- [V0-3] fix: remove dead code, replace Handlebars markers with HTML comments
+- [V0-3] chore: remove temp script
+- [V0-3] refactor: SOLID/DRY cleanup — extract fetchWithTimeout, remove deprecated re-export
+
+- Extract duplicated fetch+AbortController+timeout pattern from statusCommand.ts
+  and uninstallCommand.ts into shared fetchWithTimeout() in plugin/http.ts
+- Remove deprecated component/resolveWorkspacePath.ts re-export (scheduled for v0.3.0)
+- Move resolveWorkspacePath export to plugin barrel in src/index.ts (canonical location)
+- Fix skipped comment numbering (3-6) in refreshPlatformContent.ts
+
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- [V0-3] test: close coverage gaps — fetchWithTimeout, statusCommand, template branches
+
+Add direct tests for fetchWithTimeout (timeout/abort, signal pass-through,
+cleanup). Add full statusCommand.test.ts covering healthy, HTTP error, down,
+no-components, non-JSON body, and mixed-health exit-code paths. Add
+renderPlatformTemplate IF/ELSE branch assertions to refreshPlatformContent
+tests. Fix registry test timeout.
+
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- [V0-3] test: remove trivial tests — type-assignability checks, tautological assertions
+
+- Delete src/plugin/types.test.ts (all 3 tests were pure type-assignability checks)
+- Remove trivial `expect(writer).toBeDefined()` from createComponentWriter test
+- Remove redundant `typeof === 'string'` assertion duplicating TS type narrowing
+
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v0.3.0
+## [0.2.0] - 2026-03-20
+
+### 💼 Other
+
+- [V0-2] feat: Phase 1 — Plugin SDK types and utilities
+
+- plugin/types.ts: PluginApi, ToolResult, PluginApiLike (compat alias)
+- plugin/results.ts: ok, fail, connectionFail helpers
+- plugin/http.ts: fetchJson, postJson helpers
+- plugin/resolve.ts: resolveWorkspacePath, resolvePluginSetting
+- plugin/openclawConfig.ts: resolveOpenClawHome, resolveConfigPath, patchConfig
+- Updated component/resolveWorkspacePath.ts to use PluginApi
+- All modules tested with co-located test files
+- [V0-2] feat: Phase 2 — Managed content removal, semver fix, component versions
+
+- managed/removeManagedSection.ts: remove sections or entire managed blocks
+- Fix semver comparison: use semver.gt() for update arrows
+- component/componentVersions.ts: shared version state file
+- ComponentWriter writes version entries each cycle
+- All modules tested with co-located test files
+- [V0-2] feat: Phase 3 — Config query handler with JSONPath support
+
+- api/configQuery.ts: createConfigQueryHandler with JSONPath filtering
+- Added jsonpath-plus dependency
+- All modules tested with co-located test files
+- Updated index.ts exports for all new modules
+- [V0-2] fix: patch tools.alsoAllow, read component versions in platform refresh, consolidate resolveWorkspacePath
+
+Fix 1: patchConfig now patches tools.alsoAllow instead of tools.allow.
+Removed plugins.allow patching (not in OpenClaw spec). patchAllowList
+creates the array when it doesn't exist on add mode.
+
+Fix 2+3: refreshPlatformContent now writes the calling component's
+version entry (with serviceVersion from probe) to the shared state
+file, then reads ALL component versions to populate every service row.
+Removed separate writeComponentVersion call from ComponentWriter.
+
+Fix 4: component/resolveWorkspacePath.ts now re-exports from
+plugin/resolve.ts instead of duplicating the implementation.
+Test simplified to verify re-export identity.
+- [V0-2] refactor: extract shared fileOps (atomicWrite, withFileLock, constants) from managed section files
+
+DRY fixes:
+- Extract STALE_LOCK_MS, DEFAULT_CORE_VERSION constants to shared fileOps.ts
+- Extract atomicWrite (temp file + rename) pattern to shared utility
+- Extract withFileLock (lock acquire + try/finally release) pattern
+- Refactor updateManagedSection and removeManagedSection to use shared utilities
+- Refactor componentVersions.writeComponentVersion to use atomicWrite
+- [V0-2] refactor: extract buildServiceRows from refreshPlatformContent
+
+SRP/DRY fixes:
+- Extract ServiceRow type and buildServiceRows() to dedicated module
+- Extract newerVersion() helper to eliminate duplicated semver check pattern
+- Extract checkCoreUpdate() helper from inline logic
+- Reduce refreshPlatformContent.ts from 305 to 255 lines (under 300 LOC limit)
+- [V0-2] refactor: extract ManagedMarkers interface from inline types
+- [V0-2] test: add 400 error path test for invalid JSONPath in configQuery
+- [V0-2] docs: update README and guides for v0.2.0 Plugin SDK
+- [V0-2] chore: remove stray _push.cjs helper script
+- Npm audit fix
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v0.2.0
+## [0.1.6] - 2026-03-18
+
+### 🐛 Bug Fixes
+
+- Inline CORE_VERSION at build time, add H1 titles to SOUL/AGENTS, merge Service Health into Platform table
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v0.1.6
+## [0.1.5] - 2026-03-18
+
+### 🐛 Bug Fixes
+
+- Check config workspace before resolvePath (resolvePath returns cwd, not workspace)
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v0.1.5
+## [0.1.4] - 2026-03-18
+
+### 🐛 Bug Fixes
+
+- Add resolveWorkspacePath to core (fixes writer writing to system32 when gateway cwd is C:\Windows\system32)
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v0.1.4
+## [0.1.3] - 2026-03-18
+
+### 🐛 Bug Fixes
+
+- Inline content files at build time via rollup md plugin (fixes empty managed sections when bundled into consumers)
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v0.1.3
+## [0.1.2] - 2026-03-18
+
+### 🐛 Bug Fixes
+
+- Use package-directory for content file resolution (fixes empty managed sections)
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v0.1.2
+## [0.1.1] - 2026-03-17
+
+### 🚀 Features
+
+- Add async content cache helper for sync generateToolsContent
+
+### 🐛 Bug Fixes
+
+- Resolve package.json from dist/ via directory walk (fixes MODULE_NOT_FOUND when consumed as dependency)
+- Use package-directory instead of hand-rolled package.json resolution
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v0.1.1
+## [0.1.0] - 2026-03-17
+
+### 🚀 Features
+
+- Author content files for Tasks 11-15
+- Core library foundation (Tasks 1-6a, 7-9)
+- Tasks 10, 16-22 — refreshPlatformContent, CLI commands, integration tests
+
+### 🐛 Bug Fixes
+
+- Read CORE_VERSION from package.json instead of hardcoding
+- Add DO NOT EDIT to markers, H1 title in section mode, fix tests to use constants
+
+### 💼 Other
+
+- Initial commit
+- Revise Genesis section and attribution wording
+
+Updated the Genesis section and improved the attribution line.
+- Refactor poem layout in soul-section.md
+
+Reformat poem for clarity and add line breaks.
+- Update README with clearer installation and identity info
+
+Rephrase installation instructions and improve clarity about Jeeves' identity and functionality.
+- Refactor OpenClaw description for clarity
+- Update documentation links in README.md
+- Updated settings
+- White background instead of transparent
+- Update project title in README with emoji
+- Change header order in README.md
+- Remove historical context from README
+
+Removed historical context about the 1930s ports from the README.
+- Update README.md
+
+### 🚜 Refactor
+
+- Extract shared CLI defaults to cliDefaults.ts (DRY)
+- Extract sortSectionsByOrder, use CLEANUP_FLAG constant (DRY)
+
+### 📚 Documentation
+
+- Author README, TypeDoc guides, fix all TSDoc warnings
+- Rewrite README - Jeeves bootstraps an identity, not just plumbing
+- First-person SOUL, move operational gates to AGENTS, README storytelling + pronouns + links
+- README rewrite - tell the story, don't sell it
+- Clarify OpenClaw vs Jeeves responsibilities
+- Dynamic files, component onboarding narrative, restore haiku + footer
+- Add PlantUML diagrams, front matter titles, team narrative, remove template diagrams
+- Em-dash discipline - add AGENTS rule, fix misuse across all docs + content
+
+### 🧪 Testing
+
+- Remove trivial constant-assertion tests (ports, sections)
+
+### ⚙️ Miscellaneous Tasks
+
+- Add top-level permissions to docs workflow (fix startup_failure)
+- Release v0.1.0

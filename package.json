@@ -3,12 +3,6 @@
   "bin": {
     "jeeves": "./dist/cli/jeeves/index.js"
   },
-  "auto-changelog": {
-    "output": "CHANGELOG.md",
-    "unreleased": true,
-    "commitLimit": false,
-    "hideCredit": true
-  },
   "bugs": {
     "url": "https://github.com/karmaniverous/jeeves/issues"
   },
@@ -38,7 +32,6 @@
     "@types/semver": "^7.7.1",
     "@vitest/coverage-v8": "^4.1.6",
     "@vitest/eslint-plugin": "^1.6.17",
-    "auto-changelog": "^2.5.1",
     "cross-env": "^10.1.0",
     "eslint": "^10.3.0",
     "eslint-config-prettier": "^10.1.8",
@@ -46,6 +39,7 @@
     "eslint-plugin-simple-import-sort": "^13.0.0",
     "eslint-plugin-tsdoc": "^0.5.2",
     "fs-extra": "^11.3.5",
+    "git-cliff": "^2.13.1",
     "knip": "^6.13.0",
     "lefthook": "^2.1.6",
     "prettier": "^3.8.3",
@@ -92,7 +86,7 @@
   },
   "release-it": {
     "git": {
-      "changelog": "npx auto-changelog --unreleased-only --stdout --template https://raw.githubusercontent.com/release-it/release-it/main/templates/changelog-compact.hbs",
+      "changelog": "npx git-cliff --unreleased --strip header",
       "commitMessage": "chore: release v${version}",
       "requireBranch": "main"
     },
@@ -112,7 +106,7 @@
         "git switch ${branchName}"
       ],
       "after:bump": [
-        "npx auto-changelog -p",
+        "npx git-cliff -o CHANGELOG.md",
         "npm run docs",
         "git add CHANGELOG.md"
       ]
@@ -127,7 +121,7 @@
   },
   "scripts": {
     "build": "rimraf dist && cross-env NO_COLOR=1 rollup --config rollup.config.ts --configPlugin @rollup/plugin-typescript",
-    "changelog": "auto-changelog",
+    "changelog": "git-cliff -o CHANGELOG.md",
     "diagrams": "cd diagrams/src && plantuml -tpng -o ../out -r .",
     "docs": "typedoc",
     "knip": "knip",
