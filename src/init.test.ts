@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   getComponentConfigDir,
@@ -84,5 +84,61 @@ describe('init', () => {
 
     init({ workspacePath: '/ws2', configRoot: '/cfg2' });
     expect(getComponentConfigPath('watcher')).toBeUndefined();
+  });
+
+  describe('Windows drive-letter path rejection', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('should throw for a Windows drive-letter configRoot on non-Windows', () => {
+      vi.spyOn(process, 'platform', 'get').mockReturnValue('linux');
+
+      expect(() => {
+        init({ workspacePath: '/opt/workspace', configRoot: 'j:/config' });
+      }).toThrow(/Windows.*drive.letter/i);
+    });
+
+    it('should throw for a Windows drive-letter workspacePath on non-Windows', () => {
+      vi.spyOn(process, 'platform', 'get').mockReturnValue('linux');
+
+      expect(() => {
+        init({ workspacePath: 'C:\\workspace', configRoot: '/etc/config' });
+      }).toThrow(/Windows.*drive.letter/i);
+    });
+
+    it('should succeed with a relative configRoot on non-Windows', () => {
+      vi.spyOn(process, 'platform', 'get').mockReturnValue('linux');
+
+      expect(() => {
+        init({ workspacePath: '/opt/workspace', configRoot: './config' });
+      }).not.toThrow();
+    });
+
+    it('should allow drive-letter paths on Windows', () => {
+      vi.spyOn(process, 'platform', 'get').mockReturnValue('win32');
+
+      expect(() => {
+        init({ workspacePath: 'C:\\workspace', configRoot: 'j:/config' });
+      }).not.toThrow();
+    });
+  });
+});
+
+describe('getCoreConfigDir', () => {
+  afterEach(() => {
+    resetInit();
+    vi.restoreAllMocks();
+  });
+
+  it('should produce no colon-containing path segments for a relative configRoot', () => {
+    vi.spyOn(process, 'platform', 'get').mockReturnValue('linux');
+
+    init({ workspacePath: '/opt/workspace', configRoot: './config' });
+    const dir = getCoreConfigDir();
+
+    for (const segment of dir.split('/')) {
+      expect(segment).not.toContain(':');
+    }
   });
 });
