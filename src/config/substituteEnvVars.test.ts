@@ -51,6 +51,23 @@ describe('substituteEnvVars', () => {
     expect(substituteEnvVars(null)).toBe(null);
   });
 
+  it('should return a new object without mutating the input', () => {
+    const input = {
+      host: '${TEST_VAR}',
+      nested: { port: '${OTHER_VAR}' },
+    };
+    const frozen = JSON.parse(JSON.stringify(input));
+
+    const result = substituteEnvVars(input);
+
+    // Result has substituted values
+    expect(result).toEqual({ host: 'hello', nested: { port: 'world' } });
+    // Input is unchanged
+    expect(input).toEqual(frozen);
+    // Result is a different reference
+    expect(result).not.toBe(input);
+  });
+
   it('should not recurse into class instances', () => {
     class Config {
       value = '${TEST_VAR}';
