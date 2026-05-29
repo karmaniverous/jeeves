@@ -117,6 +117,7 @@ export {
   init,
   type InitOptions,
   registerComponentConfigPath,
+  rejectWindowsDrivePath,
   resetInit,
 } from './init.js';
 export {

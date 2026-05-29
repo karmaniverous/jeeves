@@ -21,7 +21,7 @@ import {
 export interface InitOptions {
   /** Absolute path to the OpenClaw workspace root. */
   workspacePath: string;
-  /** Absolute path to the platform config root (e.g., `j:/config`). */
+  /** Absolute path to the platform config root. */
   configRoot: string;
 }
 
@@ -40,8 +40,11 @@ const WINDOWS_DRIVE_RE = /^[a-zA-Z]:/;
 
 /**
  * Throw if a path looks like a Windows drive letter on a non-Windows platform.
+ *
+ * @param label - Human-readable name for the path (used in error messages).
+ * @param value - The raw path string to validate.
  */
-function rejectWindowsDrivePath(label: string, value: string): void {
+export function rejectWindowsDrivePath(label: string, value: string): void {
   if (process.platform !== 'win32' && WINDOWS_DRIVE_RE.test(value)) {
     throw new Error(
       `jeeves-core: ${label} "${value}" looks like a Windows drive-letter path and will not resolve correctly on this platform.`,
