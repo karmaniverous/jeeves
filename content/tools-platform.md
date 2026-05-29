@@ -24,6 +24,20 @@ When editing files outside the workspace, use the bridge pattern: copy in → ed
 
 **Cross-channel sends:** Use the `message` tool with an explicit `target` to send to a different channel or DM.
 
+### Slack File Downloads
+
+To download a Slack-hosted file, first try the `message` tool's `download-file` action. If that fails, fall back to a direct HTTP fetch using the bot token:
+
+```js
+fetch(url_private_download, {
+  headers: { Authorization: 'Bearer ' + botToken },
+});
+```
+
+The bot token is at `channels.slack.accounts.default.botToken` in `openclaw.json`.
+
+Never tell the user a file can't be downloaded until both methods have been tried.
+
 ### Plugin Lifecycle
 
 ```bash
