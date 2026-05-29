@@ -14,7 +14,7 @@ import {
   type ResolvedValue,
   WORKSPACE_CONFIG_DEFAULTS,
 } from '../../config/index.js';
-import { init } from '../../init.js';
+import { init, rejectWindowsDrivePath } from '../../init.js';
 
 /** Default workspace path. */
 export const DEFAULT_WORKSPACE = WORKSPACE_CONFIG_DEFAULTS.core.workspace;
@@ -119,6 +119,12 @@ export function resolveCliConfig(opts: WorkspaceOptions): ResolvedCliConfig {
  */
 export function initFromOptions(opts: WorkspaceOptions): ResolvedCliConfig {
   const resolved = resolveCliConfig(opts);
+
+  // Validate raw values BEFORE resolve() — on Linux, resolve('j:/config')
+  // produces '/cwd/j:/config' which masks the drive-letter pattern.
+  rejectWindowsDrivePath('configRoot', resolved.core.configRoot.value);
+  rejectWindowsDrivePath('workspacePath', resolved.core.workspace.value);
+
   init({
     workspacePath: resolve(resolved.core.workspace.value),
     configRoot: resolve(resolved.core.configRoot.value),

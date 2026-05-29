@@ -61,6 +61,7 @@ export {
   loadWorkspaceConfig,
   resolveConfigValue,
   type ResolvedValue,
+  substituteEnvVars,
   WORKSPACE_CONFIG_DEFAULTS,
   WORKSPACE_CONFIG_FILE,
   type WorkspaceConfig,
@@ -116,6 +117,7 @@ export {
   init,
   type InitOptions,
   registerComponentConfigPath,
+  rejectWindowsDrivePath,
   resetInit,
 } from './init.js';
 export {
