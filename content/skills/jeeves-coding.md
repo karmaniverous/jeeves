@@ -1,6 +1,6 @@
 ---
-name: coding
-description: Engineering standards for all code work. Use when writing code, reviewing PRs, spawning coding sub-agents, or making architectural decisions in any project (not just Jeeves). Covers design-first development, schema-first patterns, testing, STAN workflow, dependency management, and pre-PR checklist.
+name: jeeves-coding
+description: Engineering standards for all code work. Use when writing code, reviewing PRs, spawning coding sub-agents, or making architectural decisions in any project (not just Jeeves). Covers design-first development, schema-first patterns, testing, dependency management, and pre-PR checklist.
 ---
 
 # Engineering Standards
@@ -44,14 +44,12 @@ Sub-agents don't inherit your context — if you don't pass the rules, they don'
 - Table-driven cases encouraged for exhaustive coverage.
 - Keep coverage meaningful — prefer covering branches/decisions over chasing 100% lines.
 
-## STAN-Enabled Repos
+## Quality Gate Tooling
 
-When working in a repo with `.stan/`:
-- Run `stan run --sequential --no-archive` **before** each commit. Scripts must pass before you commit. Sequential runs are preferred to limit side effects. Archives are not needed (you won't use them).
-- **Push after every commit.** Don't accumulate unpushed local commits. Jason needs to be able to see your work at any time.
-- All scripts must pass before claiming work is complete.
-- Read `.stan/output/<script>.txt` for evidence on failures.
-- When creating stan scripts, eliminate colorized output where possible (e.g. `--no-color`, `NO_COLOR=1`) to reduce noise in script output files.
+Run the repo's quality gate suite **before** each commit. All checks must pass before you commit.
+
+- **Push after every commit.** Don't accumulate unpushed local commits. The owner needs to be able to see your work at any time.
+- All quality gates must pass before claiming work is complete.
 
 ## Cross-Package Verification
 
@@ -93,7 +91,7 @@ When a third-party dependency is broken:
 
 **Before creating ANY PR, run the full verification sequence. No exceptions.**
 
-1. `stan run --sequential --no-archive` if `.stan/` exists — this is the canonical check suite
+1. Run the repo's quality gate suite (lint, typecheck, test, build — or whatever the repo defines).
 2. In monorepos: run checks **from each package directory**, not just the root. Root-level runs may mask package-level failures due to config resolution differences.
 3. Exercise the release path: check `release-it` hooks (or equivalent) in each releasable package — run the same commands (`lint`, `typecheck`, `test`, `build`) from the same cwd the release process uses.
 

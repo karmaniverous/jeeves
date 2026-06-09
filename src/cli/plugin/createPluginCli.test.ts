@@ -251,7 +251,12 @@ describe('createPluginCli', () => {
       join(testDir, 'config'),
     ]);
 
-    const skillPath = join(workspaceDir, 'skills', 'jeeves', 'SKILL.md');
+    const skillPath = join(
+      workspaceDir,
+      'skills',
+      'jeeves-platform',
+      'SKILL.md',
+    );
     expect(existsSync(skillPath)).toBe(true);
     expect(readFileSync(skillPath, 'utf-8')).toContain('Jeeves Platform Skill');
   });

@@ -1,5 +1,5 @@
 ---
-name: jeeves
+name: jeeves-platform
 description: Jeeves platform architecture, data flow, component interaction, scripts repo, and coordination knowledge. Use when making architectural decisions, coordinating across components, checking platform health, managing service lifecycle, or working with the scripts repo.
 ---
 

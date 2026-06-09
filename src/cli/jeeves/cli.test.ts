@@ -195,15 +195,20 @@ describe('CLI commands', () => {
         coreVersion: '0.1.0',
       });
 
-      const skillPath = join(workspaceDir, 'skills', 'jeeves', 'SKILL.md');
+      const skillPath = join(
+        workspaceDir,
+        'skills',
+        'jeeves-platform',
+        'SKILL.md',
+      );
       expect(existsSync(skillPath)).toBe(true);
       const content = readFileSync(skillPath, 'utf-8');
-      expect(content).toContain('name: jeeves');
+      expect(content).toContain('name: jeeves-platform');
       expect(content).toContain('Jeeves Platform Skill');
     }, 15_000);
 
     it('should overwrite an existing jeeves workspace skill on install', async () => {
-      const skillDir = join(workspaceDir, 'skills', 'jeeves');
+      const skillDir = join(workspaceDir, 'skills', 'jeeves-platform');
       mkdirSync(skillDir, { recursive: true });
       const skillPath = join(skillDir, 'SKILL.md');
       writeFileSync(skillPath, 'old skill', 'utf-8');

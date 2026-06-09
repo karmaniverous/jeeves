@@ -12,20 +12,14 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import codingContent from '../../content/skills/coding.md';
-import jeevesContent from '../../content/skills/jeeves.md';
-import operationsContent from '../../content/skills/operations.md';
-import playbooksContent from '../../content/skills/playbooks.md';
-import slackBotProvisionerContent from '../../content/skills/slack-bot-provisioner.md';
+import jeevesCodingContent from '../../content/skills/jeeves-coding.md';
+import jeevesPlatformContent from '../../content/skills/jeeves-platform.md';
 import { SKILLS_DIR } from '../constants/paths.js';
 
 /** Map of skill directory name to inlined content. */
 const BUNDLED_SKILLS: Record<string, string> = {
-  jeeves: jeevesContent,
-  coding: codingContent,
-  'slack-bot-provisioner': slackBotProvisionerContent,
-  operations: operationsContent,
-  playbooks: playbooksContent,
+  'jeeves-platform': jeevesPlatformContent,
+  'jeeves-coding': jeevesCodingContent,
 };
 
 /**
