@@ -225,6 +225,28 @@ describe('createConfigApplyHandler', () => {
     expect(body.warning).toContain('reload failed');
   });
 
+  it('should use explicit configPath when provided', async () => {
+    const altDir = join(testDir, 'explicit-config');
+    mkdirSync(altDir, { recursive: true });
+    const explicitPath = join(altDir, 'config.json');
+    writeFileSync(
+      explicitPath,
+      JSON.stringify({ port: 7777, watchPaths: ['/explicit'], debug: false }),
+    );
+
+    const handler = createConfigApplyHandler(makeDescriptor(), explicitPath);
+    const result = await handler({ patch: { port: 3000 } });
+
+    expect(result.status).toBe(200);
+
+    const written = JSON.parse(readFileSync(explicitPath, 'utf-8')) as Record<
+      string,
+      unknown
+    >;
+    expect(written.port).toBe(3000);
+    expect(written.watchPaths).toEqual(['/explicit']);
+  });
+
   it('should use registered config path instead of derived path', async () => {
     // Create an alternate config directory outside the default configRoot
     const altDir = join(testDir, 'alt-config');
