@@ -180,6 +180,19 @@ describe('createPluginCli', () => {
     expect(entries['jeeves-watcher-openclaw']).toBeUndefined();
   });
 
+  it('install should run npm install in extension directory', async () => {
+    const program = createPluginCli({
+      pluginId: 'jeeves-watcher-openclaw',
+      importMetaUrl,
+      pluginPackage: '@karmaniverous/jeeves-watcher-openclaw',
+    });
+
+    await program.parseAsync(['node', 'test', 'install']);
+
+    const extDir = join(openClawHome, 'extensions', 'jeeves-watcher-openclaw');
+    expect(existsSync(join(extDir, 'package-lock.json'))).toBe(true);
+  });
+
   it('install should copy package.json and openclaw.plugin.json to extensions', async () => {
     const program = createPluginCli({
       pluginId: 'jeeves-watcher-openclaw',

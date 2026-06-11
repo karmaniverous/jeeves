@@ -4,6 +4,7 @@
  * @module
  */
 
+import { execSync } from 'node:child_process';
 import {
   copyFileSync,
   existsSync,
@@ -96,11 +97,9 @@ export function createPluginCli(options: CreatePluginCliOptions): Command {
 
       // 1. Copy dist to extensions
       const extensionsDir = join(openClawHome, 'extensions', pluginId);
-      if (!existsSync(distDir)) {
-        throw new Error(
-          `Plugin dist directory not found: ${distDir}. Ensure the plugin is built before installing.`,
-        );
-      }
+      if (!existsSync(distDir))
+        throw new Error(`Plugin dist directory not found: ${distDir}`);
+
       console.log(`Copying dist to ${extensionsDir}...`);
       copyDistFiles(distDir, join(extensionsDir, 'dist'));
 
@@ -112,6 +111,20 @@ export function createPluginCli(options: CreatePluginCliOptions): Command {
         }
       }
       console.log('  ✓ Dist files copied');
+
+      // 1b. Install production dependencies
+      console.log('Installing dependencies...');
+      try {
+        execSync('npm install --omit=dev', {
+          cwd: extensionsDir,
+          stdio: 'pipe',
+        });
+      } catch (err) {
+        throw new Error(`npm install failed in ${extensionsDir}`, {
+          cause: err,
+        });
+      }
+      console.log('  ✓ Dependencies installed');
 
       // 2. Patch openclaw.json
       console.log('Patching OpenClaw config...');
@@ -160,12 +173,9 @@ export function createPluginCli(options: CreatePluginCliOptions): Command {
       // 4. Write initial HEARTBEAT entry and seed jeeves skill
       try {
         const cfgRoot = opts.configRoot;
-        const agents = config.agents as Record<string, unknown> | undefined;
-        const defaults = agents?.defaults as
-          | Record<string, unknown>
-          | undefined;
-        const ws =
-          opts.workspace ?? (defaults?.workspace as string | undefined);
+        const ag = config.agents as Record<string, unknown> | undefined;
+        const defs = ag?.defaults as Record<string, unknown> | undefined;
+        const ws = opts.workspace ?? (defs?.workspace as string | undefined);
 
         if (ws) {
           init({ workspacePath: ws, configRoot: cfgRoot });
@@ -201,7 +211,6 @@ export function createPluginCli(options: CreatePluginCliOptions): Command {
       } catch {
         // HEARTBEAT + skill seeding are best-effort during install
       }
-
       // 5. Write component version
       try {
         init({
@@ -225,7 +234,6 @@ export function createPluginCli(options: CreatePluginCliOptions): Command {
       console.log();
       console.log(`✅ ${pluginPackage} installed.`);
     });
-
   program
     .command('uninstall')
     .description(`Uninstall the ${componentName} plugin`)
@@ -287,6 +295,5 @@ export function createPluginCli(options: CreatePluginCliOptions): Command {
       console.log();
       console.log(`✅ ${pluginPackage} uninstalled.`);
     });
-
   return program;
 }
