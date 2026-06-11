@@ -104,21 +104,25 @@ function readConfigFile(filePath: string): Record<string, unknown> {
  * 5. Calls `descriptor.onConfigApply` with the merged config (if defined)
  *
  * @param descriptor - The component descriptor.
+ * @param configPath - Optional explicit config file path. When provided, takes
+ *   precedence over registered and derived paths.
  * @returns An async handler returning `{ status, body }`.
  */
 export function createConfigApplyHandler(
   descriptor: JeevesComponentDescriptor,
+  configPath?: string,
 ): ConfigApplyHandler {
   return async (request: ConfigApplyRequest): Promise<ConfigApplyResult> => {
     const { patch, replace } = request;
 
-    // Use registered config path if available, otherwise derive from configRoot
-    const configPath =
+    // Prefer explicit > registered > derived config path
+    const resolvedConfigPath =
+      configPath ??
       getComponentConfigPath(descriptor.name) ??
       join(getComponentConfigDir(descriptor.name), descriptor.configFileName);
 
     // Read existing config
-    const existing = readConfigFile(configPath);
+    const existing = readConfigFile(resolvedConfigPath);
 
     // Merge or replace
     const mergeFn = descriptor.customMerge ?? deepMerge;
@@ -144,7 +148,7 @@ export function createConfigApplyHandler(
     // Write atomically
     try {
       const json = JSON.stringify(validatedConfig, null, 2) + '\n';
-      atomicWrite(configPath, json);
+      atomicWrite(resolvedConfigPath, json);
     } catch (err: unknown) {
       return {
         status: 500,
