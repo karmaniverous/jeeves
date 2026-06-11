@@ -6,6 +6,28 @@ All notable changes to this project will be documented in this file.
 
 ### 💼 Other
 
+- [V0-5] fix(plugin): run npm install in extension directory (#103)
+
+The plugin installer copies dist/, package.json, and openclaw.plugin.json
+but never ran npm install, leaving extensions without node_modules.
+Added execSync npm install --omit=dev after file copy step.
+
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+- [V0-5] fix(api): accept explicit configPath in createConfigApplyHandler (#104)
+
+Components using custom --config paths couldn't use config apply because
+the handler derived a path that didn't exist. Added optional configPath
+parameter that takes precedence over registered and derived paths.
+
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+
+### ⚙️ Miscellaneous Tasks
+
+- Add copilot review instructions
+## [0.5.11] - 2026-05-29
+
+### 💼 Other
+
 - [V0-5] fix: reject Windows drive-letter paths on non-Windows platforms (closes #100)
 
 Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
@@ -24,6 +46,7 @@ Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
 ### ⚙️ Miscellaneous Tasks
 
 - Migrate changelog to git-cliff (closes #95)
+- Release v0.5.11
 ## [0.5.10] - 2026-05-13
 
 ### 🚀 Features
