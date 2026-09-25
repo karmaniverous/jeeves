@@ -114,6 +114,7 @@ export {
 } from './memory/index.js';
 export {
   connectionFail,
+  CONVERSATION_HOOK_NAMES,
   createPluginToolset,
   fail,
   fetchJson,
@@ -133,6 +134,7 @@ export {
   type PromptContextOptions,
   promptContextOptionsSchema,
   type PromptContextProvider,
+  recordRegisteredHooks,
   registerPromptContext,
   resolveOptionalPluginSetting,
   resolvePluginSetting,
@@ -141,6 +143,7 @@ export {
   type ToolDescriptor,
   type ToolRegistrationOptions,
   type ToolResult,
+  validateConversationHooks,
   validateSkillFrontmatter,
 } from './plugin/index.js';
 export {

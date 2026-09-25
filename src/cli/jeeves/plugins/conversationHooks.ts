@@ -21,48 +21,21 @@
  * under `--dry-run` and before the package is on disk) and grants access only
  * when it names at least one of OpenClaw's conversation hooks. A missing field
  * means "none". A malformed field fails the command. An existing grant is
- * never removed.
+ * never removed. Plugins check their declaration at build time with
+ * `validateConversationHooks` (`src/plugin/conversationHooks.ts`).
  *
  * @module
  */
 
-import { z } from 'zod';
-
+import {
+  conversationHooksOf,
+  declaredConversationHooksSchema,
+} from '../../../plugin/conversationHooks.js';
 import { type CommandRunner, runChecked } from './commandRunner.js';
 import { NPM_BIN, npmViewFieldArgs } from './openclawCommands.js';
 
-/**
- * OpenClaw's conversation hooks: the typed hooks gated by
- * `allowConversationAccess` (v2026.9.6 `src/plugins/hook-types.ts`
- * `CONVERSATION_HOOK_NAMES`).
- */
-export const CONVERSATION_HOOK_NAMES: readonly string[] = [
-  'before_model_resolve',
-  'agent_turn_prepare',
-  'before_prompt_build',
-  'before_agent_reply',
-  'llm_input',
-  'llm_output',
-  'before_agent_finalize',
-  'agent_end',
-  'before_agent_run',
-];
-
 /** package.json field in which a plugin declares its conversation hooks. */
 export const CONVERSATION_HOOKS_FIELD = 'jeeves.conversationHooks';
-
-/** Schema of the declared field. */
-export const declaredConversationHooksSchema = z.array(z.string().min(1));
-
-/**
- * Conversation hooks among a plugin's declared hooks.
- *
- * @param declared - Declared hook names.
- * @returns The names OpenClaw gates behind `allowConversationAccess`.
- */
-export function conversationHooksOf(declared: readonly string[]): string[] {
-  return declared.filter((name) => CONVERSATION_HOOK_NAMES.includes(name));
-}
 
 /**
  * Read the conversation hooks a published plugin version declares.

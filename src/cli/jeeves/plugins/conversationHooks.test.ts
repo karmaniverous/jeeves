@@ -1,26 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  conversationHooksOf,
-  readDeclaredConversationHooks,
-} from './conversationHooks.js';
+import { readDeclaredConversationHooks } from './conversationHooks.js';
 import { failed, fakeRunner, ok } from './testRunner.js';
 
 const PKG = '@karmaniverous/jeeves-watcher-openclaw';
 const KEY = `npm view ${PKG}@1.0.0 jeeves.conversationHooks --json`;
-
-describe('conversationHooksOf', () => {
-  it('keeps only hooks gated by allowConversationAccess', () => {
-    expect(
-      conversationHooksOf([
-        'before_prompt_build',
-        'llm_input',
-        'gateway_start',
-        'before_tool_call',
-      ]),
-    ).toEqual(['before_prompt_build', 'llm_input']);
-  });
-});
 
 describe('readDeclaredConversationHooks', () => {
   it('queries the exact version and returns declared conversation hooks', async () => {

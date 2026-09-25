@@ -5,6 +5,11 @@
  * @packageDocumentation
  */
 
+export {
+  CONVERSATION_HOOK_NAMES,
+  recordRegisteredHooks,
+  validateConversationHooks,
+} from './conversationHooks.js';
 export { createPluginToolset } from './createPluginToolset.js';
 export { getPackageRoot } from './getPackageRoot.js';
 export { getPackageVersion } from './getPackageVersion.js';
