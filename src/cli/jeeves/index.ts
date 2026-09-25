@@ -1,16 +1,18 @@
 /**
- * Jeeves CLI — platform content seeding, teardown, status, and
- * dynamic subcommand discovery for installed component CLIs.
+ * Jeeves CLI — the local control surface: install (content + plugins),
+ * update, uninstall, status, config, and component CLI proxies.
  *
  * @remarks
- * Entry point for the `jeeves` CLI command. Provides install, uninstall,
- * and status subcommands, plus dynamic proxy commands for any installed
- * `@karmaniverous/jeeves-*` component packages.
+ * Entry point for the `jeeves` CLI command. `install`/`update`/`uninstall`
+ * drive the OpenClaw CLI as child processes; any failure exits non-zero.
+ * Dynamic proxy commands are added for installed `@karmaniverous/jeeves-*`
+ * component packages.
  */
 
 import { Command } from '@commander-js/extra-typings';
 
 import { CORE_VERSION } from '../../constants/index.js';
+import { getErrorMessage } from '../../utils.js';
 import { checkNodeVersion } from './checkNodeVersion.js';
 
 checkNodeVersion();
@@ -22,6 +24,7 @@ import {
 import { registerInstallCommand } from './installCommand.js';
 import { registerStatusCommand } from './statusCommand.js';
 import { registerUninstallCommand } from './uninstallCommand.js';
+import { registerUpdateCommand } from './updateCommand.js';
 
 const cli = new Command()
   .name('jeeves')
@@ -31,6 +34,7 @@ const cli = new Command()
   .passThroughOptions();
 
 registerInstallCommand(cli);
+registerUpdateCommand(cli);
 registerUninstallCommand(cli);
 registerStatusCommand(cli);
 registerConfigCommand(cli);
@@ -39,4 +43,9 @@ registerConfigCommand(cli);
 const discoveredComponents = discoverComponentPackages();
 registerComponentProxies(cli, discoveredComponents);
 
-cli.parse();
+try {
+  await cli.parseAsync();
+} catch (error) {
+  console.error(`\n✖ ${getErrorMessage(error)}`);
+  process.exitCode = 1;
+}

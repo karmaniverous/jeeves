@@ -1,0 +1,127 @@
+/**
+ * Pure computation of the OpenClaw config changes the jeeves CLI makes around
+ * plugin install/uninstall. No I/O.
+ *
+ * @remarks
+ * - Hook access: `plugins.entries.<id>.hooks.allowConversationAccess: true`
+ *   is required for `before_prompt_build`, and `--accept-capabilities` does
+ *   not set it (runbook spike S2). Written as a leaf path, so sibling keys
+ *   such as `plugins.entries.<id>.config` are preserved.
+ * - Post-uninstall repair: `openclaw plugins uninstall` leaves
+ *   `entries.<id> = { enabled: false }` behind and can delete `plugins.load`
+ *   (spike S1). Both are undone.
+ *
+ * @module
+ */
+
+import { z } from 'zod';
+
+import type { ConfigSetOperation } from './openclawCommands.js';
+
+/** The slice of `openclaw.json` → `plugins` this CLI reads. */
+export const pluginsConfigSchema = z.looseObject({
+  entries: z.record(z.string(), z.unknown()).optional(),
+  load: z.unknown().optional(),
+});
+
+/** Parsed `plugins` config slice. */
+export type PluginsConfig = z.infer<typeof pluginsConfigSchema>;
+
+const entrySchema = z.looseObject({
+  enabled: z.boolean().optional(),
+  hooks: z.looseObject({ allowConversationAccess: z.unknown() }).optional(),
+});
+
+/** Config path of a plugin entry. */
+export const entryPath = (pluginId: string): string =>
+  `plugins.entries.${pluginId}`;
+
+/** Config path of a plugin's conversation-access hook gate. */
+export const hookAccessPath = (pluginId: string): string =>
+  `${entryPath(pluginId)}.hooks.allowConversationAccess`;
+
+/**
+ * Operations that grant conversation-access hooks to the given plugins.
+ *
+ * @param plugins - Current `plugins` config.
+ * @param pluginIds - Plugins that need `before_prompt_build`.
+ * @returns One operation per plugin not already granted (may be empty).
+ */
+export function computeHookAccessOps(
+  plugins: PluginsConfig,
+  pluginIds: readonly string[],
+): ConfigSetOperation[] {
+  return pluginIds
+    .filter((id) => {
+      const entry = entrySchema.safeParse(plugins.entries?.[id]);
+      return !(
+        entry.success && entry.data.hooks?.allowConversationAccess === true
+      );
+    })
+    .map((id) => ({ path: hookAccessPath(id), value: true }));
+}
+
+/**
+ * Whether an entry is the `{ enabled: false }` husk left by uninstall.
+ *
+ * @param entry - A `plugins.entries.<id>` value.
+ * @returns `true` only for an object whose sole key is `enabled: false`.
+ */
+export function isLeftoverDisabledEntry(entry: unknown): boolean {
+  if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) {
+    return false;
+  }
+  const keys = Object.keys(entry);
+  return (
+    keys.length === 1 &&
+    keys[0] === 'enabled' &&
+    (entry as { enabled: unknown }).enabled === false
+  );
+}
+
+/** Config repair to apply after `openclaw plugins uninstall`. */
+export interface PostUninstallRepair {
+  /** Paths to `openclaw config unset`. */
+  unsetPaths: string[];
+  /** Operations for `openclaw config set --batch-json` (may be empty). */
+  setOps: ConfigSetOperation[];
+}
+
+/**
+ * Compute the repair for the S1 uninstall quirks.
+ *
+ * @param before - `plugins` config captured before uninstall.
+ * @param after - `plugins` config read after uninstall.
+ * @param pluginIds - Plugins that were uninstalled.
+ * @returns Unset paths and set operations.
+ */
+export function computePostUninstallRepair(
+  before: PluginsConfig,
+  after: PluginsConfig,
+  pluginIds: readonly string[],
+): PostUninstallRepair {
+  const unsetPaths = pluginIds
+    .filter((id) => isLeftoverDisabledEntry(after.entries?.[id]))
+    .map(entryPath);
+  const setOps: ConfigSetOperation[] =
+    before.load !== undefined && after.load === undefined
+      ? [{ path: 'plugins.load', value: before.load }]
+      : [];
+  return { unsetPaths, setOps };
+}
+
+/**
+ * Jeeves plugin ids that have an entry in the config.
+ *
+ * @param plugins - Current `plugins` config.
+ * @param isJeeves - Jeeves id predicate.
+ * @returns Matching ids, sorted.
+ */
+export function configuredPluginIds(
+  plugins: PluginsConfig,
+  isJeeves: (id: string) => boolean,
+): string[] {
+  return Object.keys(plugins.entries ?? {})
+    .filter(isJeeves)
+    .sort();
+}

@@ -1,5 +1,6 @@
 /**
- * Filesystem adapter that writes rendered platform content to a workspace.
+ * Filesystem adapter that writes rendered platform content to a workspace
+ * (`jeeves install` is the only writer). Supports a no-write dry run.
  *
  * @remarks
  * Thin I/O boundary over the pure {@link renderPlatformContent} /
@@ -32,6 +33,8 @@ export interface InstallPlatformContentOptions {
   coreConfigDir: string;
   /** Version written into managed-block stamps. */
   version: string;
+  /** Report what would be written without touching the filesystem. */
+  dryRun?: boolean;
 }
 
 /** Write a file, creating parent directories. */
@@ -41,9 +44,10 @@ function writeWithDirs(filePath: string, content: string): void {
 }
 
 /** Create the core config (with JSON schema) if it does not exist. */
-function ensureCoreConfig(coreConfigDir: string): boolean {
+function ensureCoreConfig(coreConfigDir: string, dryRun: boolean): boolean {
   const configPath = join(coreConfigDir, CONFIG_FILE);
   if (existsSync(configPath)) return false;
+  if (dryRun) return true;
   mkdirSync(coreConfigDir, { recursive: true });
   const config = {
     $schema: './config.schema.json',
@@ -67,30 +71,35 @@ function ensureCoreConfig(coreConfigDir: string): boolean {
 export function installPlatformContent(
   options: InstallPlatformContentOptions,
 ): string[] {
-  const { workspacePath, coreConfigDir, version } = options;
+  const { workspacePath, coreConfigDir, version, dryRun = false } = options;
   const rendered = renderPlatformContent({ version });
   const written: string[] = [];
+  const put = (filePath: string, content: string) => {
+    if (!dryRun) writeWithDirs(filePath, content);
+  };
 
   for (const id of Object.keys(rendered.sections) as PlatformSectionId[]) {
     const filePath = join(workspacePath, rendered.sections[id].file);
     const existing = existsSync(filePath)
       ? readFileSync(filePath, 'utf-8')
       : '';
-    writeWithDirs(filePath, upsertPlatformSection(id, existing, { version }));
+    put(filePath, upsertPlatformSection(id, existing, { version }));
     written.push(`${rendered.sections[id].file} managed block`);
   }
 
   for (const file of rendered.skills) {
-    writeWithDirs(join(workspacePath, file.path), file.content);
+    put(join(workspacePath, file.path), file.content);
   }
   written.push(`${String(rendered.skills.length)} platform skills`);
 
   for (const file of rendered.templates) {
-    writeWithDirs(join(coreConfigDir, file.path), file.content);
+    put(join(coreConfigDir, file.path), file.content);
   }
   written.push(`${String(rendered.templates.length)} reference templates`);
 
-  if (ensureCoreConfig(coreConfigDir)) written.push('core config created');
+  if (ensureCoreConfig(coreConfigDir, dryRun)) {
+    written.push('core config (new)');
+  }
 
   return written;
 }

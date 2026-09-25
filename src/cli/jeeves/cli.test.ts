@@ -89,6 +89,26 @@ describe('installPlatformContent', () => {
     expect(read(coreConfigDir, 'config.json')).toContain('"me"');
   });
 
+  it('dry run reports the same writes and touches nothing', () => {
+    const planned = installPlatformContent({
+      workspacePath,
+      coreConfigDir,
+      version: '1.0.0',
+      dryRun: true,
+    });
+    expect(planned).toEqual(install().map((line) => line));
+    rmSync(testDir, { recursive: true, force: true });
+    mkdirSync(workspacePath, { recursive: true });
+    installPlatformContent({
+      workspacePath,
+      coreConfigDir,
+      version: '1.0.0',
+      dryRun: true,
+    });
+    expect(existsSync(join(workspacePath, 'SOUL.md'))).toBe(false);
+    expect(existsSync(coreConfigDir)).toBe(false);
+  });
+
   it('overwrites a stale platform skill', () => {
     const skill = join(workspacePath, 'skills', 'jeeves', 'SKILL.md');
     mkdirSync(join(workspacePath, 'skills', 'jeeves'), { recursive: true });
@@ -124,6 +144,20 @@ describe('removeManagedBlockFromFile', () => {
     );
     expect(removeManagedBlockFromFile(file, LEGACY_TOOLS_MARKERS)).toBe(true);
     expect(readFileSync(file, 'utf-8')).toBe('My tools notes.\n');
+  });
+
+  it('dry run reports a removable block without writing', () => {
+    const file = join(testDir, 'SOUL.md');
+    const content = [
+      'Mine.',
+      '',
+      `<!-- ${SOUL_MARKERS.begin} | core:1.0.0 | 2026-09-01T00:00:00Z -->`,
+      'x',
+      `<!-- ${SOUL_MARKERS.end} -->`,
+    ].join('\n');
+    writeFileSync(file, content);
+    expect(removeManagedBlockFromFile(file, SOUL_MARKERS, true)).toBe(true);
+    expect(readFileSync(file, 'utf-8')).toBe(content);
   });
 
   it('returns false for a missing file or absent block', () => {
