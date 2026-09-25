@@ -24,11 +24,19 @@ import {
   pluginInstallArgs,
   pluginUninstallArgs,
 } from './openclawCommands.js';
+import type { PluginConfigResolution } from './pluginConfigResolve.js';
 import type { PluginTarget } from './pluginSpec.js';
+import { redactSecrets } from './secrets.js';
 
 /** A plan step. */
 export type PlanStep =
-  | { kind: 'exec'; command: string; args: string[] }
+  | {
+      kind: 'exec';
+      command: string;
+      args: string[];
+      /** Secret values to redact from logs and errors. */
+      redact?: string[];
+    }
   | { kind: 'removeDir'; path: string }
   | {
       kind: 'repairAfterUninstall';
@@ -63,11 +71,14 @@ const openclaw = (args: string[]): PlanStep => ({
  *
  * @param targets - Resolved targets.
  * @param plugins - Current `plugins` config slice.
- * @returns Install steps, then legacy removals, then one hook-access batch.
+ * @param config - Resolved plugin config to write (optional).
+ * @returns Install steps, then legacy removals, then one
+ *   `config set --batch-json` with hook access and plugin config.
  */
 export function buildInstallPlan(
   targets: readonly ResolvedTarget[],
   plugins: PluginsConfig,
+  config?: PluginConfigResolution,
 ): PlanStep[] {
   const steps: PlanStep[] = targets.map((t) =>
     openclaw(pluginInstallArgs(t.packageName, t.version)),
@@ -75,11 +86,20 @@ export function buildInstallPlan(
   for (const t of targets) {
     if (t.legacyDir) steps.push({ kind: 'removeDir', path: t.legacyDir });
   }
-  const ops = computeHookAccessOps(
-    plugins,
-    targets.map((t) => t.pluginId),
-  );
-  if (ops.length > 0) steps.push(openclaw(configSetBatchArgs(ops)));
+  const ops = [
+    ...computeHookAccessOps(
+      plugins,
+      targets.map((t) => t.pluginId),
+    ),
+    ...(config?.ops ?? []),
+  ];
+  if (ops.length > 0) {
+    const secrets = config?.secrets ?? [];
+    steps.push({
+      ...openclaw(configSetBatchArgs(ops)),
+      ...(secrets.length > 0 ? { redact: [...secrets] } : {}),
+    });
+  }
   return steps;
 }
 
@@ -118,7 +138,9 @@ export function buildUninstallPlan(
 export function describeStep(step: PlanStep): string[] {
   switch (step.kind) {
     case 'exec':
-      return [formatCommand(step.command, step.args)];
+      return [
+        redactSecrets(formatCommand(step.command, step.args), step.redact),
+      ];
     case 'removeDir':
       return [`remove legacy plugin copy: ${step.path}`];
     case 'repairAfterUninstall': {

@@ -68,6 +68,19 @@ describe('runChecked', () => {
     );
     expect((err as CommandFailedError).result.exitCode).toBe(3);
   });
+
+  it('redacts secrets from the error message and captured output', async () => {
+    const fake = fakeRunner({ openclaw: failed('bad value s3cr3t', 1) });
+    const err = (await runChecked(
+      fake.runner,
+      'openclaw',
+      ['config', 'set', '--batch-json', '[{"value":"s3cr3t"}]'],
+      { redact: ['s3cr3t'] },
+    ).catch((e: unknown) => e)) as CommandFailedError;
+    expect(err.message).not.toContain('s3cr3t');
+    expect(err.message).toContain('<redacted>');
+    expect(err.result.stderr).toBe('bad value <redacted>');
+  });
 });
 
 describe('spawnCommandRunner', () => {
@@ -106,6 +119,24 @@ describe('spawnCommandRunner', () => {
     child.emit('close', 0);
     await pending;
     expect(write).toHaveBeenCalledWith('1.0.0');
+  });
+
+  it('buffers and redacts echoed output when secrets are present', async () => {
+    const child = new FakeChild();
+    spawnMock.mockReturnValue(child);
+    const write = vi.spyOn(process.stdout, 'write').mockReturnValue(true);
+    vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+    const pending = spawnCommandRunner('openclaw', ['x'], {
+      echo: true,
+      redact: ['s3cr3t'],
+    });
+    child.stdout.write('set s3');
+    child.stdout.write('cr3t ok');
+    expect(write).not.toHaveBeenCalled();
+    child.emit('close', 0);
+    const result = await pending;
+    expect(write).toHaveBeenCalledWith('set <redacted> ok');
+    expect(result.stdout).toBe('set s3cr3t ok');
   });
 
   it('treats a signal kill as failure', async () => {

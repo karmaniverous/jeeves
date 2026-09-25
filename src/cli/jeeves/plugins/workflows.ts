@@ -23,8 +23,15 @@ import {
 import {
   buildInstallPlan,
   buildUninstallPlan,
+  type PlanStep,
   type ResolvedTarget,
 } from './plan.js';
+import { describePluginConfig } from './pluginConfigReport.js';
+import {
+  type PluginConfigRequest,
+  type PluginConfigResolution,
+  resolvePluginConfig,
+} from './pluginConfigResolve.js';
 import {
   isJeevesPluginId,
   parsePluginSpec,
@@ -53,18 +60,33 @@ async function preflight(deps: PluginWorkflowDeps, title: string) {
   );
 }
 
+/** A computed, not yet executed, install/update. */
+export interface PreparedInstall {
+  /** Targets with exact versions. */
+  resolved: ResolvedTarget[];
+  /** Resolved plugin config (when requested). */
+  config?: PluginConfigResolution;
+  /** Plan to print or execute. */
+  plan: PlanStep[];
+}
+
 /**
- * Install or update Jeeves plugins.
+ * Compute an install/update without mutating anything: preflight, config
+ * read, version resolution, plugin config resolution, plan.
  *
  * @param deps - Workflow dependencies.
  * @param targets - Plugins to install (range resolved via npm).
- * @returns The resolved targets.
+ * @param configRequest - Plugin config to write (`jeeves install` only).
+ * @returns The prepared install.
+ * @throws MissingPluginConfigError before any mutation when required plugin
+ *   config is missing.
  */
-export async function installPlugins(
+export async function prepareInstall(
   deps: PluginWorkflowDeps,
   targets: readonly PluginTarget[],
-): Promise<ResolvedTarget[]> {
-  if (targets.length === 0) return [];
+  configRequest?: PluginConfigRequest,
+): Promise<PreparedInstall> {
+  if (targets.length === 0) return { resolved: [], plan: [] };
   await preflight(deps, 'Jeeves plugins');
   const plugins = await readPluginsConfig(deps.runner);
   const resolved: ResolvedTarget[] = [];
@@ -85,8 +107,37 @@ export async function installPlugins(
       `  ${t.packageName}@${version}${legacyDir ? ' (legacy copy found)' : ''}`,
     );
   }
-  await executePlan(buildInstallPlan(resolved, plugins), deps);
-  return resolved;
+  const config = configRequest
+    ? resolvePluginConfig(
+        plugins,
+        resolved.map((t) => t.pluginId),
+        configRequest,
+      )
+    : undefined;
+  if (config) for (const line of describePluginConfig(config)) deps.log(line);
+  return {
+    resolved,
+    ...(config ? { config } : {}),
+    plan: buildInstallPlan(resolved, plugins, config),
+  };
+}
+
+/**
+ * Install or update Jeeves plugins (prepare, then print or execute).
+ *
+ * @param deps - Workflow dependencies.
+ * @param targets - Plugins to install (range resolved via npm).
+ * @param configRequest - Plugin config to write (`jeeves install` only).
+ * @returns The resolved targets.
+ */
+export async function installPlugins(
+  deps: PluginWorkflowDeps,
+  targets: readonly PluginTarget[],
+  configRequest?: PluginConfigRequest,
+): Promise<ResolvedTarget[]> {
+  const prepared = await prepareInstall(deps, targets, configRequest);
+  await executePlan(prepared.plan, deps);
+  return prepared.resolved;
 }
 
 /**

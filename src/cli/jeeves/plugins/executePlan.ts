@@ -53,8 +53,11 @@ async function executeStep(
 ): Promise<void> {
   switch (step.kind) {
     case 'exec':
-      ctx.log(`$ ${formatCommand(step.command, step.args)}`);
-      await runChecked(ctx.runner, step.command, step.args, { echo: true });
+      ctx.log(`$ ${describeStep(step)[0]}`);
+      await runChecked(ctx.runner, step.command, step.args, {
+        echo: true,
+        ...(step.redact ? { redact: step.redact } : {}),
+      });
       return;
     case 'removeDir':
       if (ctx.fs.isDirectory(step.path)) {

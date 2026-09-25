@@ -13,6 +13,8 @@
 
 import spawn from 'cross-spawn';
 
+import { redactSecrets } from './secrets.js';
+
 /** Captured result of a finished command. */
 export interface CommandResult {
   /** Process exit code (1 when the process was killed by a signal). */
@@ -27,6 +29,11 @@ export interface CommandResult {
 export interface CommandRunOptions {
   /** Also stream the child's output to this process's stdout/stderr. */
   echo?: boolean;
+  /**
+   * Secret values in the arguments. They are redacted from echoed output and
+   * error messages; echo is buffered until exit so no secret is split.
+   */
+  redact?: readonly string[];
 }
 
 /** Port: run a command with an argument vector (never a shell string). */
@@ -105,7 +112,12 @@ export async function runChecked(
 ): Promise<CommandResult> {
   const result = await runner(command, args, options);
   if (result.exitCode !== 0) {
-    throw new CommandFailedError(formatCommand(command, args), result);
+    const redact = (text: string) => redactSecrets(text, options?.redact);
+    throw new CommandFailedError(redact(formatCommand(command, args)), {
+      exitCode: result.exitCode,
+      stdout: redact(result.stdout),
+      stderr: redact(result.stderr),
+    });
   }
   return result;
 }
@@ -119,18 +131,24 @@ export const spawnCommandRunner: CommandRunner = (command, args, options) =>
     });
     let stdout = '';
     let stderr = '';
+    const secrets = options?.redact ?? [];
+    const stream = options?.echo === true && secrets.length === 0;
     child.stdout?.setEncoding('utf8');
     child.stderr?.setEncoding('utf8');
     child.stdout?.on('data', (chunk: string) => {
       stdout += chunk;
-      if (options?.echo) process.stdout.write(chunk);
+      if (stream) process.stdout.write(chunk);
     });
     child.stderr?.on('data', (chunk: string) => {
       stderr += chunk;
-      if (options?.echo) process.stderr.write(chunk);
+      if (stream) process.stderr.write(chunk);
     });
     child.on('error', reject);
     child.on('close', (code) => {
+      if (options?.echo === true && !stream) {
+        process.stdout.write(redactSecrets(stdout, secrets));
+        process.stderr.write(redactSecrets(stderr, secrets));
+      }
       resolve({ exitCode: code ?? 1, stdout, stderr });
     });
   });

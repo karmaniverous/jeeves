@@ -41,6 +41,38 @@ describe('buildInstallPlan', () => {
   it('returns no steps for no targets', () => {
     expect(buildInstallPlan([], {})).toEqual([]);
   });
+
+  it('appends plugin config to the hook batch and redacts secrets', () => {
+    const steps = buildInstallPlan(
+      [target('server', '1.0.0')],
+      {},
+      {
+        ops: [
+          {
+            path: 'plugins.entries.jeeves-server-openclaw.config.pluginKey',
+            value: 'topsecret',
+          },
+        ],
+        values: [],
+        secrets: ['topsecret'],
+        unknownPluginIds: [],
+      },
+    );
+    const batch = steps[1];
+    expect(batch).toMatchObject({ kind: 'exec', redact: ['topsecret'] });
+    expect(batch.kind === 'exec' && JSON.parse(batch.args[3])).toEqual([
+      {
+        path: 'plugins.entries.jeeves-server-openclaw.hooks.allowConversationAccess',
+        value: true,
+      },
+      {
+        path: 'plugins.entries.jeeves-server-openclaw.config.pluginKey',
+        value: 'topsecret',
+      },
+    ]);
+    expect(describeStep(batch)[0]).not.toContain('topsecret');
+    expect(describeStep(batch)[0]).toContain('"value":"<redacted>"');
+  });
 });
 
 describe('buildUninstallPlan', () => {

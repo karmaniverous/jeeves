@@ -7,6 +7,10 @@
 
 import { spawnCommandRunner } from './commandRunner.js';
 import { nodeLegacyFs, resolveOpenClawConfigDir } from './legacyExtensions.js';
+import type { PluginConfigRequest } from './pluginConfigResolve.js';
+import type { PluginConfigInput } from './pluginConfigSchema.js';
+import { generatePluginKey } from './secrets.js';
+import { nodeReadTextFile, readServerPluginKey } from './serverPluginKey.js';
 import type { PluginWorkflowDeps } from './workflows.js';
 
 /**
@@ -24,6 +28,28 @@ export function createPluginWorkflowDeps(dryRun: boolean): PluginWorkflowDeps {
       console.log(line);
     },
     dryRun,
+  };
+}
+
+/**
+ * Create the production plugin config request for `jeeves install`.
+ *
+ * @param options - Values from CLI options.
+ * @param file - Values from `--plugin-config`.
+ * @param inheritedConfigRoot - configRoot from env / `jeeves.config.json`.
+ * @returns The request (node fs reader, crypto secret generator).
+ */
+export function createPluginConfigRequest(
+  options: PluginConfigInput,
+  file: PluginConfigInput,
+  inheritedConfigRoot?: string,
+): PluginConfigRequest {
+  return {
+    options,
+    file,
+    ...(inheritedConfigRoot ? { inheritedConfigRoot } : {}),
+    readServerPluginKey: (root) => readServerPluginKey(nodeReadTextFile, root),
+    generateSecret: generatePluginKey,
   };
 }
 
