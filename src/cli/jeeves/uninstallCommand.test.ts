@@ -35,8 +35,12 @@ vi.mock('./plugins/pluginDeps.js', async (importOriginal) => {
   };
 });
 
+const responding = vi.hoisted(() => new Set<string>());
 vi.mock('../../plugin/http.js', () => ({
-  fetchWithTimeout: () => Promise.reject(new Error('offline')),
+  fetchWithTimeout: (url: string) =>
+    [...responding].some((port) => url.includes(`:${port}/`))
+      ? Promise.resolve(new Response('{}'))
+      : Promise.reject(new Error('offline')),
 }));
 
 describe('jeeves uninstall', () => {
@@ -98,6 +102,35 @@ describe('jeeves uninstall', () => {
       `[dry-run] if left as {"enabled":false}: openclaw config unset plugins.entries.${W}`,
     );
     expect(out).toContain('Dry run complete. Nothing was changed.');
+  });
+
+  it('warns about platform services that still respond', async () => {
+    responding.add('1936'); // watcher
+    try {
+      await run();
+    } finally {
+      responding.clear();
+    }
+    const i = out.indexOf('⚠️  The following services are still responding:');
+    expect(i).toBeGreaterThan(-1);
+    expect(out.slice(i + 1, i + 3)).toEqual([
+      '    - watcher',
+      '   Consider stopping them before fully removing Jeeves.',
+    ]);
+  });
+
+  it('prints no restart notice when no plugin was removed', async () => {
+    state.fake = fakeRunner({
+      'openclaw --version': ok('OpenClaw 2026.9.6'),
+      'openclaw config get plugins': ok('{}'),
+    });
+    await run();
+    expect(mutations()).toEqual([]);
+    expect(out.some((l) => l.includes('Restart the gateway'))).toBe(false);
+    expect(out.some((l) => l.includes('still responding'))).toBe(false);
+    expect(out.at(-1)).toBe(
+      '✅ Jeeves platform artifacts and plugins removed.',
+    );
   });
 
   it('rejects the removed --plugins option', async () => {

@@ -235,6 +235,56 @@ describe('jeeves install (plugin config)', () => {
     ]);
   });
 
+  it('--content-only renders content without touching OpenClaw or requiring plugin config', async () => {
+    const program = new Command().exitOverride();
+    registerInstallCommand(program);
+    const cfg = join(dir, 'cfg');
+    await program.parseAsync(
+      ['install', '-w', ws, '-c', cfg, '--content-only'],
+      { from: 'user' },
+    );
+    expect(existsSync(join(ws, 'SOUL.md'))).toBe(true);
+    expect(existsSync(join(cfg, 'jeeves-core', 'config.json'))).toBe(true);
+    expect(state.fake?.calls).toEqual([]);
+    expect(out.some((l) => l.includes('Restart the gateway'))).toBe(false);
+    expect(out.at(-1)).toBe('✅ Jeeves installed.');
+  });
+
+  it('targets all four component plugins by default', async () => {
+    const cfg = join(dir, 'cfg');
+    writeServer(cfg, { keys: {} });
+    const pkgs = ['runner', 'watcher', 'server', 'meta'].map(
+      (c) => `@karmaniverous/jeeves-${c}-openclaw`,
+    );
+    state.fake = fakeRunner({
+      'openclaw --version': ok('OpenClaw 2026.9.6'),
+      'openclaw config get plugins': ok('{}'),
+      'openclaw plugins inspect --all --json': ok('[]'),
+      ...Object.fromEntries(
+        pkgs.flatMap((p) => [
+          [`npm view ${p}`, ok('"1.0.0"')],
+          [`npm view ${p}@1.0.0 jeeves.conversationHooks`, ok('')],
+        ]),
+      ),
+    });
+    const program = new Command().exitOverride();
+    registerInstallCommand(program);
+    await program.parseAsync(['install', '-w', ws, '-c', cfg, '--dry-run'], {
+      from: 'user',
+    });
+    expect(
+      out.filter((l) => l.startsWith('[dry-run] openclaw plugins install ')),
+    ).toEqual(
+      pkgs.map(
+        (p) =>
+          `[dry-run] openclaw plugins install npm:${p}@1.0.0 --pin --accept-capabilities --force`,
+      ),
+    );
+    expect(
+      state.fake.lines().filter((l) => / plugins install /.test(` ${l} `)),
+    ).toEqual([]);
+  });
+
   it('--force-reinstall installs without reading install records', async () => {
     writeServer(join(dir, 'cfg'), { keys: {} });
     await run('-c', join(dir, 'cfg'), '--force-reinstall');

@@ -42,7 +42,14 @@ describe('installPlatformContent', () => {
 
   it('writes SOUL/AGENTS blocks, skills, templates, and core config', () => {
     const written = install();
-    expect(written.length).toBeGreaterThan(0);
+    expect(written).toEqual([
+      'SOUL.md managed block',
+      'AGENTS.md managed block',
+      expect.stringMatching(/^[1-9]\d* platform skills$/) as string,
+      '2 reference templates',
+      'core config (new)',
+    ]);
+    expect(install()).not.toContain('core config (new)');
 
     expect(
       parseManaged(read(workspacePath, 'SOUL.md'), SOUL_MARKERS).managedContent,

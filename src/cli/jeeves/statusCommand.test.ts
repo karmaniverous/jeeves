@@ -7,7 +7,7 @@
  * component is always probed.
  */
 
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
@@ -104,13 +104,55 @@ describe('registerStatusCommand', () => {
     });
 
     const output = await runStatus();
-    for (const name of ['runner', 'watcher', 'server', 'meta']) {
-      expect(output).toContain(name);
+    for (const [name, version] of [
+      ['runner', '1.0.0'],
+      ['watcher', '1.2.3'],
+      ['server', '3.0.0'],
+      ['meta', '0.9.0'],
+    ]) {
+      expect(output).toMatch(
+        new RegExp(
+          `^${name} +✅ Running +${version.replace(/\./g, '\\.')}`,
+          'm',
+        ),
+      );
     }
-    expect(output).toContain('1.2.3');
-    expect(output).toContain('Memory hygiene');
+    expect(output).toContain('MEMORY.md not found.');
     expect(process.exitCode).toBeUndefined();
   });
+
+  it.each([
+    [500, 'Chars: 500 / 1000 (50%) — ✅ OK'],
+    [850, 'Chars: 850 / 1000 (85%) — ⚠ Warning'],
+    [1200, 'Chars: 1200 / 1000 (120%) — ❌ Over budget'],
+  ])(
+    'reports MEMORY.md with %i chars against the budget',
+    async (chars, line) => {
+      const saved = process.env['JEEVES_MEMORY_BUDGET'];
+      process.env['JEEVES_MEMORY_BUDGET'] = '1000';
+      try {
+        mkdirSync(join(testDir, 'workspace'), { recursive: true });
+        writeFileSync(
+          join(testDir, 'workspace', 'MEMORY.md'),
+          'x'.repeat(chars),
+        );
+        mockProbes({
+          runner: healthy('1'),
+          watcher: healthy('1'),
+          server: healthy('1'),
+          meta: healthy('1'),
+        });
+        const output = await runStatus();
+        expect(output).toContain(line);
+        // Memory hygiene never affects the exit code.
+        expect(process.exitCode).toBeUndefined();
+      } finally {
+        if (saved === undefined)
+          Reflect.deleteProperty(process.env, 'JEEVES_MEMORY_BUDGET');
+        else process.env['JEEVES_MEMORY_BUDGET'] = saved;
+      }
+    },
+  );
 
   it('shows HTTP error status on non-OK response', async () => {
     mockProbes({
@@ -120,15 +162,17 @@ describe('registerStatusCommand', () => {
       meta: healthy('1'),
     });
     const output = await runStatus();
-    expect(output).toContain('503');
+    expect(output).toMatch(/^runner +❌ HTTP 503 +—/m);
     expect(process.exitCode).toBe(1);
   });
 
   it('shows Down when a probe throws', async () => {
     mockProbes({ watcher: healthy('1') });
     const output = await runStatus();
-    expect(output).toContain('Running');
-    expect(output).toContain('Down');
+    expect(output).toMatch(/^watcher +✅ Running/m);
+    for (const name of ['runner', 'server', 'meta']) {
+      expect(output).toMatch(new RegExp(`^${name} +❌ Down +—`, 'm'));
+    }
     expect(process.exitCode).toBe(1);
   });
 
