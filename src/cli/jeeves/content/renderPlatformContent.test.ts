@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { AGENTS_MARKERS, SOUL_MARKERS } from '../constants/index.js';
-import { parseManaged } from '../managed/parseManaged.js';
+import { AGENTS_MARKERS, SOUL_MARKERS } from '../../../constants/index.js';
+import { parseManaged } from '../../../managed/parseManaged.js';
 import {
   renderPlatformContent,
   upsertPlatformSection,

@@ -1,21 +1,22 @@
 /**
- * Render the static platform content into workspace-ready strings (pure).
+ * Render the static platform content into workspace-ready strings (pure,
+ * internal to the jeeves CLI).
  *
  * @remarks
- * Consumers (jeeves-tools at instance creation / deploy, `jeeves install`)
- * write the returned strings to disk. Re-rendering is idempotent for a given
- * stamp and preserves user content outside the managed markers.
+ * `jeeves install` writes the returned strings to disk; it is the only
+ * writer. Re-rendering is idempotent for a given stamp and preserves user
+ * content outside the managed markers.
  *
  * @module
  */
 
-import { SKILLS_DIR, TEMPLATES_DIR } from '../constants/paths.js';
-import { CORE_VERSION } from '../constants/version.js';
+import { SKILLS_DIR, TEMPLATES_DIR } from '../../../constants/paths.js';
+import { CORE_VERSION } from '../../../constants/version.js';
 import {
   type ManagedBlockStampOptions,
   renderManagedBlock,
   upsertManagedBlock,
-} from '../managed/managedBlock.js';
+} from '../../../managed/managedBlock.js';
 import {
   PLATFORM_SECTIONS,
   PLATFORM_SKILLS,

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { validateSkillFrontmatter } from '../../../plugin/skillFrontmatter.js';
 import {
   BOOTSTRAP_FILE_MAX_CHARS,
   PLATFORM_CONTENT_TOTAL_BUDGET,
@@ -12,7 +13,6 @@ import {
   type PlatformSectionId,
 } from './platformContent.js';
 import { renderPlatformContent } from './renderPlatformContent.js';
-import { validateSkillFrontmatter } from './skillFrontmatter.js';
 
 const ids = Object.keys(PLATFORM_SECTIONS) as PlatformSectionId[];
 // Realistic stamp: a long version string and a full ISO timestamp.

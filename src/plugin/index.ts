@@ -34,6 +34,10 @@ export {
   resolveWorkspacePath,
 } from './resolve.js';
 export { connectionFail, fail, ok } from './results.js';
+export {
+  type SkillFrontmatter,
+  validateSkillFrontmatter,
+} from './skillFrontmatter.js';
 export type {
   PluginApi,
   ToolDescriptor,

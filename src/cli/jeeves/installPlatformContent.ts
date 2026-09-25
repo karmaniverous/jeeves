@@ -14,15 +14,15 @@ import { dirname, join } from 'node:path';
 
 import { CONFIG_FILE } from '../../constants/index.js';
 import {
-  type PlatformSectionId,
-  renderPlatformContent,
-  upsertPlatformSection,
-} from '../../content/index.js';
-import {
   coreConfigSchema,
   generateJsonSchema,
 } from '../../discovery/config.js';
 import { atomicWrite } from '../../managed/fileOps.js';
+import type { PlatformSectionId } from './content/platformContent.js';
+import {
+  renderPlatformContent,
+  upsertPlatformSection,
+} from './content/renderPlatformContent.js';
 
 /** Options for {@link installPlatformContent}. */
 export interface InstallPlatformContentOptions {

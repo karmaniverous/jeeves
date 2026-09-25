@@ -71,23 +71,6 @@ export {
   WORKSPACE_FILES,
 } from './constants/index.js';
 export {
-  BOOTSTRAP_FILE_MAX_CHARS,
-  PLATFORM_CONTENT_TOTAL_BUDGET,
-  PLATFORM_SECTION_BUDGETS,
-  PLATFORM_SECTIONS,
-  PLATFORM_SKILLS,
-  PLATFORM_TEMPLATES,
-  type PlatformSection,
-  type PlatformSectionId,
-  type RenderedFile,
-  type RenderedPlatformContent,
-  renderPlatformContent,
-  type RenderPlatformContentOptions,
-  type SkillFrontmatter,
-  upsertPlatformSection,
-  validateSkillFrontmatter,
-} from './content/index.js';
-export {
   type CoreConfig,
   coreConfigSchema,
   DEFAULT_BIND_ADDRESS,
@@ -156,9 +139,11 @@ export {
   resolveOptionalPluginSetting,
   resolvePluginSetting,
   resolveWorkspacePath,
+  type SkillFrontmatter,
   type ToolDescriptor,
   type ToolRegistrationOptions,
   type ToolResult,
+  validateSkillFrontmatter,
 } from './plugin/index.js';
 export {
   type AccountConfig,

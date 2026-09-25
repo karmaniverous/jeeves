@@ -1,31 +1,31 @@
 /**
- * Static Jeeves platform content as pure data: SOUL/AGENTS managed-section
- * bodies, platform skills, and reference templates. No I/O.
+ * Static Jeeves platform content as pure data (internal to the jeeves CLI):
+ * SOUL/AGENTS managed-section bodies, platform skills, reference templates.
  *
  * @remarks
  * Markdown sources live in the package's `content/` directory and are
- * inlined at build time (rollup md plugin), so this data is available even
- * when core is bundled into a consumer. jeeves-tools renders it into a
- * workspace at instance creation / deploy; see {@link renderPlatformContent}.
+ * inlined into the CLI bundle at build time (rollup md plugin). Not part of
+ * the library API: `jeeves install` is the sole writer of this content.
+ * No I/O.
  *
  * @module
  */
 
-import agentsSection from '../../content/agents-section.md';
-import codingSkill from '../../content/skills/coding.md';
-import jeevesSkill from '../../content/skills/jeeves.md';
-import operationsSkill from '../../content/skills/operations.md';
-import playbooksSkill from '../../content/skills/playbooks.md';
-import slackBotProvisionerSkill from '../../content/skills/slack-bot-provisioner.md';
-import soulSection from '../../content/soul-section.md';
-import specTemplate from '../../content/templates/spec.md';
-import specToCodeGuideTemplate from '../../content/templates/spec-to-code-guide.md';
+import agentsSection from '../../../../content/agents-section.md';
+import codingSkill from '../../../../content/skills/coding.md';
+import jeevesSkill from '../../../../content/skills/jeeves.md';
+import operationsSkill from '../../../../content/skills/operations.md';
+import playbooksSkill from '../../../../content/skills/playbooks.md';
+import slackBotProvisionerSkill from '../../../../content/skills/slack-bot-provisioner.md';
+import soulSection from '../../../../content/soul-section.md';
+import specTemplate from '../../../../content/templates/spec.md';
+import specToCodeGuideTemplate from '../../../../content/templates/spec-to-code-guide.md';
 import {
   AGENTS_MARKERS,
   type ManagedMarkers,
   SOUL_MARKERS,
-} from '../constants/markers.js';
-import { WORKSPACE_FILES } from '../constants/paths.js';
+} from '../../../constants/markers.js';
+import { WORKSPACE_FILES } from '../../../constants/paths.js';
 
 /** A managed section rendered into a workspace bootstrap file. */
 export interface PlatformSection {
