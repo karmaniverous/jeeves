@@ -173,6 +173,29 @@ export default function register(api: PluginApi): void {
 
   List every conversation hook you register (`before_prompt_build`, `llm_input`, `llm_output`, `agent_end`, …). A missing field means no grant; a field that is not an array of strings makes the install fail.
 
+- **Check the declaration in a test.** An undeclared hook installs cleanly and then never runs, so fail the build instead:
+
+  ```typescript
+  import {
+    recordRegisteredHooks,
+    validateConversationHooks,
+  } from '@karmaniverous/jeeves';
+
+  import register from './index.js';
+
+  it('declares its conversation hooks', async () => {
+    const hooks = await recordRegisteredHooks(register, {
+      pluginConfig: { configRoot: '/tmp/cfg' }, // whatever register() reads
+    });
+    const pkg: unknown = JSON.parse(readFileSync('package.json', 'utf-8'));
+    expect(validateConversationHooks(pkg, hooks)).toEqual([
+      'before_prompt_build',
+    ]);
+  });
+  ```
+
+  `recordRegisteredHooks` runs `register(api)` with a recording `api.on` (and a no-op `registerTool`); `validateConversationHooks` throws unless `jeeves.conversationHooks` lists exactly the gated hooks you register.
+
 ## Step 7: Lifecycle Hygiene
 
 `openclaw plugins inspect` and other CLI commands load your plugin and must exit on their own. So:

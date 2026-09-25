@@ -127,6 +127,33 @@ OpenClaw gates these typed hooks behind `allowConversationAccess`: `before_model
 
 The CLI reads the field from the registry for the exact version it installs (`npm view <pkg>@<version> jeeves.conversationHooks --json`, so it also works under `--dry-run`) and grants `allowConversationAccess` only when the field names at least one gated hook. No field means no grant. A malformed field fails the command. The CLI never removes a grant that is already set.
 
+A plugin that registers a gated hook without declaring it installs cleanly and then silently never runs the hook. Check the declaration in a test or build step:
+
+```typescript
+import { readFileSync } from 'node:fs';
+
+import {
+  recordRegisteredHooks,
+  validateConversationHooks,
+} from '@karmaniverous/jeeves';
+import { expect, it } from 'vitest';
+
+import register from './index.js';
+
+it('declares its conversation hooks', async () => {
+  const hooks = await recordRegisteredHooks(register, {
+    pluginConfig: { configRoot: '/tmp/cfg' },
+  });
+  const pkg: unknown = JSON.parse(readFileSync('package.json', 'utf-8'));
+  expect(validateConversationHooks(pkg, hooks)).toEqual([
+    'before_prompt_build',
+  ]);
+});
+```
+
+- **`recordRegisteredHooks(register, api?)`** runs your `register(api)` against a recording API (`api.on` records the hook name, `registerTool` is a no-op unless you pass one, other members come from `api`) and returns the hook names registered, e.g. `before_prompt_build` from `registerPromptContext`.
+- **`validateConversationHooks(packageJson, registeredHooks)`** throws unless `jeeves.conversationHooks` lists exactly the gated hooks among `registeredHooks` (a missing one, an extra one, or a malformed field all fail). Non-gated hooks are ignored. `CONVERSATION_HOOK_NAMES` is the gated list.
+
 ### Lifecycle
 
 Plugins must not register process-level signal handlers or leave timers/handles alive: `openclaw plugins inspect` and friends load plugin code and must exit on their own. Tie any long-lived resource to the host lifecycle:
@@ -167,7 +194,7 @@ Pre-defined marker sets: `SOUL_MARKERS`, `AGENTS_MARKERS`, and `LEGACY_TOOLS_MAR
 
 ### File Helpers
 
-- **`atomicWrite(filePath, content)`**: temp file + rename, with EPERM retry on Windows.
+- **`atomicWrite(filePath, content, { mode? })`**: temp file + rename, with EPERM retry on Windows. With `mode`, the temp file gets exactly that mode before the rename.
 - **`withFileLock(filePath, fn)`**: cross-process advisory lock via an atomic `mkdir` of `{file}.lock` (2-minute stale threshold, fails fast with `ELOCKED`). No signal handlers, no timers.
 
 ## Service Discovery
@@ -195,8 +222,7 @@ jeeves config [jsonpath]       # Print effective config with provenance
 OpenClaw must already be installed; `jeeves` checks for it and never installs it. `jeeves install`:
 
 1. Renders the SOUL.md/AGENTS.md managed blocks (your content outside the markers is kept), the platform skills, the reference templates, and the core config if it's missing. It never writes TOOLS.md or HEARTBEAT.md.
-2. For each plugin (default: `runner`, `watcher`, `server`, `meta` at `latest`), resolves an exact version with `npm view`, then runs `openclaw plugins install npm:<pkg>@<version> --pin --accept-capabilities --force`. `--force` is required for any non-ClawHub source, and it also overwrites an existing install, which is how updates land.
-   The install is skipped when that exact version is already installed. The CLI reads OpenClaw's install records once with `openclaw plugins inspect --all --json` (no plugin code is loaded) and skips a plugin only if its record has `source: "npm"`, names the same package, and records the same version, and the loaded plugin reports that version too. A v0.x path install, a leftover legacy copy, or any record it cannot read means a reinstall. `--force-reinstall` always reinstalls. Steps 3 and 4 run either way.
+2. For each plugin (default: `runner`, `watcher`, `server`, `meta` at `latest`), resolves an exact version with `npm view`, then runs `openclaw plugins install npm:<pkg>@<version> --pin --accept-capabilities --force`. `--force` is required for any non-ClawHub source, and it also overwrites an existing install, which is how updates land. The install is skipped when that exact version is already installed. The CLI reads OpenClaw's install records once with `openclaw plugins inspect --all --json` (no plugin code is loaded) and skips a plugin only if its record has `source: "npm"`, names the same package, and records the same version, and the loaded plugin reports that version too. A v0.x path install, a leftover legacy copy, or any record it cannot read means a reinstall. `--force-reinstall` always reinstalls. Steps 3 and 4 run either way.
 3. Removes any legacy `<openclaw dir>/extensions/<id>` copy left by the v0.x installer, but only if its `package.json` names the expected package.
 4. Sets `plugins.entries.<id>.hooks.allowConversationAccess: true` for plugins that [declare conversation hooks](#declaring-conversation-hooks), and the plugin config (`plugins.entries.<id>.config.<key>`, see [Plugin config](#plugin-config)), with one `openclaw config set --batch-file <file>` call. The file is created owner-only in a fresh temp directory (mode `0600` in a `0700` directory on Linux/macOS; on Windows the directory ACL is reduced to the current user with `icacls`) and deleted afterwards, so no value, secret or not, appears on a command line. Every write targets a leaf path, so unrelated keys are kept. `plugins.installs` is never written.
 
@@ -218,7 +244,7 @@ The plugins read their settings from `plugins.entries.<id>.config` in `openclaw.
 | `jeeves-runner-openclaw` | `apiUrl` | no | `http://127.0.0.1:1937` | `--runner-api-url <url>` |
 | `jeeves-watcher-openclaw` | `apiUrl` | no | `http://127.0.0.1:1936` | `--watcher-api-url <url>` |
 | `jeeves-server-openclaw` | `apiUrl` | no | `http://127.0.0.1:1934` | `--server-api-url <url>` |
-| `jeeves-server-openclaw` | `pluginKey` (secret) | no | the server's `keys._plugin` seed in `{configRoot}/jeeves-server/config.json`, else a new random 256-bit hex seed | `--server-plugin-key <seed>` |
+| `jeeves-server-openclaw` | `pluginKey` (secret) | no | kept in step with the server's `keys._plugin`, see [Server plugin key](#server-plugin-key) | `--server-plugin-key <seed>` |
 | `jeeves-meta-openclaw` | `apiUrl` | no | `http://127.0.0.1:1938` | `--meta-api-url <url>` |
 
 For each key, the first of these wins:
@@ -242,7 +268,26 @@ The `--plugin-config` file has the same shape as the options:
 
 Unknown keys are rejected (every plugin's `configSchema` sets `additionalProperties: false`). A file is a better place for `pluginKey` than the command line, where it lands in your shell history.
 
-Secrets are never printed and never passed on a command line. `openclaw` receives them in the owner-only batch file described above. The dry run, logs and error messages show `<redacted>` in place of `pluginKey`. If `jeeves install` generated a new `pluginKey`, jeeves-server has to trust the same seed. It prints a reminder to set `keys._plugin` in the server config to the value now in `openclaw.json`.
+Secrets are never printed and never passed on a command line. `openclaw` receives them in the owner-only batch file described above. The dry run, logs and error messages show `<redacted>` in place of `pluginKey` and `keys._plugin`.
+
+#### Server plugin key
+
+The server plugin's `pluginKey` must equal `keys._plugin` in `{configRoot}/jeeves-server/config.json`, or jeeves-server rejects the plugin. `jeeves install` and `jeeves update` keep both ends in step:
+
+| Server `keys._plugin` | Plugin `pluginKey` | Result |
+| --- | --- | --- |
+| set | not set | the plugin gets the server's key |
+| set | same key | nothing to write |
+| set | different key | fails before any change, unless you pass `--server-plugin-key` |
+| not set | set | the plugin's key is copied into the server config |
+| not set | not set | a new random 256-bit hex seed is generated and written to both ends |
+| server config missing, or `keys._plugin` not a literal (e.g. `${VAR}`) | set, or passed | only the plugin side is written (or kept), with a warning; the server config is never created or touched |
+| server config missing, or `keys._plugin` not a literal | not set | fails before any change (a generated key could not be synced) |
+| server config not valid JSON | set, nothing passed | nothing changes, with a warning; otherwise fails |
+
+`--server-plugin-key <seed>` (or `server.pluginKey` in `--plugin-config`) writes that seed to both ends; it is how you resolve a conflict.
+
+A server config write is planned first and runs before any `openclaw` command. Under the file's `config.json.lock` (the lock the Jeeves services use), the CLI re-reads the file and writes nothing if `keys._plugin` changed since the plan. It copies the file to `config.json.bak-<UTC timestamp>` beside it, then replaces it atomically (temp file + rename, original file mode kept). Only `keys._plugin` changes (for the object form `{ "key": ..., ... }`, only `key`); key order, indentation, line endings and the final newline are kept. jeeves-server reads this file with `JSON.parse`, so it cannot contain comments. Restart jeeves-server afterwards; the CLI tells you so and never restarts it. The dry run shows the file and `keys._plugin = <redacted>` and writes nothing.
 
 ### Dry run and failures
 
@@ -259,7 +304,7 @@ $ jeeves install watcher --dry-run
 [dry-run]   batch file content: [{"path":"plugins.entries.jeeves-watcher-openclaw.hooks.allowConversationAccess","value":true}]
 ```
 
-With plugin config (fresh box, `--config-root` passed, server key generated):
+With plugin config (fresh box, `--config-root` passed, server config without `keys._plugin`, so a key is generated for both ends):
 
 ```text
 $ jeeves install server --config-root /srv/jeeves/config --dry-run
@@ -268,6 +313,9 @@ Plugin config:
   jeeves-server-openclaw.configRoot = "/srv/jeeves/config" (option; write)
   jeeves-server-openclaw.apiUrl = "http://127.0.0.1:1934" (default; write)
   jeeves-server-openclaw.pluginKey = <redacted> (generated; write)
+  jeeves-server keys._plugin = <redacted> (/srv/jeeves/config/jeeves-server/config.json; currently unset; write)
+…
+[dry-run] set keys._plugin = <redacted> in /srv/jeeves/config/jeeves-server/config.json (currently unset; backup /srv/jeeves/config/jeeves-server/config.json.bak-<timestamp> first, then atomic write; restart jeeves-server afterwards)
 …
 [dry-run] openclaw config set --batch-file <private temp file>
 [dry-run]   batch file content: [{"path":"plugins.entries.jeeves-server-openclaw.config.configRoot","value":"/srv/jeeves/config"},{"path":"plugins.entries.jeeves-server-openclaw.config.apiUrl","value":"http://127.0.0.1:1934"},{"path":"plugins.entries.jeeves-server-openclaw.config.pluginKey","value":"<redacted>"}]
@@ -284,7 +332,7 @@ The OpenClaw directory follows OpenClaw's own resolution: `OPENCLAW_STATE_DIR`, 
 3. `npm install -g @karmaniverous/jeeves`
 4. `jeeves install --config-root /srv/jeeves/config --dry-run`. Review the files, the plugin config and the exact `openclaw` commands. Add `--<component>-api-url` options if a service is not on its default port.
 5. `jeeves install --config-root /srv/jeeves/config`
-6. Restart the gateway yourself. `jeeves` never does this.
+6. Restart the gateway yourself, and jeeves-server too if `jeeves` reports it updated `keys._plugin`. `jeeves` never restarts either.
 
 ### Remote use (jeeves-tools)
 

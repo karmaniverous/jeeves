@@ -14,7 +14,7 @@ v1 retires everything in `@karmaniverous/jeeves` that wrote to a live workspace 
 4. Drop `sectionId`, `refreshIntervalSeconds`, `generateToolsContent`, and `dependencies` from your descriptor. (Zod strips them if you forget, so this is not a hard break at parse time, but TypeScript will flag them.)
 5. Declare your skill in `openclaw.plugin.json` (`"skills": [...]`) and ship it in the package.
 6. Make sure nothing in your plugin installs process signal handlers or leaves timers running; use `onPluginDispose`.
-7. If you use `registerPromptContext` (or any other conversation hook), declare it in `package.json`: `"jeeves": { "conversationHooks": ["before_prompt_build"] }`. `jeeves install` / `jeeves update` grant `plugins.entries.<id>.hooks.allowConversationAccess: true` only to plugins that declare one; without the grant OpenClaw skips the hook.
+7. If you use `registerPromptContext` (or any other conversation hook), declare it in `package.json`: `"jeeves": { "conversationHooks": ["before_prompt_build"] }`. `jeeves install` / `jeeves update` grant `plugins.entries.<id>.hooks.allowConversationAccess: true` only to plugins that declare one; without the grant OpenClaw skips the hook. Add a test with `recordRegisteredHooks` + `validateConversationHooks` so a missing declaration fails your build.
 
 ## Removed → Replacement
 
@@ -48,6 +48,8 @@ v1 retires everything in `@karmaniverous/jeeves` that wrote to a live workspace 
 | --- | --- |
 | `renderManagedBlock`, `upsertManagedBlock`, `removeManagedBlock`, `formatBeginMarker`, `formatEndMarker` | Pure managed-block transforms |
 | `validateSkillFrontmatter`, `SkillFrontmatter` | `name`/`description` check for skill build steps |
+| `validateConversationHooks`, `recordRegisteredHooks`, `CONVERSATION_HOOK_NAMES` | Build/test check that `package.json` `jeeves.conversationHooks` matches the conversation hooks the plugin registers |
+| `atomicWrite(path, content, { mode })` | Optional file mode for the written file (backward compatible) |
 | `jeeves update [packages...]`, `jeeves install [plugins...]`, plugin removal in `jeeves uninstall`, `--dry-run` on all three, `--force-reinstall` on install/update | Plugin install/update/removal through the OpenClaw CLI; an exact version that is already installed is not reinstalled (see README, CLI) |
 | `jeeves install` / `jeeves update` plugin config options: `--config-root` (shared), `--runner-api-url`, `--watcher-api-url`, `--server-api-url`, `--server-plugin-key`, `--meta-api-url`, `--plugin-config <file.json>` | Writes missing (or explicitly passed) `plugins.entries.<id>.config` values through an owner-only `--batch-file` (replaces the per-plugin `npx <plugin> install` config step) |
 | `registerPromptContext`, `promptContextOptionsSchema`, `PromptBuild*` types | `before_prompt_build` → `{ appendSystemContext }` |
@@ -68,7 +70,7 @@ jeeves install --config-root /srv/jeeves/config --dry-run   # files, plugin conf
 jeeves install --config-root /srv/jeeves/config             # content + runner/watcher/server/meta plugins at latest
 ```
 
-4. Restart the gateway yourself. The CLI only prints a reminder, because it can't know whether the gateway runs in a console, as a service or in a container.
+4. Restart the gateway yourself (and jeeves-server if the CLI updated its `keys._plugin`). The CLI only prints a reminder, because it can't know whether they run in a console, as a service or in a container.
 
 Later:
 
@@ -83,7 +85,7 @@ Re-running either command is cheap: a plugin already installed at the resolved v
 
 - `configRoot` is required. It comes from `--config-root`, then the existing value, then `JEEVES_CONFIG_ROOT` or `jeeves.config.json`. With none of them, the command fails before writing anything and lists the missing options.
 - `apiUrl` defaults to the service's local port.
-- The server `pluginKey` defaults to the server's own `keys._plugin` seed, or else a newly generated one (shown only as `<redacted>`).
+- The server `pluginKey` is kept equal to the server's `keys._plugin` in `{configRoot}/jeeves-server/config.json`: the plugin takes the server's key; a server without one gets the plugin's key, or a newly generated one written to both ends; different keys on the two ends fail before any change unless you pass `--server-plugin-key`, which writes both. A server config write is backed up (`config.json.bak-<timestamp>`) and atomic, changes only `keys._plugin`, and needs a jeeves-server restart. Keys are shown only as `<redacted>`. See README, _Server plugin key_.
 
 Values already in `openclaw.json` are kept unless you pass them explicitly. See README, _Plugin config_.
 
