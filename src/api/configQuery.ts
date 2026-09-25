@@ -49,10 +49,12 @@ export function createConfigQueryHandler(
     }
 
     try {
-      const result: unknown[] = JSONPath({
+      const matches = JSONPath({
         path: query.path,
         json: config as object,
+        wrap: true,
       });
+      const result: unknown[] = Array.isArray(matches) ? matches : [];
       return Promise.resolve({
         status: 200,
         body: { result, count: result.length },
