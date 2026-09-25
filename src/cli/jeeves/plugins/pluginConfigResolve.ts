@@ -1,5 +1,6 @@
 /**
- * Resolve the `plugins.entries.<id>.config` values `jeeves install` writes,
+ * Resolve the `plugins.entries.<id>.config` values `jeeves install` and
+ * `jeeves update` write,
  * with precedence option \> `--plugin-config` file \> existing value \>
  * default \> error. Pure apart from injected ports (file read, secret
  * generation).

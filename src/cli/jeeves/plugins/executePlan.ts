@@ -2,10 +2,12 @@
  * Execute or print a plugin operation plan.
  *
  * @remarks
- * Dry run: prints every step (exact command lines and conditional config
- * repairs) and performs no mutation. Live: runs steps in order and stops at
- * the first failure; a non-zero exit from any `openclaw` command throws
- * {@link CommandFailedError}, which the CLI turns into a non-zero exit.
+ * Dry run: prints every step (exact command lines, batch file contents with
+ * secrets redacted, conditional config repairs) and performs no mutation.
+ * Live: runs steps in order and stops at the first failure; a non-zero exit
+ * from any `openclaw` command throws {@link CommandFailedError}, which the CLI
+ * turns into a non-zero exit. Config batches are written to an owner-only
+ * temp file, passed with `--batch-file`, and deleted afterwards.
  *
  * @module
  */
@@ -18,12 +20,19 @@ import {
 import { computePostUninstallRepair } from './configPatch.js';
 import type { LegacyFs } from './legacyExtensions.js';
 import {
-  configSetBatchArgs,
+  BATCH_FILE_NAME,
+  configBatchPayload,
+  configSetBatchFileArgs,
+  type ConfigSetOperation,
   configUnsetArgs,
   OPENCLAW_BIN,
 } from './openclawCommands.js';
 import { readPluginsConfig } from './openclawState.js';
-import { describeStep, type PlanStep } from './plan.js';
+import { describeConfigBatch, describeStep, type PlanStep } from './plan.js';
+import {
+  type PrivateTempFiles,
+  withPrivateTempFile,
+} from './privateTempFile.js';
 
 /** Dependencies of {@link executePlan}. */
 export interface ExecutePlanContext {
@@ -31,6 +40,8 @@ export interface ExecutePlanContext {
   runner: CommandRunner;
   /** Filesystem port for legacy removal. */
   fs: LegacyFs;
+  /** Owner-only temp files for config batches. */
+  tempFiles: PrivateTempFiles;
   /** Line logger. */
   log: (line: string) => void;
   /** Print only; mutate nothing. */
@@ -46,6 +57,35 @@ async function runLogged(
   await runChecked(ctx.runner, OPENCLAW_BIN, args, { echo: true });
 }
 
+/**
+ * Apply config operations with `openclaw config set --batch-file`.
+ *
+ * @param ctx - Execution context.
+ * @param ops - Operations (non-empty).
+ * @param redact - Secret values to keep out of logs and errors.
+ */
+async function runConfigBatch(
+  ctx: ExecutePlanContext,
+  ops: readonly ConfigSetOperation[],
+  redact?: readonly string[],
+): Promise<void> {
+  const shown = describeConfigBatch(ops, redact);
+  ctx.log(`$ ${shown.command}`);
+  ctx.log(`  batch file content: ${shown.content}`);
+  await withPrivateTempFile(
+    ctx.tempFiles,
+    BATCH_FILE_NAME,
+    configBatchPayload(ops),
+    async (path) => {
+      await runChecked(ctx.runner, OPENCLAW_BIN, configSetBatchFileArgs(path), {
+        echo: true,
+        ...(redact ? { redact } : {}),
+      });
+    },
+    ctx.log,
+  );
+}
+
 /** Execute one step for real. */
 async function executeStep(
   step: PlanStep,
@@ -54,10 +94,10 @@ async function executeStep(
   switch (step.kind) {
     case 'exec':
       ctx.log(`$ ${describeStep(step)[0]}`);
-      await runChecked(ctx.runner, step.command, step.args, {
-        echo: true,
-        ...(step.redact ? { redact: step.redact } : {}),
-      });
+      await runChecked(ctx.runner, step.command, step.args, { echo: true });
+      return;
+    case 'configSetBatch':
+      await runConfigBatch(ctx, step.ops, step.redact);
       return;
     case 'removeDir':
       if (ctx.fs.isDirectory(step.path)) {
@@ -77,9 +117,7 @@ async function executeStep(
       for (const path of repair.unsetPaths) {
         await runLogged(ctx, configUnsetArgs(path));
       }
-      if (repair.setOps.length > 0) {
-        await runLogged(ctx, configSetBatchArgs(repair.setOps));
-      }
+      if (repair.setOps.length > 0) await runConfigBatch(ctx, repair.setOps);
       return;
     }
   }

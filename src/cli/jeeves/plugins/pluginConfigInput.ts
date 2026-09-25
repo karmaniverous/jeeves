@@ -1,5 +1,5 @@
 /**
- * Collect `jeeves install` plugin config input from CLI options and an
+ * Collect `jeeves install` / `jeeves update` plugin config input from CLI options and an
  * optional `--plugin-config <file.json>`, validated with Zod.
  *
  * @remarks
@@ -22,7 +22,8 @@ import {
   pluginConfigInputSchema,
 } from './pluginConfigSchema.js';
 
-const pluginConfigCliOptionsSchema = z.object({
+/** Per-plugin CLI options (Commander camelCase), validated. */
+export const pluginConfigCliOptionsSchema = z.object({
   runnerApiUrl: z.string().optional(),
   watcherApiUrl: z.string().optional(),
   serverApiUrl: z.string().optional(),
@@ -30,7 +31,7 @@ const pluginConfigCliOptionsSchema = z.object({
   metaApiUrl: z.string().optional(),
 });
 
-/** Per-plugin CLI options of `jeeves install` (Commander camelCase). */
+/** Per-plugin CLI options of `jeeves install` / `update` (Commander camelCase). */
 export type PluginConfigCliOptions = z.infer<
   typeof pluginConfigCliOptionsSchema
 >;

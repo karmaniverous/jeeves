@@ -10,7 +10,13 @@
  *   non-ClawHub source (runbook spike S1) and also overwrites an existing
  *   install, which is how updates are applied.
  * - `plugins uninstall --force` skips the interactive confirmation.
- * - `config set --batch-json` applies several path writes atomically.
+ * - `plugins inspect --all --json` (read-only, no plugin code loaded)
+ *   prints one report per plugin with its install record (`install`).
+ * - `config set --batch-file <path>` applies several path writes atomically,
+ *   read from a JSON(5) array file (`src/cli/config-set-input.ts`). The
+ *   jeeves CLI always uses the file form so that secrets never appear on a
+ *   command line; the file is owner-only and deleted afterwards (see
+ *   `privateTempFile.ts`).
  *
  * Nothing here ever targets `plugins.installs` (OpenClaw keeps install
  * records in its state DB; the key is retired).
@@ -24,7 +30,7 @@ export const OPENCLAW_BIN = 'openclaw';
 /** npm CLI executable. */
 export const NPM_BIN = 'npm';
 
-/** One `openclaw config set --batch-json` operation. */
+/** One `openclaw config set --batch-file` operation. */
 export interface ConfigSetOperation {
   /** Dot path. */
   path: string;
@@ -94,19 +100,45 @@ export const configGetArgs = (path: string): string[] => [
   '--json',
 ];
 
+/** File name of the batch file inside its private temp directory. */
+export const BATCH_FILE_NAME = 'config-set.batch.json';
+
+/** Placeholder for the batch file path in dry-run output. */
+export const BATCH_FILE_PLACEHOLDER = '<private temp file>';
+
 /**
- * `openclaw config set --batch-json '<ops>'`.
+ * Serialize `config set` operations for `--batch-file`.
  *
  * @param ops - Operations (non-empty).
- * @returns Argument vector.
+ * @returns JSON array text.
+ * @throws Error for an empty batch or a retired path.
  */
-export function configSetBatchArgs(
-  ops: readonly ConfigSetOperation[],
-): string[] {
+export function configBatchPayload(ops: readonly ConfigSetOperation[]): string {
   if (ops.length === 0) throw new Error('config set batch must not be empty');
   for (const op of ops) assertWritablePath(op.path);
-  return ['config', 'set', '--batch-json', JSON.stringify(ops)];
+  return JSON.stringify(ops);
 }
+
+/**
+ * `openclaw config set --batch-file <path>`.
+ *
+ * @param path - Batch file path.
+ * @returns Argument vector.
+ */
+export const configSetBatchFileArgs = (path: string): string[] => [
+  'config',
+  'set',
+  '--batch-file',
+  path,
+];
+
+/** `openclaw plugins inspect --all --json` (read-only). */
+export const pluginsInspectAllArgs = (): string[] => [
+  'plugins',
+  'inspect',
+  '--all',
+  '--json',
+];
 
 /**
  * `openclaw config unset <path>`.
@@ -130,3 +162,17 @@ export const npmViewVersionArgs = (
   packageName: string,
   range: string,
 ): string[] => ['view', `${packageName}@${range}`, 'version', '--json'];
+
+/**
+ * `npm view <pkg>@<version> <field> --json` (read-only package.json field).
+ *
+ * @param packageName - Scoped npm package name.
+ * @param version - Exact version.
+ * @param field - Dot path into package.json.
+ * @returns Argument vector.
+ */
+export const npmViewFieldArgs = (
+  packageName: string,
+  version: string,
+  field: string,
+): string[] => ['view', `${packageName}@${version}`, field, '--json'];

@@ -4,9 +4,11 @@
  *
  * @remarks
  * - Hook access: `plugins.entries.<id>.hooks.allowConversationAccess: true`
- *   is required for `before_prompt_build`, and `--accept-capabilities` does
- *   not set it (runbook spike S2). Written as a leaf path, so sibling keys
- *   such as `plugins.entries.<id>.config` are preserved.
+ *   is required for conversation hooks such as `before_prompt_build`, and
+ *   `--accept-capabilities` does not set it (runbook spike S2). Only granted
+ *   to plugins that declare such hooks (see `conversationHooks.ts`); never
+ *   removed. Written as a leaf path, so sibling keys such as
+ *   `plugins.entries.<id>.config` are preserved.
  * - Post-uninstall repair: `openclaw plugins uninstall` leaves
  *   `entries.<id> = { enabled: false }` behind and can delete `plugins.load`
  *   (spike S1). Both are undone.
@@ -48,7 +50,7 @@ export const configValuePath = (pluginId: string, key: string): string =>
  * Operations that grant conversation-access hooks to the given plugins.
  *
  * @param plugins - Current `plugins` config.
- * @param pluginIds - Plugins that need `before_prompt_build`.
+ * @param pluginIds - Plugins that register conversation hooks.
  * @returns One operation per plugin not already granted (may be empty).
  */
 export function computeHookAccessOps(
@@ -87,7 +89,7 @@ export function isLeftoverDisabledEntry(entry: unknown): boolean {
 export interface PostUninstallRepair {
   /** Paths to `openclaw config unset`. */
   unsetPaths: string[];
-  /** Operations for `openclaw config set --batch-json` (may be empty). */
+  /** Operations for `openclaw config set --batch-file` (may be empty). */
   setOps: ConfigSetOperation[];
 }
 

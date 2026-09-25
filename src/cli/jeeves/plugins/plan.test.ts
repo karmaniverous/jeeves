@@ -11,18 +11,21 @@ import { parsePluginSpec } from './pluginSpec.js';
 const target = (
   spec: string,
   version: string,
-  legacyDir?: string,
+  extra: Partial<ResolvedTarget> = {},
 ): ResolvedTarget => ({
   ...parsePluginSpec(spec),
   version,
-  ...(legacyDir ? { legacyDir } : {}),
+  conversationHooks: ['before_prompt_build'],
+  ...extra,
 });
 
 describe('buildInstallPlan', () => {
-  it('orders installs, then legacy removal, then one hook batch', () => {
+  it('orders installs, then legacy removal, then one config batch', () => {
     const steps = buildInstallPlan(
       [
-        target('watcher', '1.0.0', '/oc/extensions/jeeves-watcher-openclaw'),
+        target('watcher', '1.0.0', {
+          legacyDir: '/oc/extensions/jeeves-watcher-openclaw',
+        }),
         target('meta', '2.0.0'),
       ],
       {},
@@ -31,11 +34,44 @@ describe('buildInstallPlan', () => {
       'exec',
       'exec',
       'removeDir',
-      'exec',
+      'configSetBatch',
     ]);
-    expect(describeStep(steps[3])[0]).toMatch(
-      /^openclaw config set --batch-json '\[/,
+    expect(describeStep(steps[3])).toEqual([
+      'openclaw config set --batch-file <private temp file>',
+      expect.stringMatching(/^ {2}batch file content: \[/) as string,
+    ]);
+  });
+
+  it('skips the install step of an already installed target', () => {
+    const steps = buildInstallPlan(
+      [
+        target('watcher', '1.0.0', { installed: true }),
+        target('meta', '2.0.0'),
+      ],
+      {},
     );
+    expect(
+      steps.flatMap((s) => (s.kind === 'exec' ? [s.args[2]] : [])),
+    ).toEqual(['npm:@karmaniverous/jeeves-meta-openclaw@2.0.0']);
+    const batch = steps.at(-1);
+    expect(batch?.kind === 'configSetBatch' && batch.ops).toHaveLength(2);
+  });
+
+  it('grants hook access only to targets that declare conversation hooks', () => {
+    const steps = buildInstallPlan(
+      [
+        target('watcher', '1.0.0'),
+        target('runner', '1.0.0', { conversationHooks: [] }),
+      ],
+      {},
+    );
+    const batch = steps.at(-1);
+    expect(batch?.kind === 'configSetBatch' && batch.ops).toEqual([
+      {
+        path: 'plugins.entries.jeeves-watcher-openclaw.hooks.allowConversationAccess',
+        value: true,
+      },
+    ]);
   });
 
   it('returns no steps for no targets', () => {
@@ -59,8 +95,11 @@ describe('buildInstallPlan', () => {
       },
     );
     const batch = steps[1];
-    expect(batch).toMatchObject({ kind: 'exec', redact: ['topsecret'] });
-    expect(batch.kind === 'exec' && JSON.parse(batch.args[3])).toEqual([
+    expect(batch).toMatchObject({
+      kind: 'configSetBatch',
+      redact: ['topsecret'],
+    });
+    expect(batch.kind === 'configSetBatch' && batch.ops).toEqual([
       {
         path: 'plugins.entries.jeeves-server-openclaw.hooks.allowConversationAccess',
         value: true,
@@ -70,8 +109,9 @@ describe('buildInstallPlan', () => {
         value: 'topsecret',
       },
     ]);
-    expect(describeStep(batch)[0]).not.toContain('topsecret');
-    expect(describeStep(batch)[0]).toContain('"value":"<redacted>"');
+    const shown = describeStep(batch).join('\n');
+    expect(shown).not.toContain('topsecret');
+    expect(shown).toContain('"value":"<redacted>"');
   });
 });
 
@@ -97,11 +137,12 @@ describe('describeStep', () => {
     expect(
       describeStep({
         kind: 'repairAfterUninstall',
-        before: {},
+        before: { load: { paths: [] } },
         pluginIds: ['a-openclaw'],
       }),
     ).toEqual([
       'if left as {"enabled":false}: openclaw config unset plugins.entries.a-openclaw',
+      'if plugins.load was removed: openclaw config set --batch-file <private temp file> with [{"path":"plugins.load","value":{"paths":[]}}]',
     ]);
   });
 });

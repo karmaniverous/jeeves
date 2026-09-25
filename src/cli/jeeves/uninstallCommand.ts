@@ -1,14 +1,16 @@
 /**
- * CLI uninstall command: remove managed blocks and platform artifacts, and
- * optionally the Jeeves plugins.
+ * CLI uninstall command: remove managed blocks, platform artifacts and the
+ * Jeeves plugins.
  *
  * @remarks
  * Removes the managed blocks from SOUL.md and AGENTS.md (and any legacy v0.x
  * TOOLS.md block; nothing writes TOOLS.md any more). Removes templates and
- * the config schema file. With `--plugins`, runs
- * `openclaw plugins uninstall <id> --force` and repairs the leftovers (see
- * `plugins/workflows.ts`).
- * `--dry-run` changes nothing. Warns if platform services still respond.
+ * the config schema file. Then runs
+ * `openclaw plugins uninstall <id> --force` for every configured Jeeves
+ * plugin (they are useless without the rest of the platform) and repairs the
+ * leftovers (see `plugins/workflows.ts`). If OpenClaw is not installed the
+ * plugin step is skipped. `--dry-run` prints all of it and changes nothing.
+ * Warns if platform services still respond.
  *
  * @module
  */
@@ -34,7 +36,6 @@ import {
   createPluginWorkflowDeps,
   RESTART_NOTICE,
 } from './plugins/pluginDeps.js';
-import { parsePluginSpecs } from './plugins/pluginSpec.js';
 import { uninstallPlugins } from './plugins/workflows.js';
 import { removeManagedBlockFromFile } from './uninstallHelpers.js';
 
@@ -46,20 +47,17 @@ import { removeManagedBlockFromFile } from './uninstallHelpers.js';
 export function registerUninstallCommand(program: Command): void {
   program
     .command('uninstall')
-    .description('Remove Jeeves managed sections and platform artifacts')
+    .description(
+      'Remove Jeeves managed sections, platform artifacts and the Jeeves plugins',
+    )
     .option('-w, --workspace <path>', 'Workspace root path')
     .option('-c, --config-root <path>', 'Platform config root path')
     .option(
-      '--plugins [specs...]',
-      'Also uninstall Jeeves plugins (all configured ones, or the given specs)',
+      '--dry-run',
+      'Print what would be removed, including the exact openclaw commands; change nothing',
     )
-    .option('--dry-run', 'Print what would be removed; change nothing')
     .action(async (opts) => {
       const dryRun = opts.dryRun === true;
-      const pluginSpecs =
-        opts.plugins === undefined
-          ? undefined
-          : parsePluginSpecs(opts.plugins === true ? [] : opts.plugins);
       const resolved = initFromOptions(opts);
       const mark = dryRun ? '[dry-run] would remove' : '✓ removed';
 
@@ -101,14 +99,9 @@ export function registerUninstallCommand(program: Command): void {
 
       console.log();
 
-      if (pluginSpecs) {
-        const removed = await uninstallPlugins(
-          createPluginWorkflowDeps(dryRun),
-          pluginSpecs,
-        );
-        console.log();
-        if (!dryRun && removed.length > 0) console.log(RESTART_NOTICE);
-      }
+      const removed = await uninstallPlugins(createPluginWorkflowDeps(dryRun));
+      console.log();
+      if (!dryRun && removed.length > 0) console.log(RESTART_NOTICE);
 
       // Warn if services still responding
       try {
@@ -143,7 +136,7 @@ export function registerUninstallCommand(program: Command): void {
       console.log(
         dryRun
           ? 'Dry run complete. Nothing was changed.'
-          : '✅ Jeeves platform artifacts removed.',
+          : '✅ Jeeves platform artifacts and plugins removed.',
       );
     });
 }

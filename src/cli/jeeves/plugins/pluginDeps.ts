@@ -1,6 +1,6 @@
 /**
  * Production wiring of the plugin workflow ports (process spawner, node fs,
- * OpenClaw config dir, console logger).
+ * owner-only temp files, OpenClaw config dir, console logger).
  *
  * @module
  */
@@ -9,6 +9,7 @@ import { spawnCommandRunner } from './commandRunner.js';
 import { nodeLegacyFs, resolveOpenClawConfigDir } from './legacyExtensions.js';
 import type { PluginConfigRequest } from './pluginConfigResolve.js';
 import type { PluginConfigInput } from './pluginConfigSchema.js';
+import { createNodePrivateTempFiles } from './privateTempFile.js';
 import { generatePluginKey } from './secrets.js';
 import { nodeReadTextFile, readServerPluginKey } from './serverPluginKey.js';
 import type { PluginWorkflowDeps } from './workflows.js';
@@ -23,6 +24,7 @@ export function createPluginWorkflowDeps(dryRun: boolean): PluginWorkflowDeps {
   return {
     runner: spawnCommandRunner,
     fs: nodeLegacyFs,
+    tempFiles: createNodePrivateTempFiles(spawnCommandRunner),
     configDir: resolveOpenClawConfigDir(),
     log: (line) => {
       console.log(line);
@@ -32,7 +34,8 @@ export function createPluginWorkflowDeps(dryRun: boolean): PluginWorkflowDeps {
 }
 
 /**
- * Create the production plugin config request for `jeeves install`.
+ * Create the production plugin config request for `jeeves install` and
+ * `jeeves update`.
  *
  * @param options - Values from CLI options.
  * @param file - Values from `--plugin-config`.

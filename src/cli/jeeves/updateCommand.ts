@@ -1,18 +1,31 @@
 /**
  * CLI update command: update installed Jeeves plugins (or named ones) to a
- * version, range, or `latest`, through the OpenClaw CLI.
+ * version, range, or `latest`, through the OpenClaw CLI, and fill in their
+ * missing plugin config.
  *
  * @remarks
- * Same code path as `jeeves install` (resolve exact version →
+ * Same code path as `jeeves install` (resolve exact version → skip if already
+ * installed at it, unless `--force-reinstall` →
  * `openclaw plugins install … --pin --accept-capabilities --force` → legacy
- * cleanup → hook access). Does not touch workspace content. Only Jeeves
- * OpenClaw plugin packages are accepted.
+ * cleanup → one `config set --batch-file` with hook access and plugin
+ * config). Plugin config uses the same options and precedence as
+ * `jeeves install`: missing required/defaultable values are filled in,
+ * existing values are kept unless passed explicitly, and missing required
+ * values fail before anything changes. Does not touch workspace content.
+ * Only Jeeves OpenClaw plugin packages are accepted.
  *
  * @module
  */
 
 import type { Command } from '@commander-js/extra-typings';
 
+import { resolveCliConfig } from './cliDefaults.js';
+import {
+  addPluginOptions,
+  pluginCliOptionsSchema,
+  pluginConfigRequestFromCli,
+} from './plugins/pluginConfigCli.js';
+import { generatedSecretNotices } from './plugins/pluginConfigReport.js';
 import {
   createPluginWorkflowDeps,
   RESTART_NOTICE,
@@ -26,30 +39,46 @@ import { installPlugins, selectUpdateTargets } from './plugins/workflows.js';
  * @param program - The parent Commander program.
  */
 export function registerUpdateCommand(program: Command): void {
-  program
+  const command = program
     .command('update')
-    .description('Update Jeeves component plugins via the OpenClaw CLI')
+    .description(
+      'Update Jeeves component plugins via the OpenClaw CLI and fill in missing plugin config',
+    )
     .argument(
       '[packages...]',
       'Plugin specs, e.g. @karmaniverous/jeeves-runner-openclaw@1.0.1 or runner@^1 (default: every installed Jeeves plugin at latest)',
-    )
+    );
+  addPluginOptions(command);
+  command
     .option(
       '--dry-run',
-      'Print the exact openclaw commands and config changes; change nothing',
+      'Print plugin config and the exact openclaw commands; change nothing',
     )
-    .action(async (packages, opts) => {
-      const dryRun = opts.dryRun === true;
-      const deps = createPluginWorkflowDeps(dryRun);
-      const targets = await selectUpdateTargets(
-        deps,
-        parsePluginSpecs(packages),
+    .action(async (packages, rawOpts) => {
+      const dryRun = rawOpts.dryRun === true;
+      const opts = pluginCliOptionsSchema.parse(rawOpts);
+      const specs = parsePluginSpecs(packages);
+      const configRequest = pluginConfigRequestFromCli(
+        opts,
+        resolveCliConfig(opts).core.configRoot,
       );
-      await installPlugins(deps, targets);
+      const deps = createPluginWorkflowDeps(dryRun);
+      const targets = await selectUpdateTargets(deps, specs);
+      const prepared = await installPlugins(deps, targets, {
+        configRequest,
+        ...(opts.forceReinstall ? { forceReinstall: true } : {}),
+      });
       console.log();
+      const notices = prepared.config
+        ? generatedSecretNotices(prepared.config)
+        : [];
+      for (const notice of notices) console.log(notice);
       console.log(
         dryRun
           ? 'Dry run complete. Nothing was changed.'
-          : `✅ Plugins updated. ${RESTART_NOTICE}`,
+          : prepared.plan.length > 0
+            ? `✅ Plugins updated. ${RESTART_NOTICE}`
+            : '✅ Plugins already up to date.',
       );
     });
 }

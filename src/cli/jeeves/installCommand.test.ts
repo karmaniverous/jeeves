@@ -15,7 +15,13 @@ import { registerInstallCommand } from './installCommand.js';
 import { MissingPluginConfigError } from './plugins/pluginConfigResolve.js';
 import type * as PluginDepsModule from './plugins/pluginDeps.js';
 import type * as SecretsModule from './plugins/secrets.js';
-import { type FakeRunner, fakeRunner, ok } from './plugins/testRunner.js';
+import {
+  type FakeRunner,
+  fakeRunner,
+  type FakeTempFiles,
+  fakeTempFiles,
+  ok,
+} from './plugins/testRunner.js';
 import type { PluginWorkflowDeps } from './plugins/workflows.js';
 
 const SEED = 'c0ffee'.repeat(10) + 'c0ff';
@@ -23,6 +29,7 @@ const S = 'jeeves-server-openclaw';
 
 const state = vi.hoisted(() => ({
   fake: undefined as FakeRunner | undefined,
+  temp: undefined as FakeTempFiles | undefined,
 }));
 
 vi.mock('./plugins/pluginDeps.js', async (importOriginal) => {
@@ -38,6 +45,13 @@ vi.mock('./plugins/pluginDeps.js', async (importOriginal) => {
         isDirectory: () => false,
         readPackageName: () => undefined,
         removeDir: () => undefined,
+      },
+      tempFiles: {
+        makePrivateDir: () => state.temp?.files.makePrivateDir() ?? '',
+        restrictDir: (d) =>
+          state.temp?.files.restrictDir(d) ?? Promise.resolve(undefined),
+        writeNewFile: (p, t) => state.temp?.files.writeNewFile(p, t),
+        removeDir: (d) => state.temp?.files.removeDir(d),
       },
       configDir: '/oc',
       log: (line) => {
@@ -75,8 +89,13 @@ describe('jeeves install (plugin config)', () => {
     state.fake = fakeRunner({
       'openclaw --version': ok('OpenClaw 2026.9.6'),
       'openclaw config get plugins': ok('{}'),
+      'openclaw plugins inspect --all --json': ok('[]'),
       [`npm view @karmaniverous/${S}`]: ok('"0.14.0"'),
+      [`npm view @karmaniverous/${S}@0.14.0 jeeves.conversationHooks`]: ok(
+        '["before_prompt_build"]',
+      ),
     });
+    state.temp = fakeTempFiles();
   });
 
   afterEach(() => {
@@ -92,10 +111,7 @@ describe('jeeves install (plugin config)', () => {
       from: 'user',
     });
   };
-  const batch = (): unknown => {
-    const call = state.fake?.calls.find((c) => c.args[1] === 'set');
-    return call ? JSON.parse(call.args[3]) : undefined;
-  };
+  const batch = (): unknown => state.temp?.batch();
 
   it('fails before writing any content when configRoot is missing', async () => {
     await expect(run()).rejects.toBeInstanceOf(MissingPluginConfigError);
@@ -123,6 +139,7 @@ describe('jeeves install (plugin config)', () => {
     ]);
     const printed = out.join('\n');
     expect(printed).not.toContain(SEED);
+    expect(state.fake?.lines().join('\n')).not.toContain(SEED);
     expect(printed).toContain('keys._plugin');
     expect(printed).toContain('Restart the gateway');
   });
@@ -164,5 +181,49 @@ describe('jeeves install (plugin config)', () => {
     );
     expect(printed).not.toContain('server-seed');
     expect(existsSync(join(ws, 'SOUL.md'))).toBe(false);
+  });
+
+  it('skips the install of a current plugin but still writes missing config', async () => {
+    state.fake = fakeRunner({
+      'openclaw --version': ok('OpenClaw 2026.9.6'),
+      'openclaw config get plugins': ok(
+        JSON.stringify({
+          entries: { [S]: { config: { pluginKey: 'kept-seed' } } },
+        }),
+      ),
+      'openclaw plugins inspect --all --json': ok(
+        JSON.stringify([
+          {
+            plugin: { id: S, version: '0.14.0' },
+            install: {
+              source: 'npm',
+              resolvedName: `@karmaniverous/${S}`,
+              resolvedVersion: '0.14.0',
+            },
+          },
+        ]),
+      ),
+      [`npm view @karmaniverous/${S}`]: ok('"0.14.0"'),
+      [`npm view @karmaniverous/${S}@0.14.0 jeeves.conversationHooks`]: ok(''),
+    });
+    const cfg = join(dir, 'cfg');
+    await run('-c', cfg);
+    expect(
+      state.fake.lines().some((l) => / plugins install /.test(` ${l} `)),
+    ).toBe(false);
+    expect(batch()).toEqual([
+      { path: `plugins.entries.${S}.config.configRoot`, value: resolve(cfg) },
+      {
+        path: `plugins.entries.${S}.config.apiUrl`,
+        value: 'http://127.0.0.1:1934',
+      },
+    ]);
+  });
+
+  it('--force-reinstall installs without reading install records', async () => {
+    await run('-c', join(dir, 'cfg'), '--force-reinstall');
+    const lines = state.fake?.lines() ?? [];
+    expect(lines.some((l) => l.includes('plugins inspect'))).toBe(false);
+    expect(lines.some((l) => / plugins install /.test(` ${l} `))).toBe(true);
   });
 });

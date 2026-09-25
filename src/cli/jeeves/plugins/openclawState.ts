@@ -24,6 +24,18 @@ import {
   openclawVersionArgs,
 } from './openclawCommands.js';
 
+/** Thrown when the `openclaw` executable cannot be started at all. */
+export class OpenClawNotFoundError extends Error {
+  /** @param cause - The spawn error. */
+  constructor(cause: unknown) {
+    super(
+      'OpenClaw CLI not found on PATH. Install OpenClaw first; jeeves does not install its prerequisites.',
+      { cause },
+    );
+    this.name = 'OpenClawNotFoundError';
+  }
+}
+
 /** Prefix of OpenClaw's `config get` message for an unset path. */
 const UNSET_MESSAGE = 'Config path is valid but unset';
 
@@ -46,10 +58,7 @@ export async function assertOpenClawAvailable(
     return stdout.trim();
   } catch (error) {
     if (error instanceof CommandFailedError) throw error;
-    throw new Error(
-      'OpenClaw CLI not found on PATH. Install OpenClaw first; jeeves does not install its prerequisites.',
-      { cause: error },
-    );
+    throw new OpenClawNotFoundError(error);
   }
 }
 

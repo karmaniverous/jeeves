@@ -1,6 +1,6 @@
 /**
  * Plugin workflows for `jeeves install`, `jeeves update` and
- * `jeeves uninstall --plugins`: read state, build a plan, print or run it.
+ * `jeeves uninstall`: read state, build a plan, print or run it.
  *
  * @remarks
  * Reads go through the `openclaw`/`npm` CLIs (read-only, also under
@@ -11,14 +11,13 @@
  * @module
  */
 
-import type { CommandRunner } from './commandRunner.js';
 import { configuredPluginIds } from './configPatch.js';
-import { executePlan } from './executePlan.js';
-import { findLegacyExtension, type LegacyFs } from './legacyExtensions.js';
+import { executePlan, type ExecutePlanContext } from './executePlan.js';
+import { findLegacyExtension } from './legacyExtensions.js';
 import {
   assertOpenClawAvailable,
+  OpenClawNotFoundError,
   readPluginsConfig,
-  resolveExactVersion,
 } from './openclawState.js';
 import {
   buildInstallPlan,
@@ -37,19 +36,12 @@ import {
   parsePluginSpec,
   type PluginTarget,
 } from './pluginSpec.js';
+import { resolveTargets } from './resolveTargets.js';
 
 /** Dependencies shared by all plugin workflows. */
-export interface PluginWorkflowDeps {
-  /** Command runner port. */
-  runner: CommandRunner;
-  /** Filesystem port. */
-  fs: LegacyFs;
+export interface PluginWorkflowDeps extends ExecutePlanContext {
   /** OpenClaw config directory (parent of `extensions/`). */
   configDir: string;
-  /** Line logger. */
-  log: (line: string) => void;
-  /** Print only; mutate nothing. */
-  dryRun: boolean;
 }
 
 /** Print the plan header and prerequisite version. */
@@ -58,6 +50,14 @@ async function preflight(deps: PluginWorkflowDeps, title: string) {
   deps.log(
     `${title} (${version})${deps.dryRun ? ' [dry run: no changes]' : ''}`,
   );
+}
+
+/** Options of an install/update. */
+export interface InstallOptions {
+  /** Plugin config to fill in (missing values) or set (explicit values). */
+  configRequest?: PluginConfigRequest;
+  /** Reinstall even when the exact version is already installed. */
+  forceReinstall?: boolean;
 }
 
 /** A computed, not yet executed, install/update. */
@@ -72,11 +72,12 @@ export interface PreparedInstall {
 
 /**
  * Compute an install/update without mutating anything: preflight, config
- * read, version resolution, plugin config resolution, plan.
+ * read, target resolution (version, install record, declared hooks), plugin
+ * config resolution, plan.
  *
  * @param deps - Workflow dependencies.
  * @param targets - Plugins to install (range resolved via npm).
- * @param configRequest - Plugin config to write (`jeeves install` only).
+ * @param options - Plugin config request and reinstall policy.
  * @returns The prepared install.
  * @throws MissingPluginConfigError before any mutation when required plugin
  *   config is missing.
@@ -84,34 +85,19 @@ export interface PreparedInstall {
 export async function prepareInstall(
   deps: PluginWorkflowDeps,
   targets: readonly PluginTarget[],
-  configRequest?: PluginConfigRequest,
+  options: InstallOptions = {},
 ): Promise<PreparedInstall> {
   if (targets.length === 0) return { resolved: [], plan: [] };
   await preflight(deps, 'Jeeves plugins');
   const plugins = await readPluginsConfig(deps.runner);
-  const resolved: ResolvedTarget[] = [];
-  for (const t of targets) {
-    const version = await resolveExactVersion(
-      deps.runner,
-      t.packageName,
-      t.range,
-    );
-    const legacyDir = findLegacyExtension(
-      deps.fs,
-      deps.configDir,
-      t.pluginId,
-      t.packageName,
-    );
-    resolved.push({ ...t, version, ...(legacyDir ? { legacyDir } : {}) });
-    deps.log(
-      `  ${t.packageName}@${version}${legacyDir ? ' (legacy copy found)' : ''}`,
-    );
-  }
-  const config = configRequest
+  const resolved = await resolveTargets(deps, targets, {
+    ...(options.forceReinstall ? { forceReinstall: true } : {}),
+  });
+  const config = options.configRequest
     ? resolvePluginConfig(
         plugins,
         resolved.map((t) => t.pluginId),
-        configRequest,
+        options.configRequest,
       )
     : undefined;
   if (config) for (const line of describePluginConfig(config)) deps.log(line);
@@ -127,17 +113,17 @@ export async function prepareInstall(
  *
  * @param deps - Workflow dependencies.
  * @param targets - Plugins to install (range resolved via npm).
- * @param configRequest - Plugin config to write (`jeeves install` only).
- * @returns The resolved targets.
+ * @param options - Plugin config request and reinstall policy.
+ * @returns The prepared install (already executed unless dry run).
  */
 export async function installPlugins(
   deps: PluginWorkflowDeps,
   targets: readonly PluginTarget[],
-  configRequest?: PluginConfigRequest,
-): Promise<ResolvedTarget[]> {
-  const prepared = await prepareInstall(deps, targets, configRequest);
+  options: InstallOptions = {},
+): Promise<PreparedInstall> {
+  const prepared = await prepareInstall(deps, targets, options);
   await executePlan(prepared.plan, deps);
-  return prepared.resolved;
+  return prepared;
 }
 
 /**
@@ -164,30 +150,31 @@ export async function selectUpdateTargets(
 }
 
 /**
- * Uninstall Jeeves plugins and repair the config afterwards.
+ * Uninstall every configured Jeeves plugin and repair the config afterwards.
  *
  * @param deps - Workflow dependencies.
- * @param specs - Plugins to remove; empty means every configured Jeeves plugin.
- * @returns The plugin ids targeted.
+ * @returns The plugin ids targeted (empty when OpenClaw is not installed or
+ *   no Jeeves plugin is configured).
  */
 export async function uninstallPlugins(
   deps: PluginWorkflowDeps,
-  specs: readonly PluginTarget[],
 ): Promise<string[]> {
-  await preflight(deps, 'Jeeves plugin removal');
+  try {
+    await preflight(deps, 'Jeeves plugin removal');
+  } catch (error) {
+    if (!(error instanceof OpenClawNotFoundError)) throw error;
+    deps.log('  OpenClaw CLI not found; no plugins to remove');
+    return [];
+  }
   const before = await readPluginsConfig(deps.runner);
-  const targets =
-    specs.length > 0
-      ? specs
-      : configuredPluginIds(before, isJeevesPluginId).map((id) =>
-          parsePluginSpec(id),
-        );
-  if (targets.length === 0) {
+  const ids = configuredPluginIds(before, isJeevesPluginId);
+  if (ids.length === 0) {
     deps.log('  no Jeeves plugins configured; nothing to uninstall');
     return [];
   }
   const plan = buildUninstallPlan(
-    targets.map((t) => {
+    ids.map((id) => {
+      const t = parsePluginSpec(id);
       const legacyDir = findLegacyExtension(
         deps.fs,
         deps.configDir,
@@ -199,5 +186,5 @@ export async function uninstallPlugins(
     before,
   );
   await executePlan(plan, deps);
-  return targets.map((t) => t.pluginId);
+  return ids;
 }

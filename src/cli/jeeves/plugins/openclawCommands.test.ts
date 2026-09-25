@@ -2,11 +2,14 @@ import { describe, expect, it } from 'vitest';
 
 import {
   assertWritablePath,
+  configBatchPayload,
   configGetArgs,
-  configSetBatchArgs,
+  configSetBatchFileArgs,
   configUnsetArgs,
+  npmViewFieldArgs,
   npmViewVersionArgs,
   pluginInstallArgs,
+  pluginsInspectAllArgs,
   pluginUninstallArgs,
 } from './openclawCommands.js';
 
@@ -46,20 +49,39 @@ describe('openclaw command construction', () => {
       'version',
       '--json',
     ]);
+    expect(
+      npmViewFieldArgs('@karmaniverous/x-openclaw', '1.0.0', 'jeeves.a'),
+    ).toEqual([
+      'view',
+      '@karmaniverous/x-openclaw@1.0.0',
+      'jeeves.a',
+      '--json',
+    ]);
+    expect(pluginsInspectAllArgs()).toEqual([
+      'plugins',
+      'inspect',
+      '--all',
+      '--json',
+    ]);
   });
 
-  it('serializes a config batch as one JSON argument', () => {
-    const args = configSetBatchArgs([
+  it('passes a config batch as a file, never inline', () => {
+    expect(configSetBatchFileArgs('/tmp/x/batch.json')).toEqual([
+      'config',
+      'set',
+      '--batch-file',
+      '/tmp/x/batch.json',
+    ]);
+    const payload = configBatchPayload([
       { path: 'plugins.entries.a.hooks.allowConversationAccess', value: true },
     ]);
-    expect(args.slice(0, 3)).toEqual(['config', 'set', '--batch-json']);
-    expect(JSON.parse(args[3])).toEqual([
+    expect(JSON.parse(payload)).toEqual([
       { path: 'plugins.entries.a.hooks.allowConversationAccess', value: true },
     ]);
   });
 
   it('refuses an empty batch', () => {
-    expect(() => configSetBatchArgs([])).toThrow(/empty/);
+    expect(() => configBatchPayload([])).toThrow(/empty/);
   });
 
   it.each(['plugins.installs', 'plugins.installs.jeeves-watcher-openclaw'])(
@@ -68,7 +90,7 @@ describe('openclaw command construction', () => {
       expect(() => {
         assertWritablePath(path);
       }).toThrow(/retired/);
-      expect(() => configSetBatchArgs([{ path, value: {} }])).toThrow(
+      expect(() => configBatchPayload([{ path, value: {} }])).toThrow(
         /retired/,
       );
       expect(() => configUnsetArgs(path)).toThrow(/retired/);

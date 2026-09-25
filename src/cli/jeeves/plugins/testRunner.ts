@@ -1,11 +1,14 @@
 /**
- * Test double for the {@link CommandRunner} port: scripted responses keyed by
- * command-line prefix, with every call recorded. Test-only helper.
+ * Test doubles for the {@link CommandRunner} and {@link PrivateTempFiles}
+ * ports: scripted responses keyed by command-line prefix, with every call
+ * recorded; in-memory temp files that record what was written. Test-only
+ * helpers.
  *
  * @module
  */
 
 import type { CommandResult, CommandRunner } from './commandRunner.js';
+import type { PrivateTempFiles } from './privateTempFile.js';
 
 /** A recorded call. */
 export interface RecordedCall {
@@ -69,5 +72,55 @@ export function fakeRunner(
     runner,
     calls,
     lines: () => calls.map((c) => [c.command, ...c.args].join(' ')),
+  };
+}
+
+/** In-memory temp files plus a record of what happened to them. */
+export interface FakeTempFiles {
+  /** The port. */
+  files: PrivateTempFiles;
+  /** Files written, in order. */
+  written: { path: string; content: string }[];
+  /** Directories restricted. */
+  restricted: string[];
+  /** Directories removed. */
+  removed: string[];
+  /** Parsed content of the n-th written batch file (default: last). */
+  batch: (n?: number) => unknown;
+}
+
+/**
+ * Create fake temp files.
+ *
+ * @param restrictProblem - Reason returned by `restrictDir` (default: ok).
+ * @returns The fake.
+ */
+export function fakeTempFiles(restrictProblem?: string): FakeTempFiles {
+  const written: { path: string; content: string }[] = [];
+  const restricted: string[] = [];
+  const removed: string[] = [];
+  let n = 0;
+  const files: PrivateTempFiles = {
+    makePrivateDir: () => `/tmp/jeeves-${String(++n)}`,
+    restrictDir: (dir) => {
+      restricted.push(dir);
+      return Promise.resolve(restrictProblem);
+    },
+    writeNewFile: (path, content) => {
+      written.push({ path: path.replace(/\\/g, '/'), content });
+    },
+    removeDir: (dir) => {
+      removed.push(dir);
+    },
+  };
+  return {
+    files,
+    written,
+    restricted,
+    removed,
+    batch: (i) => {
+      const entry = i === undefined ? written.at(-1) : written[i];
+      return entry ? (JSON.parse(entry.content) as unknown) : undefined;
+    },
   };
 }
