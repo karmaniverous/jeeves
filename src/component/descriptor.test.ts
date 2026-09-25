@@ -79,52 +79,40 @@ describe('jeevesComponentDescriptorSchema', () => {
       }),
     );
     expect(result.success).toBe(true);
-    expect(result.success ? Object.keys(result.data) : []).not.toContain(
+    const keys = result.success ? Object.keys(result.data) : [];
+    for (const retired of [
       'sectionId',
-    );
+      'refreshIntervalSeconds',
+      'generateToolsContent',
+      'dependencies',
+    ]) {
+      expect(keys).not.toContain(retired);
+    }
   });
 
-  it('should accept optional onConfigApply', () => {
-    const result = jeevesComponentDescriptorSchema.safeParse(
-      makeDescriptor({
-        onConfigApply: async () => {
-          /* noop */
-        },
-      }),
-    );
-    expect(result.success).toBe(true);
-  });
-
-  it('should accept optional customCliCommands', () => {
-    const result = jeevesComponentDescriptorSchema.safeParse(
-      makeDescriptor({ customCliCommands: () => {} }),
-    );
-    expect(result.success).toBe(true);
-  });
-
-  it('should accept optional customPluginTools', () => {
-    const result = jeevesComponentDescriptorSchema.safeParse(
-      makeDescriptor({ customPluginTools: () => [] }),
-    );
-    expect(result.success).toBe(true);
-  });
+  it.each(['onConfigApply', 'customCliCommands', 'customPluginTools'])(
+    'should keep an optional %s function and reject a non-function',
+    (field) => {
+      const result = jeevesComponentDescriptorSchema.safeParse(
+        makeDescriptor({ [field]: () => undefined }),
+      );
+      expect(result.success).toBe(true);
+      expect(
+        typeof (result.data as Record<string, unknown> | undefined)?.[field],
+      ).toBe('function');
+      expect(
+        jeevesComponentDescriptorSchema.safeParse(
+          makeDescriptor({ [field]: 'nope' }),
+        ).success,
+      ).toBe(false);
+    },
+  );
 
   it('should require the run field', () => {
     const withoutRun: Record<string, unknown> = { ...makeDescriptor() };
     delete withoutRun['run'];
     const result = jeevesComponentDescriptorSchema.safeParse(withoutRun);
     expect(result.success).toBe(false);
-  });
-
-  it('should accept a valid run function', () => {
-    const result = jeevesComponentDescriptorSchema.safeParse(
-      makeDescriptor({
-        run: async () => {
-          /* noop */
-        },
-      }),
-    );
-    expect(result.success).toBe(true);
   });
 
   it('should reject negative defaultPort', () => {

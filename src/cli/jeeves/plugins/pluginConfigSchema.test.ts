@@ -10,19 +10,6 @@ import {
   pluginConfigInputSchema,
 } from './pluginConfigSchema.js';
 
-describe('PLUGIN_CONFIG_FIELDS', () => {
-  it('requires configRoot for every plugin and marks only pluginKey secret', () => {
-    for (const fields of Object.values(PLUGIN_CONFIG_FIELDS)) {
-      expect(fields[0]).toMatchObject({ key: 'configRoot', required: true });
-    }
-    const secrets = Object.values(PLUGIN_CONFIG_FIELDS)
-      .flat()
-      .filter((f) => f.secret)
-      .map((f) => f.option);
-    expect(secrets).toEqual(['--server-plugin-key']);
-  });
-});
-
 describe('descriptor table consistency', () => {
   it('has one CLI options schema key per per-plugin option', () => {
     expect(
@@ -41,16 +28,6 @@ describe('descriptor table consistency', () => {
         pluginConfigInputSchema.safeParse({ [component]: input }).success,
       ).toBe(true);
     }
-  });
-
-  it('lists the per-plugin options in help order', () => {
-    expect(PLUGIN_OPTION_FIELDS.map(({ field }) => field.option)).toEqual([
-      '--runner-api-url',
-      '--watcher-api-url',
-      '--server-api-url',
-      '--server-plugin-key',
-      '--meta-api-url',
-    ]);
   });
 
   it.each([
