@@ -20,6 +20,8 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { isRecord } from '../../../utils.js';
+
 /** Reads a text file; undefined when it does not exist or can't be read. */
 export type ReadTextFile = (path: string) => string | undefined;
 
@@ -39,9 +41,6 @@ export type ServerKeyState =
  */
 export const serverConfigPath = (configRoot: string): string =>
   join(configRoot, 'jeeves-server', 'config.json');
-
-const isRecord = (v: unknown): v is Record<string, unknown> =>
-  typeof v === 'object' && v !== null && !Array.isArray(v);
 
 /** Classify one seed string. */
 const seedState = (seed: string): ServerKeyState =>

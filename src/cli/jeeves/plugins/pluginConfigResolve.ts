@@ -21,8 +21,8 @@
  * @module
  */
 
-import type { PluginsConfig } from './configPatch.js';
-import { configValuePath } from './configPatch.js';
+import { isRecord } from '../../../utils.js';
+import { configValuePath, type PluginsConfig } from './configPatch.js';
 import type { ConfigSetOperation } from './openclawCommands.js';
 import {
   componentOf,
@@ -136,11 +136,8 @@ function existingConfig(
   pluginId: string,
 ): Record<string, unknown> {
   const entry = plugins.entries?.[pluginId];
-  if (typeof entry !== 'object' || entry === null) return {};
-  const config = (entry as { config?: unknown }).config;
-  return typeof config === 'object' && config !== null && !Array.isArray(config)
-    ? (config as Record<string, unknown>)
-    : {};
+  const config = isRecord(entry) ? entry['config'] : undefined;
+  return isRecord(config) ? config : {};
 }
 
 type Candidate = { value: string; source: ValueSource } | undefined;

@@ -1,6 +1,37 @@
 import { describe, expect, it } from 'vitest';
 
-import { getErrorMessage, isTransientError } from './utils.js';
+import {
+  getErrorCode,
+  getErrorMessage,
+  isRecord,
+  isTransientError,
+} from './utils.js';
+
+describe('isRecord', () => {
+  it.each([
+    [{}, true],
+    [{ a: 1 }, true],
+    [[], false],
+    [null, false],
+    [undefined, false],
+    ['x', false],
+  ])('%j → %s', (value, expected) => {
+    expect(isRecord(value)).toBe(expected);
+  });
+});
+
+describe('getErrorCode', () => {
+  it('returns the code of a Node-style error', () => {
+    expect(getErrorCode(Object.assign(new Error('x'), { code: 'EPERM' }))).toBe(
+      'EPERM',
+    );
+  });
+
+  it('returns undefined without a code', () => {
+    expect(getErrorCode(new Error('x'))).toBeUndefined();
+    expect(getErrorCode('EPERM')).toBeUndefined();
+  });
+});
 
 describe('getErrorMessage', () => {
   it('extracts message from Error instances', () => {

@@ -10,6 +10,8 @@ import { randomUUID } from 'node:crypto';
 import { chmodSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 
+import { getErrorCode } from '../utils.js';
+
 /** Maximum rename retry attempts on EPERM. */
 const ATOMIC_WRITE_MAX_RETRIES = 3;
 
@@ -55,11 +57,10 @@ export function atomicWrite(
       renameSync(tempPath, filePath);
       return;
     } catch (err: unknown) {
-      const isEperm =
-        err instanceof Error &&
-        'code' in err &&
-        (err as NodeJS.ErrnoException).code === 'EPERM';
-      if (!isEperm || attempt === ATOMIC_WRITE_MAX_RETRIES - 1) {
+      if (
+        getErrorCode(err) !== 'EPERM' ||
+        attempt === ATOMIC_WRITE_MAX_RETRIES - 1
+      ) {
         try {
           unlinkSync(tempPath);
         } catch {

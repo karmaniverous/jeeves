@@ -18,6 +18,8 @@ import { existsSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { homedir as osHomedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 
+import { isRecord } from '../../../utils.js';
+
 /** Filesystem port for legacy cleanup. */
 export interface LegacyFs {
   /** Whether `path` is an existing directory. */
@@ -93,10 +95,8 @@ export const nodeLegacyFs: LegacyFs = {
       const pkg: unknown = JSON.parse(
         readFileSync(join(dir, 'package.json'), 'utf-8'),
       );
-      return typeof pkg === 'object' &&
-        pkg !== null &&
-        typeof (pkg as { name?: unknown }).name === 'string'
-        ? (pkg as { name: string }).name
+      return isRecord(pkg) && typeof pkg['name'] === 'string'
+        ? pkg['name']
         : undefined;
     } catch {
       return undefined;

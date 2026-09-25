@@ -21,7 +21,12 @@
 
 import { z } from 'zod';
 
-import { type CommandRunner, formatCommand } from './commandRunner.js';
+import { getErrorMessage } from '../../../utils.js';
+import {
+  type CommandRunner,
+  describeExit,
+  formatCommand,
+} from './commandRunner.js';
 import { OPENCLAW_BIN, pluginsInspectAllArgs } from './openclawCommands.js';
 
 const inspectEntrySchema = z.looseObject({
@@ -105,10 +110,12 @@ export async function readInstalledPlugins(
   runner: CommandRunner,
 ): Promise<InstalledPlugins> {
   const args = pluginsInspectAllArgs();
-  const line = formatCommand(OPENCLAW_BIN, args);
   const result = await runner(OPENCLAW_BIN, args);
   if (result.exitCode !== 0) {
-    return { ok: false, reason: `${line} exited ${String(result.exitCode)}` };
+    return {
+      ok: false,
+      reason: describeExit(OPENCLAW_BIN, args, result.exitCode),
+    };
   }
   try {
     const entries = z
@@ -123,7 +130,9 @@ export async function readInstalledPlugins(
       byId: new Map(entries.map((e) => [e.plugin.id, e] as const)),
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return { ok: false, reason: `unexpected output from ${line}: ${message}` };
+    return {
+      ok: false,
+      reason: `unexpected output from ${formatCommand(OPENCLAW_BIN, args)}: ${getErrorMessage(error)}`,
+    };
   }
 }

@@ -25,7 +25,8 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir, userInfo } from 'node:os';
 import { join } from 'node:path';
 
-import { type CommandRunner, formatCommand } from './commandRunner.js';
+import { getErrorMessage } from '../../../utils.js';
+import { type CommandRunner, describeExit } from './commandRunner.js';
 
 /** Filesystem and ACL port for {@link withPrivateTempFile}. */
 export interface PrivateTempFiles {
@@ -129,9 +130,9 @@ export function createNodePrivateTempFiles(
         const result = await runner('icacls', args);
         return result.exitCode === 0
           ? undefined
-          : `${formatCommand('icacls', args)} exited ${String(result.exitCode)}`;
+          : describeExit('icacls', args, result.exitCode);
       } catch (error) {
-        return error instanceof Error ? error.message : String(error);
+        return getErrorMessage(error);
       }
     },
     writeNewFile: (path, content) => {

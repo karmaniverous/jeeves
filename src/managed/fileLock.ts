@@ -18,6 +18,8 @@
 
 import { mkdirSync, rmSync, statSync } from 'node:fs';
 
+import { getErrorCode } from '../utils.js';
+
 /** Stale lock threshold in ms (2 minutes). */
 export const STALE_LOCK_MS = 120_000;
 
@@ -30,13 +32,6 @@ class FileLockedError extends Error {
     super(`Lock file is already being held: ${filePath}`);
     this.name = 'FileLockedError';
   }
-}
-
-/** Return the error code of a Node fs error, if any. */
-function errorCode(err: unknown): string | undefined {
-  return err instanceof Error && 'code' in err
-    ? String((err as NodeJS.ErrnoException).code)
-    : undefined;
 }
 
 /**
@@ -52,13 +47,13 @@ function acquire(lockPath: string, filePath: string, staleMs: number): void {
       mkdirSync(lockPath);
       return;
     } catch (err: unknown) {
-      if (errorCode(err) !== 'EEXIST') throw err;
+      if (getErrorCode(err) !== 'EEXIST') throw err;
       let ageMs: number;
       try {
         ageMs = Date.now() - statSync(lockPath).mtimeMs;
       } catch (statErr: unknown) {
         // Released between mkdir and stat — retry.
-        if (errorCode(statErr) === 'ENOENT') continue;
+        if (getErrorCode(statErr) === 'ENOENT') continue;
         throw statErr;
       }
       if (ageMs < staleMs || attempt > 0) throw new FileLockedError(filePath);

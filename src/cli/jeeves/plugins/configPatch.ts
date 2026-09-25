@@ -18,6 +18,7 @@
 
 import { z } from 'zod';
 
+import { isRecord } from '../../../utils.js';
 import type { ConfigSetOperation } from './openclawCommands.js';
 
 /** The slice of `openclaw.json` → `plugins` this CLI reads. */
@@ -74,14 +75,10 @@ export function computeHookAccessOps(
  * @returns `true` only for an object whose sole key is `enabled: false`.
  */
 export function isLeftoverDisabledEntry(entry: unknown): boolean {
-  if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) {
-    return false;
-  }
+  if (!isRecord(entry)) return false;
   const keys = Object.keys(entry);
   return (
-    keys.length === 1 &&
-    keys[0] === 'enabled' &&
-    (entry as { enabled: unknown }).enabled === false
+    keys.length === 1 && keys[0] === 'enabled' && entry['enabled'] === false
   );
 }
 

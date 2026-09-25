@@ -70,6 +70,22 @@ export function formatCommand(
   return [command, ...args].map(quoteArg).join(' ');
 }
 
+/**
+ * One-line summary of a non-zero exit, for warnings.
+ *
+ * @param command - Executable name.
+ * @param args - Argument vector.
+ * @param exitCode - Exit code.
+ * @returns `<command line> exited <code>`.
+ */
+export function describeExit(
+  command: string,
+  args: readonly string[],
+  exitCode: number,
+): string {
+  return `${formatCommand(command, args)} exited ${String(exitCode)}`;
+}
+
 /** Thrown when a command exits non-zero. */
 export class CommandFailedError extends Error {
   /** The formatted command line. */

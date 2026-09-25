@@ -24,6 +24,7 @@ import { constants, copyFileSync, readFileSync, statSync } from 'node:fs';
 
 import { withFileLock } from '../../../managed/fileLock.js';
 import { atomicWrite } from '../../../managed/fileOps.js';
+import { isRecord } from '../../../utils.js';
 import type { ServerKeyWrite } from './serverKeySync.js';
 import { parseServerKeyState } from './serverPluginKey.js';
 
@@ -51,9 +52,6 @@ export type ServerConfigWriter = (write: ServerKeyWrite) => Promise<string>;
  */
 export const backupPath = (path: string, now: Date): string =>
   `${path}.bak-${now.toISOString().replace(/[-:.]/g, '')}`;
-
-const isRecord = (v: unknown): v is Record<string, unknown> =>
-  typeof v === 'object' && v !== null && !Array.isArray(v);
 
 /**
  * Indentation of a JSON text for `JSON.stringify`.

@@ -25,6 +25,7 @@ import {
   SERVER_PORT,
   WATCHER_PORT,
 } from '../../../constants/index.js';
+import { isRecord } from '../../../utils.js';
 
 /** How a field that is neither passed nor already set gets a value. */
 export type FieldFallback =
@@ -134,7 +135,6 @@ export function inputValue(
 ): string | undefined {
   if (key === 'configRoot') return input.configRoot;
   const values: unknown = (input as Record<string, unknown>)[component];
-  if (typeof values !== 'object' || values === null) return undefined;
-  const value: unknown = (values as Record<string, unknown>)[key];
+  const value = isRecord(values) ? values[key] : undefined;
   return typeof value === 'string' ? value : undefined;
 }
