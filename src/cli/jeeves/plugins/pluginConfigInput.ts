@@ -18,11 +18,16 @@ import { z } from 'zod';
 
 import { rejectWindowsDrivePath } from '../../../init.js';
 import {
+  optionKey,
+  PLUGIN_OPTION_FIELDS,
   type PluginConfigInput,
   pluginConfigInputSchema,
 } from './pluginConfigSchema.js';
 
-/** Per-plugin CLI options (Commander camelCase), validated. */
+/**
+ * Per-plugin CLI options (Commander camelCase), validated. One key per
+ * {@link PLUGIN_OPTION_FIELDS} entry (a test checks they agree).
+ */
 export const pluginConfigCliOptionsSchema = z.object({
   runnerApiUrl: z.string().optional(),
   watcherApiUrl: z.string().optional(),
@@ -59,11 +64,6 @@ function validate(raw: unknown, origin: string): PluginConfigInput {
     : { ...input, configRoot: normalizeConfigRoot(input.configRoot) };
 }
 
-const pick = <T extends object>(values: T): T | undefined => {
-  const defined = Object.entries(values).filter(([, v]) => v !== undefined);
-  return defined.length > 0 ? (Object.fromEntries(defined) as T) : undefined;
-};
-
 /**
  * Plugin config input from CLI options.
  *
@@ -75,18 +75,19 @@ export function pluginConfigFromOptions(
   opts: PluginConfigCliOptions,
   configRoot?: string,
 ): PluginConfigInput {
-  opts = pluginConfigCliOptionsSchema.parse(opts);
-  const raw = {
-    configRoot,
-    runner: pick({ apiUrl: opts.runnerApiUrl }),
-    watcher: pick({ apiUrl: opts.watcherApiUrl }),
-    server: pick({
-      apiUrl: opts.serverApiUrl,
-      pluginKey: opts.serverPluginKey,
-    }),
-    meta: pick({ apiUrl: opts.metaApiUrl }),
-  };
-  return validate(pick(raw) ?? {}, 'plugin config options');
+  const values: Record<string, unknown> =
+    pluginConfigCliOptionsSchema.parse(opts);
+  const sections: Record<string, Record<string, unknown>> = {};
+  for (const { component, field } of PLUGIN_OPTION_FIELDS) {
+    const value = values[optionKey(field.option)];
+    if (value !== undefined) {
+      sections[component] = { ...sections[component], [field.key]: value };
+    }
+  }
+  return validate(
+    { ...(configRoot === undefined ? {} : { configRoot }), ...sections },
+    'plugin config options',
+  );
 }
 
 /**

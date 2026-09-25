@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
+import { pluginConfigCliOptionsSchema } from './pluginConfigInput.js';
 import {
   componentOf,
   inputValue,
+  optionKey,
   PLUGIN_CONFIG_FIELDS,
+  PLUGIN_OPTION_FIELDS,
   pluginConfigInputSchema,
 } from './pluginConfigSchema.js';
 
@@ -17,6 +20,44 @@ describe('PLUGIN_CONFIG_FIELDS', () => {
       .filter((f) => f.secret)
       .map((f) => f.option);
     expect(secrets).toEqual(['--server-plugin-key']);
+  });
+});
+
+describe('descriptor table consistency', () => {
+  it('has one CLI options schema key per per-plugin option', () => {
+    expect(
+      PLUGIN_OPTION_FIELDS.map(({ field }) => optionKey(field.option)).sort(),
+    ).toEqual(Object.keys(pluginConfigCliOptionsSchema.shape).sort());
+  });
+
+  it('accepts every registered key in the config input schema', () => {
+    for (const [component, fields] of Object.entries(PLUGIN_CONFIG_FIELDS)) {
+      const input = Object.fromEntries(
+        fields
+          .filter((f) => f.key !== 'configRoot')
+          .map((f) => [f.key, f.key === 'apiUrl' ? 'http://h:1' : 'v']),
+      );
+      expect(
+        pluginConfigInputSchema.safeParse({ [component]: input }).success,
+      ).toBe(true);
+    }
+  });
+
+  it('lists the per-plugin options in help order', () => {
+    expect(PLUGIN_OPTION_FIELDS.map(({ field }) => field.option)).toEqual([
+      '--runner-api-url',
+      '--watcher-api-url',
+      '--server-api-url',
+      '--server-plugin-key',
+      '--meta-api-url',
+    ]);
+  });
+
+  it.each([
+    ['--runner-api-url', 'runnerApiUrl'],
+    ['--server-plugin-key', 'serverPluginKey'],
+  ])('optionKey(%s) → %s', (option, key) => {
+    expect(optionKey(option)).toBe(key);
   });
 });
 

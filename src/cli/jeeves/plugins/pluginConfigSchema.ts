@@ -1,7 +1,7 @@
 /**
- * Config each Jeeves OpenClaw plugin reads from
- * `plugins.entries.<id>.config`: field registry (required, secret, default,
- * CLI option) and the Zod schema of `jeeves install` config input. Pure.
+ * Plugin descriptor table: the config each Jeeves OpenClaw plugin reads from
+ * `plugins.entries.<id>.config` (required, secret, default, CLI option and
+ * its help), and the Zod schema of `jeeves install` config input. Pure.
  *
  * @remarks
  * Derived from each plugin's `openclaw.plugin.json` `configSchema`
@@ -14,6 +14,11 @@
  * - `pluginKey` (server only): seed for the `_plugin` insider key; must
  *   equal the server's `keys._plugin`. Secret.
  *
+ * The per-plugin CLI options (`addPluginOptions`), their mapping into
+ * config input (`pluginConfigFromOptions`) and config resolution are all
+ * driven by {@link PLUGIN_CONFIG_FIELDS}; a new plugin key is one entry here
+ * plus its key in {@link pluginConfigInputSchema} (a test checks they agree).
+ *
  * @module
  */
 
@@ -21,11 +26,14 @@ import { z } from 'zod';
 
 import {
   META_PORT,
+  PLATFORM_COMPONENTS,
+  type PlatformComponent,
   RUNNER_PORT,
   SERVER_PORT,
   WATCHER_PORT,
 } from '../../../constants/index.js';
 import { isRecord } from '../../../utils.js';
+import { pluginIdOf } from './pluginSpec.js';
 
 /** How a field that is neither passed nor already set gets a value. */
 export type FieldFallback =
@@ -43,9 +51,20 @@ export interface PluginConfigField {
   secret: boolean;
   /** Fallback when absent (none: required or left unset). */
   fallback?: FieldFallback;
+  /**
+   * Help for the per-plugin CLI option. Absent for the shared
+   * `--config-root`, which is registered with the workspace options.
+   */
+  help?: { valueName: string; description: string };
 }
 
-const localUrl = (port: number): string => `http://127.0.0.1:${String(port)}`;
+/** Default service port of each component (the `apiUrl` default). */
+const SERVICE_PORTS: Readonly<Record<PlatformComponent, number>> = {
+  runner: RUNNER_PORT,
+  watcher: WATCHER_PORT,
+  server: SERVER_PORT,
+  meta: META_PORT,
+};
 
 const CONFIG_ROOT: PluginConfigField = {
   key: 'configRoot',
@@ -54,33 +73,82 @@ const CONFIG_ROOT: PluginConfigField = {
   secret: false,
 };
 
-const apiUrl = (component: string, port: number): PluginConfigField => ({
+const apiUrl = (component: PlatformComponent): PluginConfigField => ({
   key: 'apiUrl',
   option: `--${component}-api-url`,
   required: false,
   secret: false,
-  fallback: { kind: 'value', value: localUrl(port) },
+  fallback: {
+    kind: 'value',
+    value: `http://127.0.0.1:${String(SERVICE_PORTS[component])}`,
+  },
+  help: { valueName: 'url', description: `jeeves-${component} plugin apiUrl` },
 });
 
-/** Field registry by component short name (`configRoot` first). */
-export const PLUGIN_CONFIG_FIELDS: Readonly<
-  Record<string, readonly PluginConfigField[]>
+/** Keys a component's plugin has beyond `configRoot` and `apiUrl`. */
+const EXTRA_FIELDS: Readonly<
+  Partial<Record<PlatformComponent, readonly PluginConfigField[]>>
 > = {
-  runner: [CONFIG_ROOT, apiUrl('runner', RUNNER_PORT)],
-  watcher: [CONFIG_ROOT, apiUrl('watcher', WATCHER_PORT)],
   server: [
-    CONFIG_ROOT,
-    apiUrl('server', SERVER_PORT),
     {
       key: 'pluginKey',
       option: '--server-plugin-key',
       required: false,
       secret: true,
       fallback: { kind: 'serverPluginKeyOrGenerate' },
+      help: {
+        valueName: 'seed',
+        description:
+          "jeeves-server plugin pluginKey, written to both ends (default: the server's keys._plugin, else the plugin's key, else generated; see README)",
+      },
     },
   ],
-  meta: [CONFIG_ROOT, apiUrl('meta', META_PORT)],
 };
+
+const fieldsOf = (c: PlatformComponent): readonly PluginConfigField[] => [
+  CONFIG_ROOT,
+  apiUrl(c),
+  ...(EXTRA_FIELDS[c] ?? []),
+];
+
+/** Field registry by component (`configRoot` first, then `apiUrl`). */
+export const PLUGIN_CONFIG_FIELDS: Readonly<
+  Record<PlatformComponent, readonly PluginConfigField[]>
+> = {
+  runner: fieldsOf('runner'),
+  watcher: fieldsOf('watcher'),
+  server: fieldsOf('server'),
+  meta: fieldsOf('meta'),
+};
+
+/** A field with its own CLI option, and the component it belongs to. */
+export interface PluginOptionField {
+  /** Component short name. */
+  component: PlatformComponent;
+  /** The field (with `help`). */
+  field: PluginConfigField & {
+    help: NonNullable<PluginConfigField['help']>;
+  };
+}
+
+/** Every per-plugin CLI option, in help order (component order). */
+export const PLUGIN_OPTION_FIELDS: readonly PluginOptionField[] =
+  PLATFORM_COMPONENTS.flatMap((component) =>
+    PLUGIN_CONFIG_FIELDS[component].flatMap((field) =>
+      field.help ? [{ component, field: { ...field, help: field.help } }] : [],
+    ),
+  );
+
+/**
+ * Commander's property name for a long option.
+ *
+ * @param option - e.g. `--runner-api-url`.
+ * @returns e.g. `runnerApiUrl`.
+ */
+export const optionKey = (option: string): string =>
+  option
+    .replace(/^--/, '')
+    .replace(/-([a-z0-9])/g, (_m, c: string) => c.toUpperCase());
 
 /**
  * Component short name of a Jeeves plugin id.
@@ -88,10 +156,8 @@ export const PLUGIN_CONFIG_FIELDS: Readonly<
  * @param pluginId - e.g. `jeeves-watcher-openclaw`.
  * @returns e.g. `watcher`, or undefined for an unknown plugin.
  */
-export function componentOf(pluginId: string): string | undefined {
-  const match = /^jeeves-([a-z0-9]+)-openclaw$/.exec(pluginId);
-  const name = match?.[1];
-  return name !== undefined && name in PLUGIN_CONFIG_FIELDS ? name : undefined;
+export function componentOf(pluginId: string): PlatformComponent | undefined {
+  return PLATFORM_COMPONENTS.find((c) => pluginIdOf(c) === pluginId);
 }
 
 const urlField = z.url({ protocol: /^https?$/ }).optional();

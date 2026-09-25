@@ -18,8 +18,11 @@ import { PLATFORM_COMPONENTS } from '../../../constants/index.js';
 /** npm scope of Jeeves packages. */
 export const JEEVES_SCOPE = '@karmaniverous';
 
+/** Unscoped Jeeves plugin package name / OpenClaw plugin id (regex source). */
+const PLUGIN_ID_SOURCE = 'jeeves(?:-[a-z0-9]+)*-openclaw';
+
 /** Unscoped Jeeves plugin package name / OpenClaw plugin id. */
-const PLUGIN_ID_PATTERN = /^jeeves(?:-[a-z0-9]+)*-openclaw$/;
+const PLUGIN_ID_PATTERN = new RegExp(`^${PLUGIN_ID_SOURCE}$`);
 
 /** Short component name (`watcher`, `runner`, …). */
 const SHORT_NAME_PATTERN = /^[a-z][a-z0-9]*$/;
@@ -29,7 +32,7 @@ export const pluginTargetSchema = z.object({
   /** Scoped npm package name. */
   packageName: z
     .string()
-    .regex(/^@karmaniverous\/jeeves(?:-[a-z0-9]+)*-openclaw$/),
+    .regex(new RegExp(`^${JEEVES_SCOPE}/${PLUGIN_ID_SOURCE}$`)),
   /** OpenClaw plugin id (unscoped package name). */
   pluginId: z.string().regex(PLUGIN_ID_PATTERN),
   /** npm version, range, or dist-tag (default `latest`). */
@@ -38,6 +41,24 @@ export const pluginTargetSchema = z.object({
 
 /** A Jeeves plugin install target. */
 export type PluginTarget = z.infer<typeof pluginTargetSchema>;
+
+/**
+ * OpenClaw plugin id of a platform component's plugin.
+ *
+ * @param component - Component short name, e.g. `watcher`.
+ * @returns e.g. `jeeves-watcher-openclaw`.
+ */
+export const pluginIdOf = (component: string): string =>
+  `jeeves-${component}-openclaw`;
+
+/**
+ * Scoped npm package name of a Jeeves plugin.
+ *
+ * @param pluginId - OpenClaw plugin id (the unscoped package name).
+ * @returns e.g. `@karmaniverous/jeeves-watcher-openclaw`.
+ */
+export const packageNameOf = (pluginId: string): string =>
+  `${JEEVES_SCOPE}/${pluginId}`;
 
 /**
  * Whether an OpenClaw plugin id belongs to a Jeeves plugin.
@@ -64,7 +85,7 @@ function toPluginId(name: string): string | undefined {
   if (name.startsWith('@')) return undefined;
   if (PLUGIN_ID_PATTERN.test(name)) return name;
   if (SHORT_NAME_PATTERN.test(name) && name !== 'openclaw') {
-    return `jeeves-${name}-openclaw`;
+    return pluginIdOf(name);
   }
   return undefined;
 }
@@ -81,7 +102,7 @@ export function parsePluginSpec(input: string): PluginTarget {
   const [name, range] = splitRange(input.trim());
   const pluginId = toPluginId(name);
   const parsed = pluginTargetSchema.safeParse({
-    packageName: `${JEEVES_SCOPE}/${pluginId ?? ''}`,
+    packageName: packageNameOf(pluginId ?? ''),
     pluginId,
     range: range ?? 'latest',
   });
