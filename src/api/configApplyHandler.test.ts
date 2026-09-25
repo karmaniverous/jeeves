@@ -174,13 +174,11 @@ describe('createConfigApplyHandler', () => {
       JSON.stringify({ port: 1936, watchPaths: [], debug: false }),
     );
 
-    const customMerge = vi.fn(
-      (): Record<string, unknown> => ({
-        port: -1, // invalid: must be positive
-        watchPaths: [],
-        debug: false,
-      }),
-    );
+    const customMerge = vi.fn((): Record<string, unknown> => ({
+      port: -1, // invalid: must be positive
+      watchPaths: [],
+      debug: false,
+    }));
 
     const handler = createConfigApplyHandler(makeDescriptor({ customMerge }));
     const result = await handler({

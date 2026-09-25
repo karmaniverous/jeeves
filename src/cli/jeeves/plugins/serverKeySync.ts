@@ -28,16 +28,11 @@ import type { ServerKeyState } from './serverPluginKey.js';
 
 /** Where the decided key came from. */
 export type ServerKeySource =
-  | 'option'
-  | 'file'
-  | 'existing'
-  | 'server config'
-  | 'generated';
+  'option' | 'file' | 'existing' | 'server config' | 'generated';
 
 /** What the server's `keys._plugin` must look like right before writing. */
 export type ServerKeyExpectation =
-  | { kind: 'absent' }
-  | { kind: 'literal'; value: string };
+  { kind: 'absent' } | { kind: 'literal'; value: string };
 
 /** A planned `keys._plugin` write. */
 export interface ServerKeyWrite {

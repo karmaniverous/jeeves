@@ -28,8 +28,7 @@ import {
 
 /** How a field that is neither passed nor already set gets a value. */
 export type FieldFallback =
-  | { kind: 'value'; value: string }
-  | { kind: 'serverPluginKeyOrGenerate' };
+  { kind: 'value'; value: string } | { kind: 'serverPluginKeyOrGenerate' };
 
 /** One plugin config key. */
 export interface PluginConfigField {
