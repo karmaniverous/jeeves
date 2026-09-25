@@ -11,8 +11,9 @@
  *   is not rewritten.
  * - Defaults: `apiUrl` → the service's local port; `configRoot` → the
  *   value inherited from `JEEVES_CONFIG_ROOT` / `jeeves.config.json` (never
- *   the built-in `./config`); server `pluginKey` → the server's
- *   `keys._plugin` seed, else a newly generated one.
+ *   the built-in `./config`); server `pluginKey` → decided together with
+ *   the server's `keys._plugin` (see `serverKeySync.ts`), which may add a
+ *   planned server config write to the result.
  * - Required values that resolve to nothing are collected across all plugins
  *   and thrown as one {@link MissingPluginConfigError} before anything runs.
  * - Every secret value is returned in `secrets` so callers can redact it.
@@ -30,6 +31,8 @@ import {
   type PluginConfigField,
   type PluginConfigInput,
 } from './pluginConfigSchema.js';
+import { decideServerPluginKey, type ServerKeyWrite } from './serverKeySync.js';
+import { serverConfigPath, type ServerKeyState } from './serverPluginKey.js';
 
 /** Where a resolved value came from. */
 export type ValueSource =
@@ -65,8 +68,8 @@ export interface PluginConfigRequest {
   file: PluginConfigInput;
   /** configRoot from `JEEVES_CONFIG_ROOT` or `jeeves.config.json`. */
   inheritedConfigRoot?: string;
-  /** Server `keys._plugin` seed under a config root, if any. */
-  readServerPluginKey: (configRoot: string) => string | undefined;
+  /** State of the server's `keys._plugin` under a config root. */
+  readServerKey: (configRoot: string) => ServerKeyState;
   /** Generate a new secret seed. */
   generateSecret: () => string;
 }
@@ -81,6 +84,10 @@ export interface PluginConfigResolution {
   secrets: string[];
   /** Target plugin ids with no known config schema (left untouched). */
   unknownPluginIds: string[];
+  /** Planned write of the server's `keys._plugin` (secret value). */
+  serverKeyWrite?: ServerKeyWrite;
+  /** Warnings to print (no secrets). */
+  warnings?: string[];
 }
 
 /** A required value that nothing provides. */
@@ -156,23 +163,49 @@ function explicitValue(
 function fallbackFor(
   field: PluginConfigField,
   request: PluginConfigRequest,
-  configRoot: unknown,
 ): Candidate {
   if (field.key === 'configRoot' && request.inheritedConfigRoot) {
     return { value: request.inheritedConfigRoot, source: 'jeeves config root' };
   }
   const fallback = field.fallback;
-  if (!fallback) return undefined;
-  if (fallback.kind === 'value') {
-    return { value: fallback.value, source: 'default' };
+  return fallback?.kind === 'value'
+    ? { value: fallback.value, source: 'default' }
+    : undefined;
+}
+
+/** Resolve the server plugin key for both ends (see `serverKeySync.ts`). */
+function resolveServerKey(
+  request: PluginConfigRequest,
+  explicit: Candidate,
+  current: unknown,
+  root: string,
+  result: PluginConfigResolution,
+): { value: string; source: ValueSource; write: boolean } {
+  const decision = decideServerPluginKey({
+    ...(explicit
+      ? {
+          explicit: {
+            value: explicit.value,
+            source: explicit.source === 'file' ? 'file' : 'option',
+          },
+        }
+      : {}),
+    ...(typeof current === 'string' && current !== ''
+      ? { plugin: current }
+      : {}),
+    server: request.readServerKey(root),
+    serverPath: serverConfigPath(root),
+    generate: request.generateSecret,
+  });
+  if (decision.serverWrite) result.serverKeyWrite = decision.serverWrite;
+  if (decision.warning) {
+    result.warnings = [...(result.warnings ?? []), decision.warning];
   }
-  const seed =
-    typeof configRoot === 'string'
-      ? request.readServerPluginKey(configRoot)
-      : undefined;
-  return seed
-    ? { value: seed, source: 'server config' }
-    : { value: request.generateSecret(), source: 'generated' };
+  return {
+    value: decision.value,
+    source: decision.source,
+    write: decision.writePlugin,
+  };
 }
 
 /**
@@ -210,13 +243,24 @@ export function resolvePluginConfig(
       let value: unknown;
       let source: ValueSource;
       let write: boolean;
-      if (explicit) {
+      if (field.fallback?.kind === 'serverPluginKeyOrGenerate') {
+        const root = resolved['configRoot'];
+        // Without configRoot the missing-config error below is the answer.
+        if (typeof root !== 'string') continue;
+        ({ value, source, write } = resolveServerKey(
+          request,
+          explicit,
+          current,
+          root,
+          result,
+        ));
+      } else if (explicit) {
         ({ value, source } = explicit);
         write = explicit.value !== current;
       } else if (isPresent(current)) {
         [value, source, write] = [current, 'existing', false];
       } else {
-        const fb = fallbackFor(field, request, resolved['configRoot']);
+        const fb = fallbackFor(field, request);
         if (!fb) {
           if (field.required) {
             missing.push({ pluginId, key: field.key, option: field.option });

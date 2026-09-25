@@ -33,6 +33,7 @@ import {
   type PrivateTempFiles,
   withPrivateTempFile,
 } from './privateTempFile.js';
+import type { ServerConfigWriter } from './serverConfigWrite.js';
 
 /** Dependencies of {@link executePlan}. */
 export interface ExecutePlanContext {
@@ -42,6 +43,8 @@ export interface ExecutePlanContext {
   fs: LegacyFs;
   /** Owner-only temp files for config batches. */
   tempFiles: PrivateTempFiles;
+  /** Writes the server's `keys._plugin` (backup, lock, atomic write). */
+  serverConfig: ServerConfigWriter;
   /** Line logger. */
   log: (line: string) => void;
   /** Print only; mutate nothing. */
@@ -107,6 +110,13 @@ async function executeStep(
         ctx.log(`legacy plugin copy already gone: ${step.path}`);
       }
       return;
+    case 'serverKeyWrite': {
+      const backup = await ctx.serverConfig(step.write);
+      ctx.log(
+        `set keys._plugin in ${step.write.path} (value not shown; backup: ${backup})`,
+      );
+      return;
+    }
     case 'repairAfterUninstall': {
       const after = await readPluginsConfig(ctx.runner);
       const repair = computePostUninstallRepair(

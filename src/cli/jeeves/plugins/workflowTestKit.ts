@@ -6,6 +6,7 @@
  */
 
 import type { LegacyFs } from './legacyExtensions.js';
+import type { ServerKeyWrite } from './serverKeySync.js';
 import {
   type FakeRunner,
   fakeRunner,
@@ -68,6 +69,8 @@ export interface WorkflowFixture {
   removed: string[];
   /** Logged lines. */
   log: string[];
+  /** Server `keys._plugin` writes performed. */
+  serverWrites: ServerKeyWrite[];
   /** Workflow deps wired to the fakes. */
   deps: PluginWorkflowDeps;
 }
@@ -97,15 +100,20 @@ export function setupWorkflow(
   };
   const temp = fakeTempFiles();
   const log: string[] = [];
+  const serverWrites: ServerKeyWrite[] = [];
   const deps: PluginWorkflowDeps = {
     runner: fake.runner,
     fs,
     tempFiles: temp.files,
+    serverConfig: (write) => {
+      serverWrites.push(write);
+      return Promise.resolve(`${write.path}.bak-test`);
+    },
     configDir: CONFIG_DIR,
     log: (l) => log.push(l),
     dryRun,
   };
-  return { fake, temp, removed, log, deps };
+  return { fake, temp, removed, log, serverWrites, deps };
 }
 
 /**

@@ -4,6 +4,7 @@ import {
   readFileSync,
   renameSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -38,6 +39,23 @@ describe('atomicWrite', () => {
     const filePath = join(testDir, 'target.txt');
     atomicWrite(filePath, 'hello world');
     expect(readFileSync(filePath, 'utf-8')).toBe('hello world');
+  });
+
+  it.skipIf(process.platform === 'win32')(
+    'applies the requested mode to the written file',
+    () => {
+      const filePath = join(testDir, 'secret.json');
+      writeFileSync(filePath, 'original', { mode: 0o644 });
+      atomicWrite(filePath, 'new', { mode: 0o600 });
+      expect(statSync(filePath).mode & 0o777).toBe(0o600);
+      expect(readFileSync(filePath, 'utf-8')).toBe('new');
+    },
+  );
+
+  it('writes content when a mode is requested', () => {
+    const filePath = join(testDir, 'target.txt');
+    atomicWrite(filePath, 'with mode', { mode: 0o666 });
+    expect(readFileSync(filePath, 'utf-8')).toBe('with mode');
   });
 
   it('retries on EPERM and succeeds on second attempt', () => {

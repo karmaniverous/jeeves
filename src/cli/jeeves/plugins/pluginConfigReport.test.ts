@@ -1,10 +1,8 @@
-import { join } from 'node:path';
-
 import { describe, expect, it } from 'vitest';
 
 import {
   describePluginConfig,
-  generatedSecretNotices,
+  pluginConfigNotices,
 } from './pluginConfigReport.js';
 import type { PluginConfigResolution } from './pluginConfigResolve.js';
 
@@ -68,11 +66,35 @@ describe('describePluginConfig', () => {
   });
 });
 
-describe('generatedSecretNotices', () => {
-  it('tells the operator to mirror a generated key into the server config', () => {
-    const [notice] = generatedSecretNotices(resolution);
-    expect(notice).toContain(join('/cfg', 'jeeves-server', 'config.json'));
-    expect(notice).toContain('keys._plugin');
-    expect(notice).not.toContain(SEED);
+describe('server key lines and notices', () => {
+  const withServer: PluginConfigResolution = {
+    ...resolution,
+    unknownPluginIds: [],
+    serverKeyWrite: {
+      path: '/cfg/jeeves-server/config.json',
+      value: SEED,
+      expect: { kind: 'absent' },
+    },
+    warnings: ['something to check'],
+  };
+
+  it('describes the planned server write and warnings, redacted', () => {
+    const lines = describePluginConfig(withServer);
+    expect(lines.slice(-2)).toEqual([
+      '  jeeves-server keys._plugin = <redacted> (/cfg/jeeves-server/config.json; currently unset; write)',
+      '  warning: something to check',
+    ]);
+    expect(lines.join('\n')).not.toContain(SEED);
+  });
+
+  it('repeats warnings and adds the restart notice only after a live write', () => {
+    expect(pluginConfigNotices(withServer, true)).toEqual([
+      'Warning: something to check',
+    ]);
+    const live = pluginConfigNotices(withServer, false);
+    expect(live).toHaveLength(2);
+    expect(live[1]).toContain('Restart jeeves-server');
+    expect(live.join('\n')).not.toContain(SEED);
+    expect(pluginConfigNotices(resolution, false)).toEqual([]);
   });
 });

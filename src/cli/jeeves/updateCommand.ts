@@ -25,7 +25,7 @@ import {
   pluginCliOptionsSchema,
   pluginConfigRequestFromCli,
 } from './plugins/pluginConfigCli.js';
-import { generatedSecretNotices } from './plugins/pluginConfigReport.js';
+import { pluginConfigNotices } from './plugins/pluginConfigReport.js';
 import {
   createPluginWorkflowDeps,
   RESTART_NOTICE,
@@ -70,7 +70,7 @@ export function registerUpdateCommand(program: Command): void {
       });
       console.log();
       const notices = prepared.config
-        ? generatedSecretNotices(prepared.config)
+        ? pluginConfigNotices(prepared.config, dryRun)
         : [];
       for (const notice of notices) console.log(notice);
       console.log(

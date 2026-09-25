@@ -2,31 +2,54 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { readServerPluginKey, serverConfigPath } from './serverPluginKey.js';
+import {
+  parseServerKeyState,
+  readServerKeyState,
+  serverConfigPath,
+} from './serverPluginKey.js';
 
-const reader = (text: string | undefined) => (path: string) =>
-  path === join('/cfg', 'jeeves-server', 'config.json') ? text : undefined;
-
-describe('readServerPluginKey', () => {
+describe('parseServerKeyState', () => {
   it.each([
-    ['a string entry', '{"keys":{"_plugin":"seed1"}}', 'seed1'],
-    ['an object entry', '{"keys":{"_plugin":{"key":"seed2"}}}', 'seed2'],
-    ['no _plugin key', '{"keys":{"other":"x"}}', undefined],
-    ['no keys', '{"port":1934}', undefined],
-    ['an env placeholder', '{"keys":{"_plugin":"${SEED}"}}', undefined],
-    ['invalid JSON', '{nope', undefined],
-    ['a wrong shape', '{"keys":{"_plugin":42}}', undefined],
-  ])('reads %s', (_label, text, expected) => {
-    expect(readServerPluginKey(reader(text), '/cfg')).toBe(expected);
+    [
+      'a string entry',
+      '{"keys":{"_plugin":"seed1"}}',
+      { kind: 'literal', value: 'seed1' },
+    ],
+    [
+      'an object entry',
+      '{"keys":{"_plugin":{"key":"seed2"}}}',
+      { kind: 'literal', value: 'seed2' },
+    ],
+    ['no _plugin key', '{"keys":{"other":"x"}}', { kind: 'absent' }],
+    ['no keys', '{"port":1934}', { kind: 'absent' }],
+    ['an empty seed', '{"keys":{"_plugin":""}}', { kind: 'absent' }],
+    [
+      'an env placeholder',
+      '{"keys":{"_plugin":"${SEED}"}}',
+      { kind: 'opaque' },
+    ],
+    ['a wrong shape', '{"keys":{"_plugin":42}}', { kind: 'opaque' }],
+    ['a non-object keys', '{"keys":"x"}', { kind: 'opaque' }],
+    ['invalid JSON', '{nope', { kind: 'unreadable' }],
+    ['a non-object', '[1]', { kind: 'unreadable' }],
+  ])('classifies %s', (_label, text, expected) => {
+    expect(parseServerKeyState(text)).toEqual(expected);
   });
 
-  it('returns undefined when the file is missing', () => {
-    expect(readServerPluginKey(reader(undefined), '/cfg')).toBeUndefined();
+  it('reports a missing file', () => {
+    expect(parseServerKeyState(undefined)).toEqual({ kind: 'noFile' });
   });
+});
 
-  it('builds the conventional path', () => {
-    expect(serverConfigPath('/cfg')).toBe(
-      join('/cfg', 'jeeves-server', 'config.json'),
-    );
+describe('readServerKeyState', () => {
+  it('reads the conventional path', () => {
+    const seen: string[] = [];
+    const state = readServerKeyState((p) => {
+      seen.push(p);
+      return '{"keys":{"_plugin":"s"}}';
+    }, '/cfg');
+    expect(seen).toEqual([join('/cfg', 'jeeves-server', 'config.json')]);
+    expect(state).toEqual({ kind: 'literal', value: 's' });
+    expect(serverConfigPath('/cfg')).toBe(seen[0]);
   });
 });

@@ -1,3 +1,5 @@
+import { join } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import type { PluginsConfig } from './configPatch.js';
@@ -6,6 +8,7 @@ import {
   type PluginConfigRequest,
   resolvePluginConfig,
 } from './pluginConfigResolve.js';
+import { ServerPluginKeyError } from './serverKeySync.js';
 
 const R = 'jeeves-runner-openclaw';
 const W = 'jeeves-watcher-openclaw';
@@ -18,7 +21,7 @@ function request(over: Partial<PluginConfigRequest> = {}): PluginConfigRequest {
   return {
     options: {},
     file: {},
-    readServerPluginKey: () => undefined,
+    readServerKey: () => ({ kind: 'absent' }),
     generateSecret: () => SEED,
     ...over,
   };
@@ -75,6 +78,11 @@ describe('resolvePluginConfig', () => {
       secret: true,
     });
     expect(res.secrets).toEqual([SEED]);
+    expect(res.serverKeyWrite).toEqual({
+      path: join('/srv/cfg', 'jeeves-server', 'config.json'),
+      value: SEED,
+      expect: { kind: 'absent' },
+    });
   });
 
   it.each([
@@ -151,7 +159,7 @@ describe('resolvePluginConfig', () => {
       [S],
       request({
         inheritedConfigRoot: '/inherited',
-        readServerPluginKey: () => 'server-seed',
+        readServerKey: () => ({ kind: 'literal', value: 'existing-seed' }),
         generateSecret: () => {
           throw new Error('must not generate');
         },
@@ -160,6 +168,32 @@ describe('resolvePluginConfig', () => {
     expect(res.ops).toEqual([]);
     expect(res.values.every((v) => v.source === 'existing')).toBe(true);
     expect(res.secrets).toEqual(['existing-seed']);
+    expect(res.serverKeyWrite).toBeUndefined();
+  });
+
+  it('fails when the plugin and server keys differ, naming no key', () => {
+    const run = () =>
+      resolvePluginConfig(
+        withConfig({ [S]: { configRoot: '/c', pluginKey: 'plugin-seed' } }),
+        [S],
+        request({
+          readServerKey: () => ({ kind: 'literal', value: 'server-seed' }),
+        }),
+      );
+    expect(run).toThrow(ServerPluginKeyError);
+    expect(run).not.toThrow(/plugin-seed|server-seed/);
+  });
+
+  it('collects the warning for a server end it cannot write', () => {
+    const res = resolvePluginConfig(
+      withConfig({ [S]: { configRoot: '/c', pluginKey: 'plugin-seed' } }),
+      [S],
+      request({ readServerKey: () => ({ kind: 'noFile' }) }),
+    );
+    expect(res.serverKeyWrite).toBeUndefined();
+    expect(res.warnings).toEqual([
+      expect.stringContaining(join('/c', 'jeeves-server', 'config.json')),
+    ]);
   });
 
   it('--config-root overwrites an existing configRoot', () => {
@@ -193,9 +227,9 @@ describe('resolvePluginConfig', () => {
       [S],
       request({
         options: { configRoot: '/cfg' },
-        readServerPluginKey: (root) => {
+        readServerKey: (root) => {
           roots.push(root);
-          return 'server-seed';
+          return { kind: 'literal', value: 'server-seed' };
         },
       }),
     );
@@ -205,6 +239,7 @@ describe('resolvePluginConfig', () => {
       source: 'server config',
     });
     expect(res.secrets).toEqual(['server-seed']);
+    expect(res.serverKeyWrite).toBeUndefined();
   });
 
   it('treats an explicit pluginKey as a secret', () => {
@@ -214,6 +249,7 @@ describe('resolvePluginConfig', () => {
       request({ options: { configRoot: '/c', server: { pluginKey: 'mine' } } }),
     );
     expect(res.secrets).toEqual(['mine']);
+    expect(res.serverKeyWrite?.value).toBe('mine');
   });
 
   it('fails with every missing required option before returning anything', () => {

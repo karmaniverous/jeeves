@@ -4,7 +4,14 @@
  * Child processes are faked; no OpenClaw is touched.
  */
 
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -15,6 +22,7 @@ import { registerInstallCommand } from './installCommand.js';
 import { MissingPluginConfigError } from './plugins/pluginConfigResolve.js';
 import type * as PluginDepsModule from './plugins/pluginDeps.js';
 import type * as SecretsModule from './plugins/secrets.js';
+import { ServerPluginKeyError } from './plugins/serverKeySync.js';
 import {
   type FakeRunner,
   fakeRunner,
@@ -34,6 +42,8 @@ const state = vi.hoisted(() => ({
 
 vi.mock('./plugins/pluginDeps.js', async (importOriginal) => {
   const actual = await importOriginal<typeof PluginDepsModule>();
+  const { createServerConfigWriter } =
+    await import('./plugins/serverConfigWrite.js');
   return {
     ...actual,
     createPluginWorkflowDeps: (dryRun: boolean): PluginWorkflowDeps => ({
@@ -53,6 +63,7 @@ vi.mock('./plugins/pluginDeps.js', async (importOriginal) => {
         writeNewFile: (p, t) => state.temp?.files.writeNewFile(p, t),
         removeDir: (d) => state.temp?.files.removeDir(d),
       },
+      serverConfig: createServerConfigWriter(),
       configDir: '/oc',
       log: (line) => {
         console.log(line);
@@ -112,6 +123,11 @@ describe('jeeves install (plugin config)', () => {
     });
   };
   const batch = (): unknown => state.temp?.batch();
+  const serverFile = (cfg: string) => join(cfg, 'jeeves-server', 'config.json');
+  const writeServer = (cfg: string, value: unknown) => {
+    mkdirSync(join(cfg, 'jeeves-server'), { recursive: true });
+    writeFileSync(serverFile(cfg), JSON.stringify(value, null, 2) + '\n');
+  };
 
   it('fails before writing any content when configRoot is missing', async () => {
     await expect(run()).rejects.toBeInstanceOf(MissingPluginConfigError);
@@ -121,8 +137,9 @@ describe('jeeves install (plugin config)', () => {
     ).toBe(false);
   });
 
-  it('writes --config-root and defaults, redacting the generated key', async () => {
+  it('writes --config-root and defaults, and the generated key to both ends', async () => {
     const cfg = join(dir, 'cfg');
+    writeServer(cfg, { port: 1934, keys: { alice: 'a' } });
     await run('-c', cfg);
     expect(existsSync(join(ws, 'SOUL.md'))).toBe(true);
     expect(batch()).toEqual([
@@ -140,8 +157,52 @@ describe('jeeves install (plugin config)', () => {
     const printed = out.join('\n');
     expect(printed).not.toContain(SEED);
     expect(state.fake?.lines().join('\n')).not.toContain(SEED);
-    expect(printed).toContain('keys._plugin');
+    expect(printed).toContain('Restart jeeves-server');
     expect(printed).toContain('Restart the gateway');
+    expect(readFileSync(serverFile(cfg), 'utf-8')).toBe(
+      JSON.stringify(
+        { port: 1934, keys: { alice: 'a', _plugin: SEED } },
+        null,
+        2,
+      ) + '\n',
+    );
+    const backups = readdirSync(join(cfg, 'jeeves-server')).filter((f) =>
+      f.startsWith('config.json.bak-'),
+    );
+    expect(backups).toHaveLength(1);
+  });
+
+  it('fails before any change when a key would be generated without a server config', async () => {
+    await expect(run('-c', join(dir, 'cfg'))).rejects.toBeInstanceOf(
+      ServerPluginKeyError,
+    );
+    expect(existsSync(join(ws, 'SOUL.md'))).toBe(false);
+    expect(
+      state.fake?.lines().some((l) => / plugins install /.test(` ${l} `)),
+    ).toBe(false);
+  });
+
+  it('fails before any change when the plugin and server keys differ', async () => {
+    const cfg = join(dir, 'cfg');
+    writeServer(cfg, { keys: { _plugin: 'server-seed' } });
+    const before = readFileSync(serverFile(cfg), 'utf-8');
+    state.fake = fakeRunner({
+      'openclaw --version': ok('OpenClaw 2026.9.6'),
+      'openclaw config get plugins': ok(
+        JSON.stringify({ entries: { [S]: { config: { pluginKey: 'mine' } } } }),
+      ),
+      'openclaw plugins inspect --all --json': ok('[]'),
+      [`npm view @karmaniverous/${S}`]: ok('"0.14.0"'),
+      [`npm view @karmaniverous/${S}@0.14.0 jeeves.conversationHooks`]: ok(''),
+    });
+    await expect(run('-c', cfg)).rejects.toBeInstanceOf(ServerPluginKeyError);
+    expect(readFileSync(serverFile(cfg), 'utf-8')).toBe(before);
+    expect(existsSync(join(ws, 'SOUL.md'))).toBe(false);
+    expect(
+      state.fake
+        .lines()
+        .some((l) => / (plugins install|config set) /.test(` ${l} `)),
+    ).toBe(false);
   });
 
   it("uses the server's keys._plugin and a --plugin-config file", async () => {
@@ -211,6 +272,9 @@ describe('jeeves install (plugin config)', () => {
     expect(
       state.fake.lines().some((l) => / plugins install /.test(` ${l} `)),
     ).toBe(false);
+    // No server config: plugin side kept, with a warning; nothing created.
+    expect(out.join('\n')).toContain(`Warning: ${serverFile(cfg)} not found`);
+    expect(existsSync(serverFile(cfg))).toBe(false);
     expect(batch()).toEqual([
       { path: `plugins.entries.${S}.config.configRoot`, value: resolve(cfg) },
       {
@@ -221,6 +285,7 @@ describe('jeeves install (plugin config)', () => {
   });
 
   it('--force-reinstall installs without reading install records', async () => {
+    writeServer(join(dir, 'cfg'), { keys: {} });
     await run('-c', join(dir, 'cfg'), '--force-reinstall');
     const lines = state.fake?.lines() ?? [];
     expect(lines.some((l) => l.includes('plugins inspect'))).toBe(false);

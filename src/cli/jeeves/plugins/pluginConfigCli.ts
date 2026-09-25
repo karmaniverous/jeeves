@@ -61,7 +61,7 @@ export function addPluginOptions(command: OptionTarget): void {
     ['--server-api-url <url>', 'jeeves-server plugin apiUrl'],
     [
       '--server-plugin-key <seed>',
-      "jeeves-server plugin pluginKey (default: the server's keys._plugin, else generated)",
+      "jeeves-server plugin pluginKey, written to both ends (default: the server's keys._plugin, else the plugin's key, else generated; see README)",
     ],
     ['--meta-api-url <url>', 'jeeves-meta plugin apiUrl'],
     [

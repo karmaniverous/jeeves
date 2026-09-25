@@ -30,7 +30,8 @@ import {
 } from './openclawCommands.js';
 import type { PluginConfigResolution } from './pluginConfigResolve.js';
 import type { PluginTarget } from './pluginSpec.js';
-import { redactSecrets } from './secrets.js';
+import { REDACTED, redactSecrets } from './secrets.js';
+import type { ServerKeyWrite } from './serverKeySync.js';
 
 /** A plan step. */
 export type PlanStep =
@@ -46,6 +47,7 @@ export type PlanStep =
       redact?: string[];
     }
   | { kind: 'removeDir'; path: string }
+  | { kind: 'serverKeyWrite'; write: ServerKeyWrite }
   | {
       kind: 'repairAfterUninstall';
       before: PluginsConfig;
@@ -84,18 +86,26 @@ const openclaw = (args: string[]): PlanStep => ({
  * @param targets - Resolved targets.
  * @param plugins - Current `plugins` config slice.
  * @param config - Resolved plugin config to write (optional).
- * @returns Install steps (targets not yet installed at their version), then
- *   legacy removals, then one config batch with hook access (only for targets
- *   that declare conversation hooks) and plugin config.
+ * @returns The server `keys._plugin` write (if planned; first, so a failure
+ *   there, e.g. a held lock, leaves OpenClaw untouched), then install steps
+ *   (targets not yet installed at their version), then legacy removals, then
+ *   one config batch with hook access (only for targets that declare
+ *   conversation hooks) and plugin config. Re-running after a later failure
+ *   converges: the server then has the key and the plugin side copies it.
  */
 export function buildInstallPlan(
   targets: readonly ResolvedTarget[],
   plugins: PluginsConfig,
   config?: PluginConfigResolution,
 ): PlanStep[] {
-  const steps: PlanStep[] = targets
-    .filter((t) => t.installed !== true)
-    .map((t) => openclaw(pluginInstallArgs(t.packageName, t.version)));
+  const steps: PlanStep[] = config?.serverKeyWrite
+    ? [{ kind: 'serverKeyWrite', write: config.serverKeyWrite }]
+    : [];
+  for (const t of targets) {
+    if (t.installed !== true) {
+      steps.push(openclaw(pluginInstallArgs(t.packageName, t.version)));
+    }
+  }
   for (const t of targets) {
     if (t.legacyDir) steps.push({ kind: 'removeDir', path: t.legacyDir });
   }
@@ -179,6 +189,10 @@ export function describeStep(step: PlanStep): string[] {
     }
     case 'removeDir':
       return [`remove legacy plugin copy: ${step.path}`];
+    case 'serverKeyWrite':
+      return [
+        `set keys._plugin = ${REDACTED} in ${step.write.path} (${step.write.expect.kind === 'absent' ? 'currently unset' : 'replacing the current seed'}; backup ${step.write.path}.bak-<timestamp> first, then atomic write; restart jeeves-server afterwards)`,
+      ];
     case 'repairAfterUninstall': {
       const lines = step.pluginIds.map(
         (id) =>

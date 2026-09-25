@@ -42,6 +42,8 @@ vi.mock('./plugins/pluginDeps.js', async (importOriginal) => {
           removeDir: () => undefined,
         },
         tempFiles: fakeTempFiles().files,
+        serverConfig: () =>
+          Promise.reject(new Error('uninstall never writes the server config')),
         configDir: '/oc',
         log: (line) => {
           console.log(line);

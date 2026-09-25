@@ -1,12 +1,18 @@
 /**
- * Read the jeeves-server `keys._plugin` seed from
+ * Read the jeeves-server `keys._plugin` entry from
  * `<configRoot>/jeeves-server/config.json` (read-only), so `jeeves install`
- * can give the server plugin the same seed the server already trusts.
+ * can keep the server plugin and the server on the same seed.
  *
  * @remarks
- * A key entry is either a seed string or `{ key, scopes?, ... }`. Values
- * that still contain a `${VAR}` placeholder are ignored (the resolved value
- * is not known here). Missing or unparsable files yield undefined.
+ * jeeves-server parses its config with `JSON.parse`, so this does too. A key
+ * entry is either a seed string or `{ key, ... }`. The entry is classified,
+ * never guessed at:
+ * - `noFile`: the config file does not exist (or can't be read);
+ * - `unreadable`: the file is not a JSON object;
+ * - `absent`: no `keys._plugin` (or an empty string);
+ * - `literal`: a seed string, or `{ key }` with a seed string;
+ * - `opaque`: present but not a usable literal (a `${VAR}` placeholder or an
+ *   unexpected shape, including a non-object `keys`). Its value is unknown here and it is never overwritten.
  *
  * @module
  */
@@ -14,20 +20,16 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { z } from 'zod';
-
 /** Reads a text file; undefined when it does not exist or can't be read. */
 export type ReadTextFile = (path: string) => string | undefined;
 
-const serverConfigSchema = z.looseObject({
-  keys: z
-    .looseObject({
-      _plugin: z
-        .union([z.string(), z.looseObject({ key: z.string() })])
-        .optional(),
-    })
-    .optional(),
-});
+/** What the server config says about `keys._plugin`. */
+export type ServerKeyState =
+  | { kind: 'noFile' }
+  | { kind: 'unreadable' }
+  | { kind: 'absent' }
+  | { kind: 'literal'; value: string }
+  | { kind: 'opaque' };
 
 /**
  * Path of the jeeves-server config under a platform config root.
@@ -38,30 +40,56 @@ const serverConfigSchema = z.looseObject({
 export const serverConfigPath = (configRoot: string): string =>
   join(configRoot, 'jeeves-server', 'config.json');
 
+const isRecord = (v: unknown): v is Record<string, unknown> =>
+  typeof v === 'object' && v !== null && !Array.isArray(v);
+
+/** Classify one seed string. */
+const seedState = (seed: string): ServerKeyState =>
+  seed === ''
+    ? { kind: 'absent' }
+    : seed.includes('${')
+      ? { kind: 'opaque' }
+      : { kind: 'literal', value: seed };
+
 /**
- * The server's `keys._plugin` seed, if configured as a literal.
+ * Classify server config text.
  *
- * @param readText - File reader.
- * @param configRoot - Platform config root.
- * @returns The seed, or undefined.
+ * @param text - File content, or undefined when there is no file.
+ * @returns The `keys._plugin` state.
  */
-export function readServerPluginKey(
-  readText: ReadTextFile,
-  configRoot: string,
-): string | undefined {
-  const text = readText(serverConfigPath(configRoot));
-  if (text === undefined) return undefined;
+export function parseServerKeyState(text: string | undefined): ServerKeyState {
+  if (text === undefined) return { kind: 'noFile' };
   let raw: unknown;
   try {
     raw = JSON.parse(text);
   } catch {
-    return undefined;
+    return { kind: 'unreadable' };
   }
-  const parsed = serverConfigSchema.safeParse(raw);
-  const entry = parsed.success ? parsed.data.keys?._plugin : undefined;
-  const seed = typeof entry === 'string' ? entry : entry?.key;
-  return seed && !seed.includes('${') ? seed : undefined;
+  if (!isRecord(raw)) return { kind: 'unreadable' };
+  const keys = raw['keys'];
+  if (keys === undefined) return { kind: 'absent' };
+  if (!isRecord(keys)) return { kind: 'opaque' };
+  if (keys['_plugin'] === undefined) return { kind: 'absent' };
+  const entry = keys['_plugin'];
+  if (typeof entry === 'string') return seedState(entry);
+  if (isRecord(entry) && typeof entry['key'] === 'string') {
+    return seedState(entry['key']);
+  }
+  return { kind: 'opaque' };
 }
+
+/**
+ * The server's `keys._plugin` state under a config root.
+ *
+ * @param readText - File reader.
+ * @param configRoot - Platform config root.
+ * @returns The state.
+ */
+export const readServerKeyState = (
+  readText: ReadTextFile,
+  configRoot: string,
+): ServerKeyState =>
+  parseServerKeyState(readText(serverConfigPath(configRoot)));
 
 /** Node adapter for {@link ReadTextFile}. */
 export const nodeReadTextFile: ReadTextFile = (path) => {

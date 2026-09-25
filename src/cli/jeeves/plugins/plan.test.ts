@@ -113,6 +113,36 @@ describe('buildInstallPlan', () => {
     expect(shown).not.toContain('topsecret');
     expect(shown).toContain('"value":"<redacted>"');
   });
+
+  it('puts a planned server keys._plugin write first, redacted in output', () => {
+    const write = {
+      path: '/cfg/jeeves-server/config.json',
+      value: 'topsecret',
+      expect: { kind: 'literal' as const, value: 'old' },
+    };
+    const steps = buildInstallPlan(
+      [target('server', '1.0.0')],
+      {},
+      {
+        ops: [],
+        values: [],
+        secrets: ['topsecret'],
+        unknownPluginIds: [],
+        serverKeyWrite: write,
+      },
+    );
+    expect(steps.map((s) => s.kind)).toEqual([
+      'serverKeyWrite',
+      'exec',
+      'configSetBatch',
+    ]);
+    const shown = describeStep(steps[0]).join('\n');
+    expect(shown).toContain(
+      'set keys._plugin = <redacted> in /cfg/jeeves-server/config.json (replacing the current seed;',
+    );
+    expect(shown).not.toContain('topsecret');
+    expect(shown).not.toContain('"old"');
+  });
 });
 
 describe('buildUninstallPlan', () => {

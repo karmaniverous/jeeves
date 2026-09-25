@@ -11,7 +11,8 @@ import type { PluginConfigRequest } from './pluginConfigResolve.js';
 import type { PluginConfigInput } from './pluginConfigSchema.js';
 import { createNodePrivateTempFiles } from './privateTempFile.js';
 import { generatePluginKey } from './secrets.js';
-import { nodeReadTextFile, readServerPluginKey } from './serverPluginKey.js';
+import { createServerConfigWriter } from './serverConfigWrite.js';
+import { nodeReadTextFile, readServerKeyState } from './serverPluginKey.js';
 import type { PluginWorkflowDeps } from './workflows.js';
 
 /**
@@ -25,6 +26,7 @@ export function createPluginWorkflowDeps(dryRun: boolean): PluginWorkflowDeps {
     runner: spawnCommandRunner,
     fs: nodeLegacyFs,
     tempFiles: createNodePrivateTempFiles(spawnCommandRunner),
+    serverConfig: createServerConfigWriter(),
     configDir: resolveOpenClawConfigDir(),
     log: (line) => {
       console.log(line);
@@ -51,7 +53,7 @@ export function createPluginConfigRequest(
     options,
     file,
     ...(inheritedConfigRoot ? { inheritedConfigRoot } : {}),
-    readServerPluginKey: (root) => readServerPluginKey(nodeReadTextFile, root),
+    readServerKey: (root) => readServerKeyState(nodeReadTextFile, root),
     generateSecret: generatePluginKey,
   };
 }

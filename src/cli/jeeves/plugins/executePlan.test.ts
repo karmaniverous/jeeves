@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import { executePlan } from './executePlan.js';
 import type { LegacyFs } from './legacyExtensions.js';
+import type { ServerKeyWrite } from './serverKeySync.js';
 import { fakeRunner, fakeTempFiles, ok } from './testRunner.js';
+
+const noServerWrite = (): Promise<string> =>
+  Promise.reject(new Error('must not write the server config'));
 
 const noFs: LegacyFs = {
   isDirectory: () => false,
@@ -19,6 +23,7 @@ describe('executePlan', () => {
       runner: fakeRunner().runner,
       fs: noFs,
       tempFiles: fakeTempFiles().files,
+      serverConfig: noServerWrite,
       log: (l) => log.push(l),
       dryRun: false,
     });
@@ -41,6 +46,7 @@ describe('executePlan', () => {
         runner: fake.runner,
         fs: noFs,
         tempFiles: fakeTempFiles().files,
+        serverConfig: noServerWrite,
         log: () => undefined,
         dryRun: false,
       },
@@ -64,6 +70,7 @@ describe('executePlan', () => {
         runner: fake.runner,
         fs: noFs,
         tempFiles: temp.files,
+        serverConfig: noServerWrite,
         log: (l) => log.push(l),
         dryRun: false,
       },
@@ -87,6 +94,31 @@ describe('executePlan', () => {
     );
   });
 
+  it('writes the server key through the writer and logs no secret', async () => {
+    const writes: ServerKeyWrite[] = [];
+    const log: string[] = [];
+    const write: ServerKeyWrite = {
+      path: '/cfg/jeeves-server/config.json',
+      value: 's3cr3t',
+      expect: { kind: 'absent' },
+    };
+    await executePlan([{ kind: 'serverKeyWrite', write }], {
+      runner: fakeRunner().runner,
+      fs: noFs,
+      tempFiles: fakeTempFiles().files,
+      serverConfig: (w) => {
+        writes.push(w);
+        return Promise.resolve('/cfg/jeeves-server/config.json.bak-1');
+      },
+      log: (l) => log.push(l),
+      dryRun: false,
+    });
+    expect(writes).toEqual([write]);
+    expect(log).toEqual([
+      'set keys._plugin in /cfg/jeeves-server/config.json (value not shown; backup: /cfg/jeeves-server/config.json.bak-1)',
+    ]);
+  });
+
   it('dry run never calls the runner', async () => {
     const fake = fakeRunner();
     const temp = fakeTempFiles();
@@ -100,11 +132,16 @@ describe('executePlan', () => {
         },
         { kind: 'configSetBatch', ops: [{ path: 'x.y', value: 1 }] },
         { kind: 'repairAfterUninstall', before: {}, pluginIds: ['a-openclaw'] },
+        {
+          kind: 'serverKeyWrite',
+          write: { path: '/s.json', value: 'k3y', expect: { kind: 'absent' } },
+        },
       ],
       {
         runner: fake.runner,
         fs: noFs,
         tempFiles: temp.files,
+        serverConfig: noServerWrite,
         log: (l) => log.push(l),
         dryRun: true,
       },
@@ -116,5 +153,9 @@ describe('executePlan', () => {
       '[dry-run] openclaw config set --batch-file <private temp file>',
       '[dry-run]   batch file content: [{"path":"x.y","value":1}]',
     ]);
+    expect(log.at(-1)).toMatch(
+      /^\[dry-run\] set keys\._plugin = <redacted> in \/s\.json \(currently unset;/,
+    );
+    expect(log.join('\n')).not.toContain('k3y');
   });
 });
