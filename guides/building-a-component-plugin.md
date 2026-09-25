@@ -101,6 +101,10 @@ export const descriptor: JeevesComponentDescriptor =
 
 `createPluginToolset(descriptor)` returns the standard `{name}_status`, `{name}_config`, `{name}_config_apply`, and `{name}_service` tools.
 
+### Plugin config
+
+Read settings from `plugins.entries.<id>.config` with `resolvePluginSetting` / `resolveOptionalPluginSetting`. `jeeves install` writes them. It writes only the keys in its registry (`src/cli/jeeves/plugins/pluginConfigSchema.ts`), because every Jeeves manifest `configSchema` sets `additionalProperties: false`. When you add a key, ship it in the manifest and add it to that registry in the same release: say whether it is required, give its default, name its CLI option, and mark it secret if it is one. `configRoot` is shared by every plugin and comes from `--config-root`.
+
 ## Step 5: Register Tools
 
 Use the Plugin SDK's result formatters and HTTP helpers to register tools with the OpenClaw gateway:

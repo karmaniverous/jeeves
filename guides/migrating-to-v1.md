@@ -49,28 +49,50 @@ v1 retires everything in `@karmaniverous/jeeves` that wrote to a live workspace 
 | `renderManagedBlock`, `upsertManagedBlock`, `removeManagedBlock`, `formatBeginMarker`, `formatEndMarker` | Pure managed-block transforms |
 | `validateSkillFrontmatter`, `SkillFrontmatter` | `name`/`description` check for skill build steps |
 | `jeeves update [packages...]`, `jeeves install [plugins...]`, `jeeves uninstall --plugins`, `--dry-run` on all three | Plugin install/update/removal through the OpenClaw CLI (see README, CLI) |
+| `jeeves install` plugin config options: `--config-root` (shared), `--runner-api-url`, `--watcher-api-url`, `--server-api-url`, `--server-plugin-key`, `--meta-api-url`, `--plugin-config <file.json>` | Writes `plugins.entries.<id>.config` (replaces the per-plugin `npx <plugin> install` config step) |
 | `registerPromptContext`, `promptContextOptionsSchema`, `PromptBuild*` types | `before_prompt_build` → `{ appendSystemContext }` |
 | `onPluginDispose`, `PluginLifecycleApi` | Tie resources to the plugin lifecycle |
 | `PluginApi.on`, `.lifecycle`, `.logger`, `.pluginConfig` | Typed subset of the OpenClaw 2026.9.x plugin API |
 
 ## Install Flow
 
-For open-source users (OpenClaw already installed):
+For a new box:
+
+1. Install OpenClaw.
+2. Install and configure the Jeeves services (runner, watcher, server, meta) under one platform config root.
+3. Install the CLI and the plugins:
 
 ```bash
 npm install -g @karmaniverous/jeeves
-jeeves install --dry-run     # prints files and the exact openclaw commands
-jeeves install               # content + runner/watcher/server/meta plugins at latest
-jeeves update                # later: every installed Jeeves plugin to latest
+jeeves install --config-root /srv/jeeves/config --dry-run   # files, plugin config, exact openclaw commands
+jeeves install --config-root /srv/jeeves/config             # content + runner/watcher/server/meta plugins at latest
+```
+
+4. Restart the gateway yourself. The CLI only prints a reminder, because it can't know whether the gateway runs in a console, as a service or in a container.
+
+Later:
+
+```bash
+jeeves update                # every installed Jeeves plugin to latest
 jeeves update watcher@1.2.3  # or one plugin to a pinned version
 ```
+
+`jeeves install` writes each plugin's `plugins.entries.<id>.config`:
+
+- `configRoot` is required. It comes from `--config-root`, then the existing value, then `JEEVES_CONFIG_ROOT` or `jeeves.config.json`. With none of them, the install fails before writing anything and lists the missing options.
+- `apiUrl` defaults to the service's local port.
+- The server `pluginKey` defaults to the server's own `keys._plugin` seed, or else a newly generated one (shown only as `<redacted>`).
+
+Values already in `openclaw.json` are kept unless you pass them explicitly. See README, _Plugin config_.
 
 jeeves-tools (not open source) will call the same CLI over SSH with fleet-pinned versions instead of running plugin installers itself:
 
 ```bash
-ssh jeeves@<instance> 'source ~/.nvm/nvm.sh; jeeves install runner@<v> watcher@<v> server@<v> meta@<v>'
+ssh jeeves@<instance> 'source ~/.nvm/nvm.sh; jeeves install runner@<v> watcher@<v> server@<v> meta@<v> --config-root <root>'
 ssh jeeves@<instance> 'source ~/.nvm/nvm.sh; jeeves update @karmaniverous/jeeves-runner-openclaw@<v>'
 ```
+
+jeeves-tools no longer renders plugin config itself. It passes `--config-root` and any non-default values (or a `--plugin-config` file) to `jeeves install`.
 
 `jeeves` exits non-zero if any `openclaw` or `npm` command fails, so the SSH exit code is the success signal.
 
@@ -78,7 +100,7 @@ ssh jeeves@<instance> 'source ~/.nvm/nvm.sh; jeeves update @karmaniverous/jeeves
 
 Instances managed by v0.x keep working until their plugins are upgraded. On upgrade:
 
-- Run `jeeves install --dry-run`, review, then `jeeves install`. It replaces the old SOUL/AGENTS blocks in place (cleanup flags included), reinstalls each plugin from npm, sets `hooks.allowConversationAccess`, and deletes the legacy `extensions/<id>` copy only after the npm install succeeded. Restart the gateway afterwards.
+- Run `jeeves install --dry-run`, review, then `jeeves install`. It replaces the old SOUL/AGENTS blocks in place (cleanup flags included), reinstalls each plugin from npm, sets `hooks.allowConversationAccess`, fills in missing plugin config without touching existing values, and deletes the legacy `extensions/<id>` copy only after the npm install succeeded. Restart the gateway afterwards.
 - TOOLS.md is no longer loaded by OpenClaw 2026.9.6. `jeeves uninstall` or `removeManagedBlock(content, LEGACY_TOOLS_MARKERS)` strips the old block. Nothing writes TOOLS.md any more; archiving the file is the owner's call.
 - HEARTBEAT.md's `# Jeeves Platform Status` section is no longer maintained and can be removed.
 - `{configRoot}/jeeves-core/component-versions.json` and `registry-cache.json` are no longer read or written and can be deleted.

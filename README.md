@@ -2,15 +2,15 @@
 
 [![npm version](https://img.shields.io/npm/v/@karmaniverous/jeeves.svg)](https://www.npmjs.com/package/@karmaniverous/jeeves) ![Node Current](https://img.shields.io/node/v/@karmaniverous/jeeves) <!-- TYPEDOC_EXCLUDE --> [![docs](https://img.shields.io/badge/docs-website-blue)](https://docs.karmanivero.us/jeeves) [![changelog](https://img.shields.io/badge/changelog-latest-blue.svg)](https://github.com/karmaniverous/jeeves/tree/main/CHANGELOG.md)<!-- /TYPEDOC_EXCLUDE --> [![license](https://img.shields.io/badge/license-BSD--3--Clause-blue.svg)](https://github.com/karmaniverous/jeeves/tree/main/LICENSE)
 
-Install [OpenClaw](https://openclaw.ai). Then run:
+Install [OpenClaw](https://openclaw.ai) and the Jeeves services you want (runner, watcher, server, meta). Then run:
 
 ```bash
 npm install -g @karmaniverous/jeeves
-jeeves install --dry-run   # see exactly what will change
-jeeves install
+jeeves install --config-root /srv/jeeves/config --dry-run   # see exactly what will change
+jeeves install --config-root /srv/jeeves/config
 ```
 
-That's it. I handle the rest.
+Then restart the OpenClaw gateway the way you run it (console, service, container). That's it. I handle the rest. See [New box](#new-box) for the full sequence.
 
 ## Who I Am
 
@@ -185,15 +185,51 @@ OpenClaw must already be installed; `jeeves` checks for it and never installs it
 1. Renders the SOUL.md/AGENTS.md managed blocks (your content outside the markers is kept), the platform skills, the reference templates, and the core config if it's missing. It never writes TOOLS.md or HEARTBEAT.md.
 2. For each plugin (default: `runner`, `watcher`, `server`, `meta` at `latest`), resolves an exact version with `npm view`, then runs `openclaw plugins install npm:<pkg>@<version> --pin --accept-capabilities --force`. `--force` is required for any non-ClawHub source, and it also overwrites an existing install, which is how updates land.
 3. Removes any legacy `<openclaw dir>/extensions/<id>` copy left by the v0.x installer, but only if its `package.json` names the expected package.
-4. Sets `plugins.entries.<id>.hooks.allowConversationAccess: true` with one `openclaw config set --batch-json` call. The write targets the leaf path, so existing `plugins.entries.<id>.config` values are kept. `plugins.installs` is never written.
+4. Sets `plugins.entries.<id>.hooks.allowConversationAccess: true` and the plugin config (`plugins.entries.<id>.config.<key>`, see [Plugin config](#plugin-config)) with one `openclaw config set --batch-json` call. Every write targets a leaf path, so unrelated keys are kept. `plugins.installs` is never written.
 
 Plugin specs can be short (`watcher`, `watcher@1.2.3`, `runner@^1`) or full (`@karmaniverous/jeeves-watcher-openclaw@1.2.3`). Only `@karmaniverous/jeeves-*-openclaw` packages are accepted. `--content-only` skips the plugins.
 
-`jeeves update` runs steps 2–4 for the named packages, or for every Jeeves plugin that has a `plugins.entries` record, at `latest`.
+`jeeves update` runs steps 2–4 for the named packages, or for every Jeeves plugin that has a `plugins.entries` record, at `latest`. It grants hook access but does not touch plugin config; run `jeeves install` for that.
 
 `jeeves uninstall --plugins` runs `openclaw plugins uninstall <id> --force` for each Jeeves plugin. OpenClaw leaves `plugins.entries.<id> = { enabled: false }` behind and can delete `plugins.load`, so the CLI then unsets the leftover entry and restores `plugins.load` from its value before the uninstall.
 
-Plugin changes take effect when the gateway next starts. The CLI tells you to restart it; it never restarts the gateway itself.
+Plugin changes take effect when the gateway next starts. The CLI tells you to restart it; it never restarts the gateway itself, because it can't know how you run it (console, service, container). There is no `--restart` option.
+
+### Plugin config
+
+The plugins read their settings from `plugins.entries.<id>.config` in `openclaw.json`, and most of them refuse to start without `configRoot`. `jeeves install` writes these values:
+
+| Plugin | Key | Required | Default | Option |
+| --- | --- | --- | --- | --- |
+| all four | `configRoot` | yes | `JEEVES_CONFIG_ROOT` or `jeeves.config.json` `core.configRoot`, if set | `-c, --config-root <path>` |
+| `jeeves-runner-openclaw` | `apiUrl` | no | `http://127.0.0.1:1937` | `--runner-api-url <url>` |
+| `jeeves-watcher-openclaw` | `apiUrl` | no | `http://127.0.0.1:1936` | `--watcher-api-url <url>` |
+| `jeeves-server-openclaw` | `apiUrl` | no | `http://127.0.0.1:1934` | `--server-api-url <url>` |
+| `jeeves-server-openclaw` | `pluginKey` (secret) | no | the server's `keys._plugin` seed in `{configRoot}/jeeves-server/config.json`, else a new random 256-bit hex seed | `--server-plugin-key <seed>` |
+| `jeeves-meta-openclaw` | `apiUrl` | no | `http://127.0.0.1:1938` | `--meta-api-url <url>` |
+
+For each key, the first of these wins:
+
+1. the CLI option;
+2. `--plugin-config <file.json>`;
+3. the value already in `openclaw.json`;
+4. the default.
+
+An existing value is never overwritten unless you pass it explicitly. If a required value has no source, `jeeves install` fails before it writes anything and lists the missing options. `configRoot` is written as an absolute path.
+
+The `--plugin-config` file has the same shape as the options:
+
+```json
+{
+  "configRoot": "/srv/jeeves/config",
+  "watcher": { "apiUrl": "http://127.0.0.1:1936" },
+  "server": { "pluginKey": "<seed>" }
+}
+```
+
+Unknown keys are rejected (every plugin's `configSchema` sets `additionalProperties: false`). A file is a better place for `pluginKey` than the command line, where it lands in your shell history.
+
+Secrets are never printed. The dry run, logs and error messages show `<redacted>` in place of `pluginKey`. If `jeeves install` generated a new `pluginKey`, jeeves-server has to trust the same seed. It prints a reminder to set `keys._plugin` in the server config to the value now in `openclaw.json`.
 
 ### Dry run and failures
 
@@ -207,9 +243,31 @@ $ jeeves install watcher --dry-run
 [dry-run] openclaw config set --batch-json '[{"path":"plugins.entries.jeeves-watcher-openclaw.hooks.allowConversationAccess","value":true}]'
 ```
 
+With plugin config (fresh box, `--config-root` passed, server key generated):
+
+```text
+$ jeeves install server --config-root /srv/jeeves/config --dry-run
+…
+Plugin config:
+  jeeves-server-openclaw.configRoot = "/srv/jeeves/config" (option; write)
+  jeeves-server-openclaw.apiUrl = "http://127.0.0.1:1934" (default; write)
+  jeeves-server-openclaw.pluginKey = <redacted> (generated; write)
+…
+[dry-run] openclaw config set --batch-json '[{"path":"plugins.entries.jeeves-server-openclaw.hooks.allowConversationAccess","value":true},{"path":"plugins.entries.jeeves-server-openclaw.config.configRoot","value":"/srv/jeeves/config"},{"path":"plugins.entries.jeeves-server-openclaw.config.apiUrl","value":"http://127.0.0.1:1934"},{"path":"plugins.entries.jeeves-server-openclaw.config.pluginKey","value":"<redacted>"}]'
+```
+
 A live run stops at the first failing step. A non-zero exit from any `openclaw` or `npm` command makes `jeeves` exit 1 and print the command and its error output. Commands are spawned with an argument vector and no shell, so the same invocation works on Linux, macOS and Windows.
 
 The OpenClaw directory follows OpenClaw's own resolution: `OPENCLAW_STATE_DIR`, else the directory of `OPENCLAW_CONFIG_PATH`, else `~/.openclaw`.
+
+### New box
+
+1. Install OpenClaw and make sure `openclaw --version` works for the user that runs the gateway.
+2. Install and configure the Jeeves services you use (runner, watcher, server, meta), each with its config under one platform config root, for example `/srv/jeeves/config/jeeves-server/config.json`.
+3. `npm install -g @karmaniverous/jeeves`
+4. `jeeves install --config-root /srv/jeeves/config --dry-run`. Review the files, the plugin config and the exact `openclaw` commands. Add `--<component>-api-url` options if a service is not on its default port.
+5. `jeeves install --config-root /srv/jeeves/config`
+6. Restart the gateway yourself. `jeeves` never does this.
 
 ### Remote use (jeeves-tools)
 
@@ -217,8 +275,8 @@ jeeves-tools is not part of the open-source stack. It drives the same CLI over S
 
 ```bash
 ssh jeeves@<instance> 'source ~/.nvm/nvm.sh; npm install -g @karmaniverous/jeeves@<ver>'
-ssh jeeves@<instance> 'source ~/.nvm/nvm.sh; jeeves install runner@<v> watcher@<v> server@<v> meta@<v> --dry-run'
-ssh jeeves@<instance> 'source ~/.nvm/nvm.sh; jeeves install runner@<v> watcher@<v> server@<v> meta@<v>'
+ssh jeeves@<instance> 'source ~/.nvm/nvm.sh; jeeves install runner@<v> watcher@<v> server@<v> meta@<v> --config-root <root> --dry-run'
+ssh jeeves@<instance> 'source ~/.nvm/nvm.sh; jeeves install runner@<v> watcher@<v> server@<v> meta@<v> --config-root <root>'
 ssh jeeves@<instance> 'source ~/.nvm/nvm.sh; jeeves update @karmaniverous/jeeves-runner-openclaw@<v>'
 ```
 
