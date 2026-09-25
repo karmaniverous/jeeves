@@ -8,14 +8,14 @@ title Static Platform Content Render (create / deploy)
 
 start
 
-:Installer runs\n(jeeves-tools or jeeves install);
+:jeeves install runs\n(locally, or via SSH from jeeves-tools);
 
-:renderPlatformContent({ version });
+:Render content (CLI-internal);
 note right: Pure: SOUL/AGENTS blocks,\nskills, templates
 
 :Read existing SOUL.md / AGENTS.md;
 
-:upsertPlatformSection(id, existing);
+:Upsert managed block (upsertManagedBlock);
 
 if (Managed block present?) then (yes)
   :Replace block in place\n(owner content kept);

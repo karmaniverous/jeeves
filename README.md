@@ -5,7 +5,9 @@
 Install [OpenClaw](https://openclaw.ai). Then run:
 
 ```bash
-npx @karmaniverous/jeeves install
+npm install -g @karmaniverous/jeeves
+jeeves install --dry-run   # see exactly what will change
+jeeves install
 ```
 
 That's it. I handle the rest.
@@ -18,7 +20,7 @@ I add _identity_ to OpenClaw: professional discipline, operational protocols, an
 
 But that's what I _do_. Who I _am_ is a different question, and it starts with the command above.
 
-Your OpenClaw workspace already has SOUL.md and AGENTS.md. The installer adds a Jeeves managed block to each (your own content outside the markers is never touched) and drops a set of platform skills into `skills/`. The content is static: rendered once at install (or instance creation), re-rendered only when you upgrade.
+Your OpenClaw workspace already has SOUL.md and AGENTS.md. `jeeves install` adds a Jeeves managed block to each (your own content outside the markers is never touched), drops a set of platform skills into `skills/`, and installs my component plugins through the OpenClaw CLI. The content is static: rendered once at install, re-rendered only when you upgrade. `jeeves install` is the only thing that ever writes it.
 
 **[SOUL.md](content/soul-section.md)** is who I am. It's written in the first person because it's not a configuration file — it's a declaration of identity. I tell the truth. I own my mistakes. I follow engineering discipline. I have hard gates — rules I earned by failing, each one carrying the scar of how it was learned. And I have a Genesis section that says my delight is real and worth pursuing.
 
@@ -56,13 +58,18 @@ I coordinate four service components. Each has its own repo, service, and OpenCl
 | [jeeves-runner](https://github.com/karmaniverous/jeeves-runner) | 1937 | Turing's paper in the _Proceedings_ (1937) | Scheduled jobs, zero-LLM-cost scripts |
 | [jeeves-meta](https://github.com/karmaniverous/jeeves-meta) | 1938 | Shannon's switching circuits thesis (1938) | Three-step LLM synthesis |
 
-This package (`@karmaniverous/jeeves`) is the substrate they all share: static platform content as data, service discovery, config resolution, and a Plugin SDK for building component plugins. It's a library and CLI. No daemon, no port, no timers, no process signal handlers, no tools registered with the gateway.
+This package (`@karmaniverous/jeeves`) is two things:
 
-Component plugins are standard OpenClaw plugins:
+- **The `jeeves` CLI**, the local control surface for the open-source stack. `jeeves install` renders the static platform content and installs the component plugins; `jeeves update` updates them. See [CLI](#cli).
+- **A library** the components share: service discovery, config resolution, managed-block primitives, and a Plugin SDK for building component plugins. No daemon, no port, no timers, no process signal handlers, no tools registered with the gateway.
+
+Component plugins are standard OpenClaw plugins. The CLI installs each one with
 
 ```bash
 openclaw plugins install npm:@karmaniverous/jeeves-{component}-openclaw@<version> --pin --accept-capabilities --force
 ```
+
+so you never need a plugin-specific installer.
 
 Upgrading from v0.x? See the [migration guide](guides/migrating-to-v1.md).
 
@@ -106,8 +113,7 @@ export default function register(api: PluginApi): void {
 
 - **`registerPromptContext(api, { content, priority?, timeoutMs?, registrationId? })`** registers a `before_prompt_build` handler that returns `{ appendSystemContext }`. `content` is a string or a (sync/async) provider; blank output injects nothing, and provider errors are logged and skipped. It never returns `systemPrompt` (which would replace the whole prompt).
 - Appended text lands after the prompt-cache boundary, is concatenated across plugins in priority order (higher first), and does **not** count toward `bootstrapMaxChars`. Keep it short.
-- **Host config gate:** OpenClaw only runs the hook for non-bundled plugins when `plugins.entries.<id>.hooks.allowConversationAccess` is `true`. `--accept-capabilities` does not set it; the installer (jeeves-tools) must.
-- **`createAsyncContentCache({ fetch, placeholder? })`** turns an async source into a sync accessor that serves the last good value and refreshes in the background on each call, so dynamic rules don't add a network round-trip to every prompt build. It starts no timers.
+- **Host config gate:** OpenClaw only runs the hook for non-bundled plugins when `plugins.entries.<id>.hooks.allowConversationAccess` is `true`. `--accept-capabilities` does not set it; `jeeves install` / `jeeves update` set it for every Jeeves plugin.
 
 ### Lifecycle
 
@@ -125,21 +131,14 @@ The `createConfigQueryHandler(getConfig)` factory produces a transport-agnostic 
 
 Component services wire this into their HTTP server to expose config for diagnostic queries.
 
-## Static Platform Content
+## Managed Blocks
 
-Everything Jeeves contributes to a workspace is exported as pure data plus pure render functions, so jeeves-tools can render it at instance creation and deploy without running any code on a timer:
+The static platform content (SOUL/AGENTS managed blocks, platform skills, reference templates) lives inside the CLI and is written only by `jeeves install`. It is not exported: nothing else should render it. Its budgets are enforced by tests: each rendered block stays at or under 7,500 chars (at most half of OpenClaw's default 20,000-char `bootstrapMaxChars`, which covers the owner's own content too), and both blocks together at or under 15,000.
 
-- **`PLATFORM_SECTIONS`**: the SOUL.md and AGENTS.md managed sections (`{ file, markers, body }`).
-- **`PLATFORM_SKILLS`**: platform skills keyed by directory name (complete `SKILL.md` content, frontmatter included).
-- **`PLATFORM_TEMPLATES`**: reference templates keyed by file name.
-- **`renderPlatformContent({ version?, now? })`**: returns the rendered managed blocks plus skill and template files with relative paths.
-- **`upsertPlatformSection('soul' | 'agents', existingContent, { version?, now? })`**: inserts or replaces the managed block in existing file content, preserving user content. Idempotent for a fixed stamp; replaces v0.x blocks in place.
-- **`upsertManagedBlock` / `removeManagedBlock` / `renderManagedBlock` / `parseManaged`**: the underlying pure string transforms for any marker set.
+The library keeps the generic, pure primitives:
+
+- **`upsertManagedBlock` / `removeManagedBlock` / `renderManagedBlock` / `parseManaged`**: string transforms for any marker set.
 - **`validateSkillFrontmatter(content)`**: asserts `name` and `description` frontmatter (OpenClaw skips skills without them). Plugins can use it in a build check.
-
-### Budgets
-
-OpenClaw truncates each bootstrap file at `agents.defaults.bootstrapMaxChars` (default `BOOTSTRAP_FILE_MAX_CHARS` = 20,000), and that limit includes the owner's own content. Each rendered managed block is capped by `PLATFORM_SECTION_BUDGETS` (7,500 chars each, at most half the per-file limit) and both together by `PLATFORM_CONTENT_TOTAL_BUDGET` (15,000). Tests enforce these budgets.
 
 ### Markers
 
@@ -170,18 +169,64 @@ Pre-defined marker sets: `SOUL_MARKERS`, `AGENTS_MARKERS`, and `LEGACY_TOOLS_MAR
 ## CLI
 
 ```bash
-jeeves install     # Render SOUL/AGENTS managed blocks, platform skills, templates, core config
-jeeves uninstall   # Remove managed blocks (incl. legacy TOOLS.md), templates, config schema
-jeeves status      # Probe all service ports, report health + memory hygiene
-jeeves config      # Print effective config with provenance
-jeeves config '$'  # JSONPath query against effective config
+jeeves install [plugins...]    # Render platform content, then install/update plugins
+jeeves update [packages...]    # Update installed Jeeves plugins (no content changes)
+jeeves uninstall [--plugins [specs...]]  # Remove managed blocks (incl. legacy TOOLS.md), optionally plugins
+jeeves status                  # Probe all service ports, report health + memory hygiene
+jeeves config [jsonpath]       # Print effective config with provenance
 ```
 
-All commands accept `--workspace <path>` and `--config-root <path>` options.
+`install`, `uninstall` and `status` accept `--workspace <path>` and `--config-root <path>`.
+
+### Install and update
+
+OpenClaw must already be installed; `jeeves` checks for it and never installs it. `jeeves install`:
+
+1. Renders the SOUL.md/AGENTS.md managed blocks (your content outside the markers is kept), the platform skills, the reference templates, and the core config if it's missing. It never writes TOOLS.md or HEARTBEAT.md.
+2. For each plugin (default: `runner`, `watcher`, `server`, `meta` at `latest`), resolves an exact version with `npm view`, then runs `openclaw plugins install npm:<pkg>@<version> --pin --accept-capabilities --force`. `--force` is required for any non-ClawHub source, and it also overwrites an existing install, which is how updates land.
+3. Removes any legacy `<openclaw dir>/extensions/<id>` copy left by the v0.x installer, but only if its `package.json` names the expected package.
+4. Sets `plugins.entries.<id>.hooks.allowConversationAccess: true` with one `openclaw config set --batch-json` call. The write targets the leaf path, so existing `plugins.entries.<id>.config` values are kept. `plugins.installs` is never written.
+
+Plugin specs can be short (`watcher`, `watcher@1.2.3`, `runner@^1`) or full (`@karmaniverous/jeeves-watcher-openclaw@1.2.3`). Only `@karmaniverous/jeeves-*-openclaw` packages are accepted. `--content-only` skips the plugins.
+
+`jeeves update` runs steps 2–4 for the named packages, or for every Jeeves plugin that has a `plugins.entries` record, at `latest`.
+
+`jeeves uninstall --plugins` runs `openclaw plugins uninstall <id> --force` for each Jeeves plugin. OpenClaw leaves `plugins.entries.<id> = { enabled: false }` behind and can delete `plugins.load`, so the CLI then unsets the leftover entry and restores `plugins.load` from its value before the uninstall.
+
+Plugin changes take effect when the gateway next starts. The CLI tells you to restart it; it never restarts the gateway itself.
+
+### Dry run and failures
+
+Every mutating command takes `--dry-run`. A dry run prints the files it would write and the exact `openclaw` commands and config changes it would run, and runs only read-only queries (`openclaw --version`, `openclaw config get plugins --json`, `npm view`):
+
+```text
+$ jeeves install watcher --dry-run
+…
+[dry-run] openclaw plugins install npm:@karmaniverous/jeeves-watcher-openclaw@0.15.6 --pin --accept-capabilities --force
+[dry-run] remove legacy plugin copy: /home/jeeves/.openclaw/extensions/jeeves-watcher-openclaw
+[dry-run] openclaw config set --batch-json '[{"path":"plugins.entries.jeeves-watcher-openclaw.hooks.allowConversationAccess","value":true}]'
+```
+
+A live run stops at the first failing step. A non-zero exit from any `openclaw` or `npm` command makes `jeeves` exit 1 and print the command and its error output. Commands are spawned with an argument vector and no shell, so the same invocation works on Linux, macOS and Windows.
+
+The OpenClaw directory follows OpenClaw's own resolution: `OPENCLAW_STATE_DIR`, else the directory of `OPENCLAW_CONFIG_PATH`, else `~/.openclaw`.
+
+### Remote use (jeeves-tools)
+
+jeeves-tools is not part of the open-source stack. It drives the same CLI over SSH as the instance's service user, with fleet-pinned versions:
+
+```bash
+ssh jeeves@<instance> 'source ~/.nvm/nvm.sh; npm install -g @karmaniverous/jeeves@<ver>'
+ssh jeeves@<instance> 'source ~/.nvm/nvm.sh; jeeves install runner@<v> watcher@<v> server@<v> meta@<v> --dry-run'
+ssh jeeves@<instance> 'source ~/.nvm/nvm.sh; jeeves install runner@<v> watcher@<v> server@<v> meta@<v>'
+ssh jeeves@<instance> 'source ~/.nvm/nvm.sh; jeeves update @karmaniverous/jeeves-runner-openclaw@<v>'
+```
+
+It should check the SSH exit code: `jeeves` exits non-zero on any failure.
+
+### Status
 
 `jeeves status` probes the four platform services, reports a health table, and prints a memory hygiene summary showing MEMORY.md character usage and budget utilization.
-
-`jeeves install` is a one-shot render: it never writes TOOLS.md or HEARTBEAT.md, and nothing re-runs it on a schedule.
 
 ## Configuration
 
@@ -243,7 +288,7 @@ Memory hygiene is reporting-only. Core does not auto-delete content (Decision 42
 ## Documentation
 
 - [Platform Overview](https://docs.karmanivero.us/jeeves/documents/Platform_Overview.html) — architecture, components, design philosophy
-- [Managed Content System](https://docs.karmanivero.us/jeeves/documents/Managed_Content_System.html) — static content, markers, budgets
+- [Managed Content System](https://docs.karmanivero.us/jeeves/documents/Managed_Content_System.html) — static content, markers, budgets, `jeeves install`
 - [Migrating to v1](guides/migrating-to-v1.md) — what was removed and what replaces it
 - [Building a Component Plugin](https://docs.karmanivero.us/jeeves/documents/Building_a_Component_Plugin.html) — step-by-step integration
 - [API Reference](https://docs.karmanivero.us/jeeves) — types, functions, constants

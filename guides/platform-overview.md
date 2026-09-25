@@ -52,7 +52,7 @@ Shared library and CLI that provides the substrate all components build on:
 
 ## Content Lifecycle
 
-The platform contributes static content to two workspace bootstrap files, rendered once at instance creation (jeeves-tools or `jeeves install`) and re-rendered only on deploy/upgrade:
+The platform contributes static content to two workspace bootstrap files, rendered by `jeeves install` (the only writer; jeeves-tools runs it over SSH on managed instances) and re-rendered only on upgrade:
 
 ### SOUL.md
 
@@ -140,7 +140,7 @@ MEMORY.md is the assistant's curated long-term memory, loaded at every session s
 
 ## Platform Skills
 
-The installer writes the platform skills (`PLATFORM_SKILLS`) to `{workspace}/skills/<name>/SKILL.md`. The `jeeves` skill gives the assistant architectural context: component roles, data flow, service discovery, platform content, plugin lifecycle, and memory hygiene. Component plugins ship their own skills in their packages via the plugin manifest.
+`jeeves install` writes the platform skills to `{workspace}/skills/<name>/SKILL.md`. The `jeeves` skill gives the assistant architectural context: component roles, data flow, service discovery, platform content, plugin lifecycle, and memory hygiene. Component plugins ship their own skills in their packages via the plugin manifest.
 
 ## Node.js Requirement
 

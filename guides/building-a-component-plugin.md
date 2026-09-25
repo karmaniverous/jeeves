@@ -6,7 +6,7 @@ title: Building a Component Plugin
 
 This guide walks through building a Jeeves component plugin: a standard OpenClaw plugin that uses `@karmaniverous/jeeves` for settings resolution, tools, always-in-context rules, and lifecycle hygiene.
 
-Plugins do **not** write workspace files. Static platform content (SOUL/AGENTS managed blocks, platform skills) is rendered by the installer; live state is served by your plugin's tools. Upgrading a v0.x plugin? See [Migrating to v1](migrating-to-v1.md).
+Plugins do **not** write workspace files. Static platform content (SOUL/AGENTS managed blocks, platform skills) is rendered only by `jeeves install`; live state is served by your plugin's tools. Upgrading a v0.x plugin? See [Migrating to v1](migrating-to-v1.md).
 
 ## Prerequisites
 
@@ -156,7 +156,7 @@ export default function register(api: PluginApi): void {
 ```
 
 - Keep rules short and static. Put detail in your skill; put live numbers behind a tool.
-- For dynamic text, pass a provider (`content: () => string | Promise<string>`), ideally a `createAsyncContentCache` accessor so prompt builds don't wait on the network.
+- For dynamic text, pass a provider (`content: () => string | Promise<string>`). It is awaited on every prompt build (bounded by `timeoutMs`), so keep it fast: serve a value your plugin already holds rather than calling the network each time.
 - Never return `systemPrompt`: it replaces the entire system prompt. The helper's result type can't express it.
 - **Required host config:** `plugins.entries.<id>.hooks.allowConversationAccess: true`. Without it OpenClaw silently skips the hook for non-bundled plugins, and `--accept-capabilities` does not set it.
 

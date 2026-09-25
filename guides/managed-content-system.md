@@ -39,57 +39,39 @@ interface ManagedMarkers {
 
 Marker sets: `SOUL_MARKERS`, `AGENTS_MARKERS` (both `position: 'bottom'`), and `LEGACY_TOOLS_MARKERS` (only for stripping v0.x TOOLS.md blocks).
 
-## Content as Data
+## Content Lives in the CLI
 
-| Export               | What it is                                         |
-| -------------------- | -------------------------------------------------- |
-| `PLATFORM_SECTIONS`  | `{ soul, agents }`, each `{ file, markers, body }` |
-| `PLATFORM_SKILLS`    | Skill directory name → complete `SKILL.md`         |
-| `PLATFORM_TEMPLATES` | Template file name → content                       |
+The content bodies, the skills and the templates are private to the `jeeves` CLI. Markdown sources live in `content/` and are inlined into the CLI bundle at build time. The library does not export them, and nothing but `jeeves install` renders them. That keeps one writer for platform content (spec v1 §2.2, decision log #5).
 
-Markdown sources live in `content/` and are inlined at build time, so the data is available wherever core is bundled.
+`jeeves install` renders:
 
-## Rendering
-
-All render functions are pure (no I/O). Callers write the results.
-
-```typescript
-import {
-  renderPlatformContent,
-  upsertPlatformSection,
-} from '@karmaniverous/jeeves';
-
-// Fresh instance: everything, with relative paths.
-const out = renderPlatformContent({ version: '1.0.0' });
-// out.sections.soul.block, out.sections.agents.block
-// out.skills     → [{ path: 'skills/jeeves/SKILL.md', content }, ...]  (workspace-relative)
-// out.templates  → [{ path: 'templates/spec.md', content }, ...]      ({configRoot}/jeeves-core-relative)
-
-// Existing file: insert or replace the block, preserving user content.
-const agents = upsertPlatformSection('agents', existingAgentsMd, {
-  version: '1.0.0',
-});
-```
+| Output | Destination |
+| --- | --- |
+| SOUL managed block | `{workspace}/SOUL.md` (inserted or replaced in place) |
+| AGENTS managed block | `{workspace}/AGENTS.md` (inserted or replaced in place) |
+| Platform skills | `{workspace}/skills/<name>/SKILL.md` |
+| Reference templates | `{configRoot}/jeeves-core/templates/` |
+| Core config (only if missing) | `{configRoot}/jeeves-core/config.json` |
 
 - Replacing an existing block keeps content before and after it where it was.
 - Inserting a new block uses the marker set's `position`; an orphaned BEGIN marker (BEGIN without END) is stripped first.
-- For a fixed `{ version, now }` the output is deterministic, and re-applying it is a no-op.
+- For a fixed version the output is deterministic apart from the render time in the stamp.
+- `jeeves install --dry-run` lists every file it would write and writes nothing.
+- `jeeves uninstall` removes the blocks, plus any legacy TOOLS.md block. Nothing writes TOOLS.md any more.
 
-Lower-level transforms for any marker set: `renderManagedBlock`, `upsertManagedBlock`, `removeManagedBlock`, `parseManaged`, `formatBeginMarker`, `formatEndMarker`.
-
-`jeeves install` is a thin filesystem adapter over these functions; `jeeves uninstall` removes the blocks (and any legacy TOOLS.md block).
+The generic, pure transforms stay in the library for any marker set: `renderManagedBlock`, `upsertManagedBlock`, `removeManagedBlock`, `parseManaged`, `formatBeginMarker`, `formatEndMarker`.
 
 ## Budgets
 
-OpenClaw truncates each bootstrap file at `agents.defaults.bootstrapMaxChars` (default 20,000 chars, `BOOTSTRAP_FILE_MAX_CHARS`). The limit covers the whole file, so every char Jeeves uses is a char the owner can't.
+OpenClaw truncates each bootstrap file at `agents.defaults.bootstrapMaxChars` (default 20,000 chars). The limit covers the whole file, so every char Jeeves uses is a char the owner can't.
 
-| Budget                            | Chars  |
-| --------------------------------- | ------ |
-| `PLATFORM_SECTION_BUDGETS.soul`   | 7,500  |
-| `PLATFORM_SECTION_BUDGETS.agents` | 7,500  |
-| `PLATFORM_CONTENT_TOTAL_BUDGET`   | 15,000 |
+| Budget (internal to the CLI) | Chars  |
+| ---------------------------- | ------ |
+| SOUL block                   | 7,500  |
+| AGENTS block                 | 7,500  |
+| Both blocks together         | 15,000 |
 
-Each budget measures the full rendered block (markers, stamp, and title included) and is at most half the per-file limit. `src/content/platformContent.test.ts` fails the build if content outgrows them. To add content, trim elsewhere or move it to a skill.
+Each budget measures the full rendered block (markers, stamp, and title included) and is at most half the per-file limit. `src/cli/jeeves/content/platformContent.test.ts` fails the build if content outgrows them. To add content, trim elsewhere or move it to a skill.
 
 ## Where Other Content Goes
 
