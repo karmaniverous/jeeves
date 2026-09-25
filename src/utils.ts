@@ -36,6 +36,22 @@ export function getErrorCode(err: unknown): string | undefined {
     : undefined;
 }
 
+/**
+ * `JSON.parse` that fails with a caller-supplied message (original error as
+ * `cause`).
+ *
+ * @param text - JSON text.
+ * @param message - Message of the thrown error.
+ * @returns The parsed value.
+ */
+export function parseJson(text: string, message: string): unknown {
+  try {
+    return JSON.parse(text) as unknown;
+  } catch (error) {
+    throw new Error(message, { cause: error });
+  }
+}
+
 /** Error codes / names that indicate transient network failures. */
 const TRANSIENT_CODES = new Set([
   'ECONNRESET',

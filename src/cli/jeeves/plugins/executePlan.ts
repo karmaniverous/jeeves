@@ -12,12 +12,10 @@
  * @module
  */
 
-import {
-  type CommandRunner,
-  formatCommand,
-  runChecked,
-} from './commandRunner.js';
+import { formatCommand } from './commandLine.js';
+import { type CommandRunner, runChecked } from './commandRunner.js';
 import { computePostUninstallRepair } from './configPatch.js';
+import { describeConfigBatchLines, describeStep } from './describeStep.js';
 import type { LegacyFs } from './legacyExtensions.js';
 import {
   BATCH_FILE_NAME,
@@ -28,7 +26,7 @@ import {
   OPENCLAW_BIN,
 } from './openclawCommands.js';
 import { readPluginsConfig } from './openclawState.js';
-import { describeConfigBatch, describeStep, type PlanStep } from './plan.js';
+import type { PlanStep } from './plan.js';
 import {
   type PrivateTempFiles,
   withPrivateTempFile,
@@ -51,13 +49,14 @@ export interface ExecutePlanContext {
   dryRun: boolean;
 }
 
-/** Run one openclaw command, logging it first. */
+/** Run one command (echoing its output), logging its command line first. */
 async function runLogged(
   ctx: ExecutePlanContext,
+  command: string,
   args: string[],
 ): Promise<void> {
-  ctx.log(`$ ${formatCommand(OPENCLAW_BIN, args)}`);
-  await runChecked(ctx.runner, OPENCLAW_BIN, args, { echo: true });
+  ctx.log(`$ ${formatCommand(command, args)}`);
+  await runChecked(ctx.runner, command, args, { echo: true });
 }
 
 /**
@@ -72,9 +71,9 @@ async function runConfigBatch(
   ops: readonly ConfigSetOperation[],
   redact?: readonly string[],
 ): Promise<void> {
-  const shown = describeConfigBatch(ops, redact);
-  ctx.log(`$ ${shown.command}`);
-  ctx.log(`  batch file content: ${shown.content}`);
+  const [command, ...details] = describeConfigBatchLines(ops, redact);
+  ctx.log(`$ ${command}`);
+  for (const line of details) ctx.log(line);
   await withPrivateTempFile(
     ctx.tempFiles,
     BATCH_FILE_NAME,
@@ -96,8 +95,7 @@ async function executeStep(
 ): Promise<void> {
   switch (step.kind) {
     case 'exec':
-      ctx.log(`$ ${describeStep(step)[0]}`);
-      await runChecked(ctx.runner, step.command, step.args, { echo: true });
+      await runLogged(ctx, step.command, step.args);
       return;
     case 'configSetBatch':
       await runConfigBatch(ctx, step.ops, step.redact);
@@ -125,7 +123,7 @@ async function executeStep(
         step.pluginIds,
       );
       for (const path of repair.unsetPaths) {
-        await runLogged(ctx, configUnsetArgs(path));
+        await runLogged(ctx, OPENCLAW_BIN, configUnsetArgs(path));
       }
       if (repair.setOps.length > 0) await runConfigBatch(ctx, repair.setOps);
       return;

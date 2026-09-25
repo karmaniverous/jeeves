@@ -119,6 +119,13 @@ export function configBatchPayload(ops: readonly ConfigSetOperation[]): string {
   return JSON.stringify(ops);
 }
 
+/** `config set --batch-file`, without the file path. */
+export const CONFIG_SET_BATCH_FILE: readonly string[] = [
+  'config',
+  'set',
+  '--batch-file',
+];
+
 /**
  * `openclaw config set --batch-file <path>`.
  *
@@ -126,9 +133,7 @@ export function configBatchPayload(ops: readonly ConfigSetOperation[]): string {
  * @returns Argument vector.
  */
 export const configSetBatchFileArgs = (path: string): string[] => [
-  'config',
-  'set',
-  '--batch-file',
+  ...CONFIG_SET_BATCH_FILE,
   path,
 ];
 

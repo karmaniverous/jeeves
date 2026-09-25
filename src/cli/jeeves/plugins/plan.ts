@@ -1,5 +1,6 @@
 /**
- * Plugin operation plans: pure step builders and their dry-run descriptions.
+ * Plugin operation plans: pure step builders (descriptions live in
+ * `describeStep.ts`, execution in `executePlan.ts`).
  *
  * @remarks
  * A plan is computed from read-only state (config slice, resolved versions,
@@ -13,24 +14,15 @@
  * @module
  */
 
-import { formatCommand } from './commandRunner.js';
+import { computeHookAccessOps, type PluginsConfig } from './configPatch.js';
 import {
-  computeHookAccessOps,
-  entryPath,
-  type PluginsConfig,
-} from './configPatch.js';
-import {
-  BATCH_FILE_PLACEHOLDER,
-  configBatchPayload,
   type ConfigSetOperation,
-  configUnsetArgs,
   OPENCLAW_BIN,
   pluginInstallArgs,
   pluginUninstallArgs,
 } from './openclawCommands.js';
 import type { PluginConfigResolution } from './pluginConfigResolve.js';
 import type { PluginTarget } from './pluginSpec.js';
-import { REDACTED, redactSecrets } from './secrets.js';
 import type { ServerKeyWrite } from './serverKeySync.js';
 
 /** A plan step. */
@@ -153,58 +145,4 @@ export function buildUninstallPlan(
     pluginIds: targets.map((t) => t.pluginId),
   });
   return steps;
-}
-
-/**
- * Display form of a batch write: the command line (temp file placeholder)
- * and the file content, secrets redacted.
- *
- * @param ops - Operations.
- * @param redact - Secret values.
- * @returns Command line and content description.
- */
-export function describeConfigBatch(
-  ops: readonly ConfigSetOperation[],
-  redact?: readonly string[],
-): { command: string; content: string } {
-  return {
-    command: `${formatCommand(OPENCLAW_BIN, ['config', 'set', '--batch-file'])} ${BATCH_FILE_PLACEHOLDER}`,
-    content: redactSecrets(configBatchPayload(ops), redact),
-  };
-}
-
-/**
- * Human-readable lines for one step (used for dry-run and live logs).
- *
- * @param step - Plan step.
- * @returns One or more lines; exec steps are exact command lines.
- */
-export function describeStep(step: PlanStep): string[] {
-  switch (step.kind) {
-    case 'exec':
-      return [formatCommand(step.command, step.args)];
-    case 'configSetBatch': {
-      const { command, content } = describeConfigBatch(step.ops, step.redact);
-      return [command, `  batch file content: ${content}`];
-    }
-    case 'removeDir':
-      return [`remove legacy plugin copy: ${step.path}`];
-    case 'serverKeyWrite':
-      return [
-        `set keys._plugin = ${REDACTED} in ${step.write.path} (${step.write.expect.kind === 'absent' ? 'currently unset' : 'replacing the current seed'}; backup ${step.write.path}.bak-<timestamp> first, then atomic write; restart jeeves-server afterwards)`,
-      ];
-    case 'repairAfterUninstall': {
-      const lines = step.pluginIds.map(
-        (id) =>
-          `if left as {"enabled":false}: ${formatCommand(OPENCLAW_BIN, configUnsetArgs(entryPath(id)))}`,
-      );
-      if (step.before.load !== undefined) {
-        const { command, content } = describeConfigBatch([
-          { path: 'plugins.load', value: step.before.load },
-        ]);
-        lines.push(`if plugins.load was removed: ${command} with ${content}`);
-      }
-      return lines;
-    }
-  }
 }

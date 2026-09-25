@@ -82,6 +82,17 @@ export function isLeftoverDisabledEntry(entry: unknown): boolean {
   );
 }
 
+/**
+ * Operation restoring a `plugins.load` value that uninstall deleted.
+ *
+ * @param load - The value captured before uninstall.
+ * @returns The `config set` operation.
+ */
+export const restoreLoadOp = (load: unknown): ConfigSetOperation => ({
+  path: 'plugins.load',
+  value: load,
+});
+
 /** Config repair to apply after `openclaw plugins uninstall`. */
 export interface PostUninstallRepair {
   /** Paths to `openclaw config unset`. */
@@ -108,7 +119,7 @@ export function computePostUninstallRepair(
     .map(entryPath);
   const setOps: ConfigSetOperation[] =
     before.load !== undefined && after.load === undefined
-      ? [{ path: 'plugins.load', value: before.load }]
+      ? [restoreLoadOp(before.load)]
       : [];
   return { unsetPaths, setOps };
 }

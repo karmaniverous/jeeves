@@ -26,7 +26,8 @@ import { tmpdir, userInfo } from 'node:os';
 import { join } from 'node:path';
 
 import { getErrorMessage } from '../../../utils.js';
-import { type CommandRunner, describeExit } from './commandRunner.js';
+import { describeExit } from './commandLine.js';
+import type { CommandRunner } from './commandRunner.js';
 
 /** Filesystem and ACL port for {@link withPrivateTempFile}. */
 export interface PrivateTempFiles {

@@ -31,6 +31,7 @@ import {
   conversationHooksOf,
   declaredConversationHooksSchema,
 } from '../../../plugin/conversationHooks.js';
+import { parseJson } from '../../../utils.js';
 import { type CommandRunner, runChecked } from './commandRunner.js';
 import { NPM_BIN, npmViewFieldArgs } from './openclawCommands.js';
 
@@ -58,16 +59,12 @@ export async function readDeclaredConversationHooks(
   );
   const text = stdout.trim();
   if (!text) return [];
-  let raw: unknown;
-  try {
-    raw = JSON.parse(text);
-  } catch (error) {
-    throw new Error(
+  const parsed = declaredConversationHooksSchema.safeParse(
+    parseJson(
+      text,
       `Unexpected output for ${packageName}@${version} ${CONVERSATION_HOOKS_FIELD}`,
-      { cause: error },
-    );
-  }
-  const parsed = declaredConversationHooksSchema.safeParse(raw);
+    ),
+  );
   if (!parsed.success) {
     throw new Error(
       `${packageName}@${version}: package.json ${CONVERSATION_HOOKS_FIELD} must be an array of hook names.`,

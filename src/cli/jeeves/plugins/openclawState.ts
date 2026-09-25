@@ -9,10 +9,11 @@
  * @module
  */
 
+import { parseJson } from '../../../utils.js';
+import { formatCommand } from './commandLine.js';
 import {
   CommandFailedError,
   type CommandRunner,
-  formatCommand,
   runChecked,
 } from './commandRunner.js';
 import { type PluginsConfig, pluginsConfigSchema } from './configPatch.js';
@@ -90,16 +91,12 @@ export async function readPluginsConfig(
     if (isUnsetResponse(result.stdout)) return {};
     throw new CommandFailedError(formatCommand(OPENCLAW_BIN, args), result);
   }
-  let raw: unknown;
-  try {
-    raw = JSON.parse(result.stdout);
-  } catch (error) {
-    throw new Error(
+  return pluginsConfigSchema.parse(
+    parseJson(
+      result.stdout,
       `Unexpected non-JSON output from ${formatCommand(OPENCLAW_BIN, args)}`,
-      { cause: error },
-    );
-  }
-  return pluginsConfigSchema.parse(raw);
+    ),
+  );
 }
 
 /**

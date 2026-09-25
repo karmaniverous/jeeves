@@ -5,8 +5,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   CommandFailedError,
-  formatCommand,
-  quoteArg,
   runChecked,
   spawnCommandRunner,
 } from './commandRunner.js';
@@ -24,27 +22,6 @@ vi.mock('cross-spawn', () => ({ default: spawnMock }));
 afterEach(() => {
   spawnMock.mockReset();
   vi.restoreAllMocks();
-});
-
-describe('quoteArg / formatCommand', () => {
-  it.each([
-    ['plugins', 'plugins'],
-    [
-      'npm:@karmaniverous/x-openclaw@1.0.0',
-      'npm:@karmaniverous/x-openclaw@1.0.0',
-    ],
-    ['', "''"],
-    ['[{"path":"a b"}]', `'[{"path":"a b"}]'`],
-    ["it's", `'it'\\''s'`],
-  ])('%j → %s', (arg, expected) => {
-    expect(quoteArg(arg)).toBe(expected);
-  });
-
-  it('joins a command line', () => {
-    expect(formatCommand('openclaw', ['config', 'get', 'plugins'])).toBe(
-      'openclaw config get plugins',
-    );
-  });
 });
 
 describe('runChecked', () => {
@@ -74,7 +51,7 @@ describe('runChecked', () => {
     const err = (await runChecked(
       fake.runner,
       'openclaw',
-      ['config', 'set', '--batch-json', '[{"value":"s3cr3t"}]'],
+      ['config', 'get', 's3cr3t'],
       { redact: ['s3cr3t'] },
     ).catch((e: unknown) => e)) as CommandFailedError;
     expect(err.message).not.toContain('s3cr3t');

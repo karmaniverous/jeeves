@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
+import { describeStep } from './describeStep.js';
 import {
   buildInstallPlan,
   buildUninstallPlan,
-  describeStep,
   type ResolvedTarget,
 } from './plan.js';
 import { parsePluginSpec } from './pluginSpec.js';
@@ -156,23 +156,5 @@ describe('buildUninstallPlan', () => {
 
   it('returns no steps for no targets', () => {
     expect(buildUninstallPlan([], {})).toEqual([]);
-  });
-});
-
-describe('describeStep', () => {
-  it('describes removals and repairs', () => {
-    expect(describeStep({ kind: 'removeDir', path: '/x' })).toEqual([
-      'remove legacy plugin copy: /x',
-    ]);
-    expect(
-      describeStep({
-        kind: 'repairAfterUninstall',
-        before: { load: { paths: [] } },
-        pluginIds: ['a-openclaw'],
-      }),
-    ).toEqual([
-      'if left as {"enabled":false}: openclaw config unset plugins.entries.a-openclaw',
-      'if plugins.load was removed: openclaw config set --batch-file <private temp file> with [{"path":"plugins.load","value":{"paths":[]}}]',
-    ]);
   });
 });

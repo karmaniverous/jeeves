@@ -22,11 +22,8 @@
 import { z } from 'zod';
 
 import { getErrorMessage } from '../../../utils.js';
-import {
-  type CommandRunner,
-  describeExit,
-  formatCommand,
-} from './commandRunner.js';
+import { describeExit, formatCommand } from './commandLine.js';
+import type { CommandRunner } from './commandRunner.js';
 import { OPENCLAW_BIN, pluginsInspectAllArgs } from './openclawCommands.js';
 
 const inspectEntrySchema = z.looseObject({

@@ -5,7 +5,26 @@ import {
   getErrorMessage,
   isRecord,
   isTransientError,
+  parseJson,
 } from './utils.js';
+
+describe('parseJson', () => {
+  it('parses JSON', () => {
+    expect(parseJson('{"a":1}', 'bad')).toEqual({ a: 1 });
+  });
+
+  it('throws the given message with the parse error as cause', () => {
+    let error: unknown;
+    try {
+      parseJson('nope', 'Unexpected output');
+    } catch (e) {
+      error = e;
+    }
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).toBe('Unexpected output');
+    expect((error as Error).cause).toBeInstanceOf(SyntaxError);
+  });
+});
 
 describe('isRecord', () => {
   it.each([
