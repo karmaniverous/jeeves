@@ -113,9 +113,7 @@ export {
   type MemoryHygieneResult,
 } from './memory/index.js';
 export {
-  type AsyncContentCacheOptions,
   connectionFail,
-  createAsyncContentCache,
   createPluginToolset,
   fail,
   fetchJson,

@@ -5,10 +5,6 @@
  * @packageDocumentation
  */
 
-export {
-  type AsyncContentCacheOptions,
-  createAsyncContentCache,
-} from './createAsyncContentCache.js';
 export { createPluginToolset } from './createPluginToolset.js';
 export { getPackageRoot } from './getPackageRoot.js';
 export { getPackageVersion } from './getPackageVersion.js';
