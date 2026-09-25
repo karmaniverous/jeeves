@@ -7,8 +7,7 @@
  * component is always probed.
  */
 
-import { mkdirSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
@@ -22,6 +21,7 @@ import {
 } from 'vitest';
 
 import { init, resetInit } from '../../init.js';
+import { useTempDir } from '../../test/tempDir.js';
 
 vi.mock('../../plugin/http.js', () => ({
   fetchWithTimeout: vi.fn(),
@@ -58,8 +58,9 @@ describe('registerStatusCommand', () => {
   let consoleSpy: MockInstance;
   let originalExitCode: typeof process.exitCode;
 
+  const tempDir = useTempDir('jeeves-status-test-');
   beforeEach(() => {
-    testDir = join(tmpdir(), `jeeves-status-test-${String(Date.now())}`);
+    testDir = tempDir();
     configDir = join(testDir, 'config');
     mkdirSync(join(configDir, 'jeeves-core'), { recursive: true });
     init({ workspacePath: join(testDir, 'workspace'), configRoot: configDir });
@@ -70,7 +71,6 @@ describe('registerStatusCommand', () => {
 
   afterEach(() => {
     resetInit();
-    rmSync(testDir, { recursive: true, force: true });
     consoleSpy.mockRestore();
     process.exitCode = originalExitCode;
     vi.mocked(fetchWithTimeout).mockReset();

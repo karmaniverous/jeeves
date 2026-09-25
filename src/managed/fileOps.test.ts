@@ -1,16 +1,15 @@
 import {
   existsSync,
-  mkdirSync,
   readFileSync,
   renameSync,
-  rmSync,
   statSync,
   writeFileSync,
 } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { useTempDir } from '../test/tempDir.js';
 
 vi.mock('node:fs', async (importOriginal) => {
   const actual = await importOriginal();
@@ -25,14 +24,13 @@ import { atomicWrite } from './fileOps.js';
 describe('atomicWrite', () => {
   let testDir: string;
 
+  const tempDir = useTempDir('jeeves-fileops-test-');
   beforeEach(() => {
-    testDir = join(tmpdir(), `jeeves-fileops-test-${String(Date.now())}`);
-    mkdirSync(testDir, { recursive: true });
+    testDir = tempDir();
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
-    rmSync(testDir, { recursive: true, force: true });
   });
 
   it('writes content to target file', () => {

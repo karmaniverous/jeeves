@@ -9,10 +9,9 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
   AGENTS_MARKERS,
@@ -20,6 +19,7 @@ import {
   SOUL_MARKERS,
 } from '../../constants/index.js';
 import { parseManaged } from '../../managed/parseManaged.js';
+import { useTempDir } from '../../test/tempDir.js';
 import { installPlatformContent } from './installPlatformContent.js';
 import { removeManagedBlockFromFile } from './uninstallHelpers.js';
 
@@ -28,18 +28,12 @@ describe('installPlatformContent', () => {
   let workspacePath: string;
   let coreConfigDir: string;
 
+  const tempDir = useTempDir('jeeves-cli-test-');
   beforeEach(() => {
-    testDir = join(
-      tmpdir(),
-      `jeeves-cli-test-${String(Date.now())}-${Math.random().toString(36).slice(2, 8)}`,
-    );
+    testDir = tempDir();
     workspacePath = join(testDir, 'workspace');
     coreConfigDir = join(testDir, 'config', 'jeeves-core');
     mkdirSync(workspacePath, { recursive: true });
-  });
-
-  afterEach(() => {
-    rmSync(testDir, { recursive: true, force: true });
   });
 
   const install = () =>
@@ -121,13 +115,9 @@ describe('installPlatformContent', () => {
 describe('removeManagedBlockFromFile', () => {
   let testDir: string;
 
+  const tempDir = useTempDir('jeeves-uninstall-');
   beforeEach(() => {
-    testDir = join(tmpdir(), `jeeves-uninstall-${String(Date.now())}`);
-    mkdirSync(testDir, { recursive: true });
-  });
-
-  afterEach(() => {
-    rmSync(testDir, { recursive: true, force: true });
+    testDir = tempDir();
   });
 
   it('removes a legacy TOOLS.md block and keeps user content', () => {

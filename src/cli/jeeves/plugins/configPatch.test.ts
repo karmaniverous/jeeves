@@ -8,9 +8,7 @@ import {
   pluginsConfigSchema,
 } from './configPatch.js';
 import { isJeevesPluginId } from './pluginSpec.js';
-
-const W = 'jeeves-watcher-openclaw';
-const R = 'jeeves-runner-openclaw';
+import { R, W } from './workflowTestKit.js';
 
 describe('computeHookAccessOps', () => {
   it('writes only the hook leaf path, so entry config is preserved', () => {

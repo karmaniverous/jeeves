@@ -1,9 +1,9 @@
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
+import { useTempDir } from '../../../test/tempDir.js';
 import {
   findLegacyExtension,
   legacyExtensionDir,
@@ -68,16 +68,10 @@ describe('findLegacyExtension', () => {
 describe('nodeLegacyFs', () => {
   let root: string;
 
+  const tempDir = useTempDir('jeeves-legacy-');
   beforeEach(() => {
-    root = join(
-      tmpdir(),
-      `jeeves-legacy-${String(Date.now())}-${Math.random().toString(36).slice(2, 8)}`,
-    );
+    root = tempDir();
     mkdirSync(join(root, 'extensions', 'p'), { recursive: true });
-  });
-
-  afterEach(() => {
-    rmSync(root, { recursive: true, force: true });
   });
 
   it('reads package names and removes directories', () => {

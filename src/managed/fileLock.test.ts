@@ -1,26 +1,19 @@
-import { existsSync, mkdirSync, rmSync, utimesSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, mkdirSync, utimesSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { useTempDir } from '../test/tempDir.js';
 import { withFileLock } from './fileLock.js';
 
 describe('withFileLock', () => {
   let testDir: string;
   let target: string;
 
+  const tempDir = useTempDir('jeeves-filelock-');
   beforeEach(() => {
-    testDir = join(
-      tmpdir(),
-      `jeeves-filelock-${Date.now().toString()}-${Math.random().toString(36).slice(2, 8)}`,
-    );
-    mkdirSync(testDir, { recursive: true });
+    testDir = tempDir();
     target = join(testDir, 'config.json');
-  });
-
-  afterEach(() => {
-    rmSync(testDir, { recursive: true, force: true });
   });
 
   it('runs fn and releases the lock', async () => {

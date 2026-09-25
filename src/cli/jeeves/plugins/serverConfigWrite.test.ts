@@ -2,15 +2,14 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
-  rmSync,
   statSync,
   writeFileSync,
 } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
+import { useTempDir } from '../../../test/tempDir.js';
 import {
   backupPath,
   createServerConfigWriter,
@@ -70,17 +69,10 @@ describe('createServerConfigWriter (real files in a temp dir)', () => {
   let dir: string;
   let file: string;
 
+  const tempDir = useTempDir('jeeves-srvcfg-');
   beforeEach(() => {
-    dir = join(
-      tmpdir(),
-      `jeeves-srvcfg-${String(Date.now())}-${Math.random().toString(36).slice(2, 8)}`,
-    );
-    mkdirSync(dir, { recursive: true });
+    dir = tempDir();
     file = join(dir, 'config.json');
-  });
-
-  afterEach(() => {
-    rmSync(dir, { recursive: true, force: true });
   });
 
   const writer = createServerConfigWriter(undefined, () => NOW);

@@ -1,6 +1,8 @@
 /**
- * Shared fixtures for plugin workflow tests: fake runner with the standard
- * read-only responses, fake legacy fs, fake temp files. Test-only helper.
+ * Shared fixtures for plugin workflow and command tests: plugin ids, install
+ * records, fake runner with the standard read-only responses, fake legacy fs,
+ * fake temp files, and the workflow deps the command tests wire in.
+ * Test-only helper.
  *
  * @module
  */
@@ -22,6 +24,8 @@ export const W = 'jeeves-watcher-openclaw';
 export const R = 'jeeves-runner-openclaw';
 /** Server plugin id. */
 export const S = 'jeeves-server-openclaw';
+/** Meta plugin id. */
+export const M = 'jeeves-meta-openclaw';
 /** Watcher package. */
 export const WPKG = `@karmaniverous/${W}`;
 /** Runner package. */
@@ -31,6 +35,24 @@ export const SPKG = `@karmaniverous/${S}`;
 
 /** OpenClaw config dir used by the fixtures. */
 export const CONFIG_DIR = '/oc';
+
+/**
+ * An `openclaw plugins inspect --all --json` entry for an npm install.
+ *
+ * @param id - Plugin id.
+ * @param pkg - Package name.
+ * @param version - Installed version.
+ * @returns The inspect entry.
+ */
+export const npmRecord = (id: string, pkg: string, version: string) => ({
+  plugin: { id, version },
+  install: {
+    source: 'npm',
+    spec: `${pkg}@${version}`,
+    resolvedName: pkg,
+    resolvedVersion: version,
+  },
+});
 
 /**
  * Legacy extension dir of a plugin (forward slashes).
@@ -114,6 +136,50 @@ export function setupWorkflow(
     dryRun,
   };
   return { fake, temp, removed, log, serverWrites, deps };
+}
+
+/** Legacy fs with no legacy plugin copies. */
+const NO_LEGACY_FS: LegacyFs = {
+  isDirectory: () => false,
+  readPackageName: () => undefined,
+  removeDir: () => undefined,
+};
+
+/** Fakes a command test swaps in (per test) for the real ports. */
+export interface CommandTestPorts {
+  /** Fake runner (required when deps are built). */
+  fake?: FakeRunner;
+  /** Fake temp files (default: fresh ones). */
+  temp?: FakeTempFiles;
+}
+
+/**
+ * Workflow deps for command tests (the mocked `createPluginWorkflowDeps`):
+ * the current fakes, no legacy plugin copies, config dir {@link CONFIG_DIR},
+ * log to `console.log` (so the command's output capture sees it).
+ *
+ * @param ports - The test's current fakes.
+ * @param serverConfig - Server config writer.
+ * @param dryRun - Dry run.
+ * @returns Deps.
+ */
+export function commandWorkflowDeps(
+  ports: CommandTestPorts,
+  serverConfig: PluginWorkflowDeps['serverConfig'],
+  dryRun: boolean,
+): PluginWorkflowDeps {
+  if (!ports.fake) throw new Error('no fake runner');
+  return {
+    runner: ports.fake.runner,
+    fs: NO_LEGACY_FS,
+    tempFiles: (ports.temp ?? fakeTempFiles()).files,
+    serverConfig,
+    configDir: CONFIG_DIR,
+    log: (line) => {
+      console.log(line);
+    },
+    dryRun,
+  };
 }
 
 /**

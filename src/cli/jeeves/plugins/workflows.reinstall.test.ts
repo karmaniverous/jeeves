@@ -11,22 +11,13 @@ import { installPlugins } from './workflows.js';
 import {
   legacy,
   mutating,
+  npmRecord,
   R,
   RPKG,
   setupWorkflow,
   W,
   WPKG,
 } from './workflowTestKit.js';
-
-const npmRecord = (id: string, pkg: string, version: string) => ({
-  plugin: { id, version },
-  install: {
-    source: 'npm',
-    spec: `${pkg}@${version}`,
-    resolvedName: pkg,
-    resolvedVersion: version,
-  },
-});
 
 const inspect = (...entries: unknown[]) => ({
   'openclaw plugins inspect --all --json': ok(JSON.stringify(entries)),

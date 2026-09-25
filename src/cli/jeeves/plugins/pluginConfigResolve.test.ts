@@ -9,11 +9,8 @@ import {
   resolvePluginConfig,
 } from './pluginConfigResolve.js';
 import { ServerPluginKeyError } from './serverKeySync.js';
+import { M, R, S, W } from './workflowTestKit.js';
 
-const R = 'jeeves-runner-openclaw';
-const W = 'jeeves-watcher-openclaw';
-const S = 'jeeves-server-openclaw';
-const M = 'jeeves-meta-openclaw';
 const ALL = [R, W, S, M];
 const SEED = 'f'.repeat(64);
 

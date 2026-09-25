@@ -5,8 +5,8 @@ import {
   pluginConfigNotices,
 } from './pluginConfigReport.js';
 import type { PluginConfigResolution } from './pluginConfigResolve.js';
+import { S } from './workflowTestKit.js';
 
-const S = 'jeeves-server-openclaw';
 const SEED = 'a'.repeat(64);
 
 const resolution: PluginConfigResolution = {

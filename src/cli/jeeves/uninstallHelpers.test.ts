@@ -1,24 +1,19 @@
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import { SOUL_MARKERS } from '../../constants/index.js';
+import { useTempDir } from '../../test/tempDir.js';
 import { removePlatformArtifacts } from './uninstallHelpers.js';
 
 let root: string;
 let ws: string;
 let cfg: string;
 
+const tempDir = useTempDir('jeeves-uninstall-helpers-');
 beforeEach(() => {
-  root = mkdtempSync(join(tmpdir(), 'jeeves-uninstall-helpers-'));
+  root = tempDir();
   ws = join(root, 'ws');
   cfg = join(root, 'cfg');
   mkdirSync(ws, { recursive: true });
@@ -28,10 +23,6 @@ beforeEach(() => {
     join(ws, 'SOUL.md'),
     `<!-- ${SOUL_MARKERS.begin} -->\nx\n<!-- ${SOUL_MARKERS.end} -->\n\nmine\n`,
   );
-});
-
-afterEach(() => {
-  rmSync(root, { recursive: true, force: true });
 });
 
 describe('removePlatformArtifacts', () => {

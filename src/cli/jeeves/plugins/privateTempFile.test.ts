@@ -1,16 +1,9 @@
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  rmSync,
-  statSync,
-  writeFileSync,
-} from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
+import { useTempDir } from '../../../test/tempDir.js';
 import { failed, fakeRunner, fakeTempFiles } from './fakePorts.js';
 import {
   createNodePrivateTempFiles,
@@ -99,16 +92,9 @@ describe('icacls helpers', () => {
 describe('createNodePrivateTempFiles', () => {
   let base: string;
 
+  const tempDir = useTempDir('jeeves-ptf-');
   beforeEach(() => {
-    base = join(
-      tmpdir(),
-      `jeeves-ptf-${String(Date.now())}-${Math.random().toString(36).slice(2, 8)}`,
-    );
-    mkdirSync(base, { recursive: true });
-  });
-
-  afterEach(() => {
-    rmSync(base, { recursive: true, force: true });
+    base = tempDir();
   });
 
   it('writes an owner-only file in a fresh directory and removes it', async () => {

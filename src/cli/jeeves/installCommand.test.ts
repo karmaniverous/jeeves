@@ -9,67 +9,41 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
-  rmSync,
   writeFileSync,
 } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 import { Command } from '@commander-js/extra-typings';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { useConsoleCapture, useUnsetEnv } from '../../test/cliHarness.js';
+import { useTempDir } from '../../test/tempDir.js';
 import { registerInstallCommand } from './installCommand.js';
-import {
-  type FakeRunner,
-  fakeRunner,
-  type FakeTempFiles,
-  fakeTempFiles,
-  ok,
-} from './plugins/fakePorts.js';
+import { fakeRunner, fakeTempFiles, ok } from './plugins/fakePorts.js';
 import { MissingPluginConfigError } from './plugins/pluginConfigResolve.js';
 import type * as PluginDepsModule from './plugins/pluginDeps.js';
 import type * as SecretsModule from './plugins/secrets.js';
 import { ServerPluginKeyError } from './plugins/serverKeySync.js';
-import type { PluginWorkflowDeps } from './plugins/workflows.js';
+import {
+  type CommandTestPorts,
+  npmRecord,
+  S,
+  SPKG,
+} from './plugins/workflowTestKit.js';
 
 const SEED = 'c0ffee'.repeat(10) + 'c0ff';
-const S = 'jeeves-server-openclaw';
 
-const state = vi.hoisted(() => ({
-  fake: undefined as FakeRunner | undefined,
-  temp: undefined as FakeTempFiles | undefined,
-}));
+const state = vi.hoisted((): CommandTestPorts => ({}));
 
 vi.mock('./plugins/pluginDeps.js', async (importOriginal) => {
   const actual = await importOriginal<typeof PluginDepsModule>();
   const { createServerConfigWriter } =
     await import('./plugins/serverConfigWrite.js');
+  const { commandWorkflowDeps } = await import('./plugins/workflowTestKit.js');
   return {
     ...actual,
-    createPluginWorkflowDeps: (dryRun: boolean): PluginWorkflowDeps => ({
-      runner: (cmd, args, opts) => {
-        if (!state.fake) throw new Error('no fake runner');
-        return state.fake.runner(cmd, args, opts);
-      },
-      fs: {
-        isDirectory: () => false,
-        readPackageName: () => undefined,
-        removeDir: () => undefined,
-      },
-      tempFiles: {
-        makePrivateDir: () => state.temp?.files.makePrivateDir() ?? '',
-        restrictDir: (d) =>
-          state.temp?.files.restrictDir(d) ?? Promise.resolve(undefined),
-        writeNewFile: (p, t) => state.temp?.files.writeNewFile(p, t),
-        removeDir: (d) => state.temp?.files.removeDir(d),
-      },
-      serverConfig: createServerConfigWriter(),
-      configDir: '/oc',
-      log: (line) => {
-        console.log(line);
-      },
-      dryRun,
-    }),
+    createPluginWorkflowDeps: (dryRun: boolean) =>
+      commandWorkflowDeps(state, createServerConfigWriter(), dryRun),
   };
 });
 
@@ -79,40 +53,26 @@ vi.mock('./plugins/secrets.js', async (importOriginal) => ({
 }));
 
 describe('jeeves install (plugin config)', () => {
+  const tempDir = useTempDir('jeeves-install-');
+  const out = useConsoleCapture();
+  useUnsetEnv('JEEVES_CONFIG_ROOT');
   let dir: string;
   let ws: string;
-  let out: string[];
-  let savedRoot: string | undefined;
 
   beforeEach(() => {
-    dir = join(
-      tmpdir(),
-      `jeeves-install-${String(Date.now())}-${Math.random().toString(36).slice(2, 8)}`,
-    );
+    dir = tempDir();
     ws = join(dir, 'ws');
     mkdirSync(ws, { recursive: true });
-    out = [];
-    vi.spyOn(console, 'log').mockImplementation((...a: unknown[]) => {
-      out.push(a.map(String).join(' '));
-    });
-    savedRoot = process.env['JEEVES_CONFIG_ROOT'];
-    delete process.env['JEEVES_CONFIG_ROOT'];
     state.fake = fakeRunner({
       'openclaw --version': ok('OpenClaw 2026.9.6'),
       'openclaw config get plugins': ok('{}'),
       'openclaw plugins inspect --all --json': ok('[]'),
-      [`npm view @karmaniverous/${S}`]: ok('"0.14.0"'),
-      [`npm view @karmaniverous/${S}@0.14.0 jeeves.conversationHooks`]: ok(
+      [`npm view ${SPKG}`]: ok('"0.14.0"'),
+      [`npm view ${SPKG}@0.14.0 jeeves.conversationHooks`]: ok(
         '["before_prompt_build"]',
       ),
     });
     state.temp = fakeTempFiles();
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
-    if (savedRoot !== undefined) process.env['JEEVES_CONFIG_ROOT'] = savedRoot;
-    rmSync(dir, { recursive: true, force: true });
   });
 
   const run = async (...args: string[]) => {
@@ -192,8 +152,8 @@ describe('jeeves install (plugin config)', () => {
         JSON.stringify({ entries: { [S]: { config: { pluginKey: 'mine' } } } }),
       ),
       'openclaw plugins inspect --all --json': ok('[]'),
-      [`npm view @karmaniverous/${S}`]: ok('"0.14.0"'),
-      [`npm view @karmaniverous/${S}@0.14.0 jeeves.conversationHooks`]: ok(''),
+      [`npm view ${SPKG}`]: ok('"0.14.0"'),
+      [`npm view ${SPKG}@0.14.0 jeeves.conversationHooks`]: ok(''),
     });
     await expect(run('-c', cfg)).rejects.toBeInstanceOf(ServerPluginKeyError);
     expect(readFileSync(serverFile(cfg), 'utf-8')).toBe(before);
@@ -253,19 +213,10 @@ describe('jeeves install (plugin config)', () => {
         }),
       ),
       'openclaw plugins inspect --all --json': ok(
-        JSON.stringify([
-          {
-            plugin: { id: S, version: '0.14.0' },
-            install: {
-              source: 'npm',
-              resolvedName: `@karmaniverous/${S}`,
-              resolvedVersion: '0.14.0',
-            },
-          },
-        ]),
+        JSON.stringify([npmRecord(S, SPKG, '0.14.0')]),
       ),
-      [`npm view @karmaniverous/${S}`]: ok('"0.14.0"'),
-      [`npm view @karmaniverous/${S}@0.14.0 jeeves.conversationHooks`]: ok(''),
+      [`npm view ${SPKG}`]: ok('"0.14.0"'),
+      [`npm view ${SPKG}@0.14.0 jeeves.conversationHooks`]: ok(''),
     });
     const cfg = join(dir, 'cfg');
     await run('-c', cfg);
