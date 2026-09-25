@@ -1,13 +1,25 @@
 /**
- * Shared helpers for the uninstall command.
+ * Platform artifact removal for `jeeves uninstall` (the counterpart of
+ * `installPlatformContent.ts`).
  *
  * @remarks
- * Extracted for testability — these are the core uninstall operations.
+ * Separate from the command so the file operations are testable without
+ * the CLI.
+ *
+ * @module
  */
 
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 
-import type { ManagedMarkers } from '../../constants/index.js';
+import {
+  AGENTS_MARKERS,
+  LEGACY_TOOLS_MARKERS,
+  type ManagedMarkers,
+  SOUL_MARKERS,
+  TEMPLATES_DIR,
+  WORKSPACE_FILES,
+} from '../../constants/index.js';
 import { removeManagedBlock } from '../../managed/managedBlock.js';
 
 /**
@@ -29,4 +41,47 @@ export function removeManagedBlockFromFile(
   if (updated === content) return false;
   if (!dryRun) writeFileSync(filePath, updated, 'utf-8');
   return true;
+}
+
+/** Workspace files that may carry a managed block (incl. legacy TOOLS.md). */
+const MANAGED_FILES = [
+  [WORKSPACE_FILES.soul, SOUL_MARKERS],
+  [WORKSPACE_FILES.agents, AGENTS_MARKERS],
+  [WORKSPACE_FILES.legacyTools, LEGACY_TOOLS_MARKERS],
+] as const;
+
+/**
+ * Remove the managed blocks, the templates directory and the config schema.
+ *
+ * @param workspacePath - Workspace root.
+ * @param coreConfigDir - Core config directory.
+ * @param dryRun - Only report what would be removed.
+ * @returns Labels of what was (or would be) removed, in order.
+ */
+export function removePlatformArtifacts(
+  workspacePath: string,
+  coreConfigDir: string,
+  dryRun: boolean,
+): string[] {
+  const removed: string[] = [];
+  for (const [file, markers] of MANAGED_FILES) {
+    if (
+      removeManagedBlockFromFile(join(workspacePath, file), markers, dryRun)
+    ) {
+      removed.push(`${file} managed block`);
+    }
+  }
+
+  const templatesDir = join(coreConfigDir, TEMPLATES_DIR);
+  if (existsSync(templatesDir)) {
+    if (!dryRun) rmSync(templatesDir, { recursive: true, force: true });
+    removed.push('templates');
+  }
+
+  const schemaPath = join(coreConfigDir, 'config.schema.json');
+  if (existsSync(schemaPath)) {
+    if (!dryRun) rmSync(schemaPath);
+    removed.push('config schema');
+  }
+  return removed;
 }

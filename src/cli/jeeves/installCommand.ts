@@ -26,18 +26,21 @@ import type { Command } from '@commander-js/extra-typings';
 import { CORE_VERSION } from '../../constants/index.js';
 import { getCoreConfigDir, getWorkspacePath } from '../../init.js';
 import { initFromOptions } from './cliDefaults.js';
+import {
+  DRY_RUN_COMPLETE,
+  installNotices,
+  printLines,
+  RESTART_NOTICE,
+  runHeaderLines,
+} from './cliOutput.js';
 import { installPlatformContent } from './installPlatformContent.js';
 import { executePlan } from './plugins/executePlan.js';
 import {
   addPluginOptions,
+  installOptionsFromCli,
   pluginCliOptionsSchema,
-  pluginConfigRequestFromCli,
 } from './plugins/pluginConfigCli.js';
-import { pluginConfigNotices } from './plugins/pluginConfigReport.js';
-import {
-  createPluginWorkflowDeps,
-  RESTART_NOTICE,
-} from './plugins/pluginDeps.js';
+import { createPluginWorkflowDeps } from './plugins/pluginDeps.js';
 import {
   defaultPluginTargets,
   parsePluginSpecs,
@@ -76,23 +79,18 @@ export function registerInstallCommand(program: Command): void {
           ? parsePluginSpecs(plugins)
           : defaultPluginTargets();
       const resolved = initFromOptions(opts);
-      const root = resolved.core.configRoot;
-      const configRequest = pluginConfigRequestFromCli(opts, root);
-
-      console.log(
-        `Jeeves platform install${dryRun ? ' [dry run: no changes]' : ''}`,
+      const installOptions = installOptionsFromCli(
+        opts,
+        resolved.core.configRoot,
       );
-      console.log(`  Workspace: ${resolved.core.workspace.value}`);
-      console.log(`  Config root: ${root.value}`);
-      console.log();
+      printLines(
+        runHeaderLines('Jeeves platform install', resolved.core, dryRun),
+      );
 
       // Read-only: resolves versions and plugin config, fails on missing
       // required config before any content or plugin is written.
       const deps = createPluginWorkflowDeps(dryRun);
-      const prepared = await prepareInstall(deps, targets, {
-        configRequest,
-        ...(opts.forceReinstall ? { forceReinstall: true } : {}),
-      });
+      const prepared = await prepareInstall(deps, targets, installOptions);
       if (targets.length > 0) console.log();
 
       const written = installPlatformContent({
@@ -109,17 +107,10 @@ export function registerInstallCommand(program: Command): void {
       if (targets.length > 0) {
         await executePlan(prepared.plan, deps);
         console.log();
-        const notices = prepared.config
-          ? pluginConfigNotices(prepared.config, dryRun)
-          : [];
-        for (const notice of notices) console.log(notice);
+        printLines(installNotices(prepared, dryRun));
         if (!dryRun && prepared.plan.length > 0) console.log(RESTART_NOTICE);
       }
 
-      console.log(
-        dryRun
-          ? 'Dry run complete. Nothing was changed.'
-          : '✅ Jeeves installed.',
-      );
+      console.log(dryRun ? DRY_RUN_COMPLETE : '✅ Jeeves installed.');
     });
 }

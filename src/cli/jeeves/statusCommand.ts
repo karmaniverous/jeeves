@@ -5,16 +5,63 @@
  * Probes each platform component (runner, watcher, server, meta) via
  * GET /status at its resolved URL. Exits with code 0 if all services are
  * healthy, code 1 if any are unreachable.
+ *
+ * @module
  */
 
 import type { Command } from '@commander-js/extra-typings';
 
 import { PLATFORM_COMPONENTS } from '../../constants/index.js';
-import { getServiceUrl } from '../../discovery/getServiceUrl.js';
 import { getWorkspacePath } from '../../init.js';
 import { analyzeMemory } from '../../memory/index.js';
-import { fetchWithTimeout } from '../../plugin/http.js';
 import { initFromOptions } from './cliDefaults.js';
+import { probeStatus, readStatusVersion } from './serviceProbe.js';
+
+/** Column widths of the component table. */
+const COLUMN_WIDTHS = [10, 30, 12] as const;
+
+/**
+ * One component table row.
+ *
+ * @param cells - Component, status, version.
+ * @returns The padded row.
+ */
+const tableRow = (cells: readonly string[]): string =>
+  cells.map((cell, i) => cell.padEnd(COLUMN_WIDTHS[i] ?? 0)).join('  ');
+
+/** Probe result of one component, for the table. */
+interface ComponentStatus {
+  status: string;
+  version: string;
+  healthy: boolean;
+}
+
+/**
+ * Probe one component and describe it.
+ *
+ * @param name - Component name.
+ * @param timeoutMs - Probe timeout.
+ * @returns Status text, version (or `—`) and health.
+ */
+async function componentStatus(
+  name: string,
+  timeoutMs: number,
+): Promise<ComponentStatus> {
+  const response = await probeStatus(name, timeoutMs);
+  if (!response) return { status: '❌ Down', version: '—', healthy: false };
+  if (!response.ok) {
+    return {
+      status: `❌ HTTP ${String(response.status)}`,
+      version: '—',
+      healthy: false,
+    };
+  }
+  return {
+    status: '✅ Running',
+    version: (await readStatusVersion(response)) ?? '—',
+    healthy: true,
+  };
+}
 
 /**
  * Register the status subcommand on the parent CLI program.
@@ -39,63 +86,16 @@ export function registerStatusCommand(program: Command): void {
 
       let allHealthy = true;
 
-      const nameWidth = 10;
-      const statusWidth = 30;
-      const versionWidth = 12;
-      const header = [
-        'Component'.padEnd(nameWidth),
-        'Status'.padEnd(statusWidth),
-        'Version'.padEnd(versionWidth),
-      ].join('  ');
-      const separator = [
-        '-'.repeat(nameWidth),
-        '-'.repeat(statusWidth),
-        '-'.repeat(versionWidth),
-      ].join('  ');
-
-      console.log(header);
-      console.log(separator);
+      console.log(tableRow(['Component', 'Status', 'Version']));
+      console.log(tableRow(COLUMN_WIDTHS.map((w) => '-'.repeat(w))));
 
       for (const name of PLATFORM_COMPONENTS) {
-        let status: string;
-        let version = '—';
-
-        try {
-          const url = getServiceUrl(name);
-          const response = await fetchWithTimeout(`${url}/status`, timeoutMs);
-
-          if (response.ok) {
-            status = '✅ Running';
-            try {
-              const body: unknown = await response.json();
-              if (
-                typeof body === 'object' &&
-                body !== null &&
-                'version' in body &&
-                typeof (body as Record<string, unknown>)['version'] === 'string'
-              ) {
-                version = (body as Record<string, unknown>)[
-                  'version'
-                ] as string;
-              }
-            } catch {
-              // Non-JSON response — version stays unknown
-            }
-          } else {
-            status = `❌ HTTP ${String(response.status)}`;
-            allHealthy = false;
-          }
-        } catch {
-          status = '❌ Down';
-          allHealthy = false;
-        }
-
-        const row = [
-          name.padEnd(nameWidth),
-          status.padEnd(statusWidth),
-          version.padEnd(versionWidth),
-        ].join('  ');
-        console.log(row);
+        const { status, version, healthy } = await componentStatus(
+          name,
+          timeoutMs,
+        );
+        if (!healthy) allHealthy = false;
+        console.log(tableRow([name, status, version]));
       }
 
       console.log();

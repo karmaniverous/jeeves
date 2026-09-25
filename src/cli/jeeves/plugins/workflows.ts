@@ -11,6 +11,7 @@
  * @module
  */
 
+import { dryRunSuffix } from '../cliOutput.js';
 import { configuredPluginIds } from './configPatch.js';
 import { executePlan, type ExecutePlanContext } from './executePlan.js';
 import { findLegacyExtension } from './legacyExtensions.js';
@@ -47,9 +48,7 @@ export interface PluginWorkflowDeps extends ExecutePlanContext {
 /** Print the plan header and prerequisite version. */
 async function preflight(deps: PluginWorkflowDeps, title: string) {
   const version = await assertOpenClawAvailable(deps.runner);
-  deps.log(
-    `${title} (${version})${deps.dryRun ? ' [dry run: no changes]' : ''}`,
-  );
+  deps.log(`${title} (${version})${dryRunSuffix(deps.dryRun)}`);
 }
 
 /** Options of an install/update. */

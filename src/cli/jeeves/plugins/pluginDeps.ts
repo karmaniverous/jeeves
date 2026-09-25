@@ -57,7 +57,3 @@ export function createPluginConfigRequest(
     generateSecret: generatePluginKey,
   };
 }
-
-/** Reminder printed after live plugin changes. */
-export const RESTART_NOTICE =
-  'Plugin changes take effect on the next OpenClaw gateway start. Restart the gateway when convenient.';

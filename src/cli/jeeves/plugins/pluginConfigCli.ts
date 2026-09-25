@@ -18,12 +18,14 @@ import type { ResolvedValue } from '../../../config/index.js';
 import {
   loadPluginConfigFile,
   normalizeConfigRoot,
+  type PluginConfigCliOptions,
   pluginConfigCliOptionsSchema,
   pluginConfigFromOptions,
 } from './pluginConfigInput.js';
 import type { PluginConfigRequest } from './pluginConfigResolve.js';
 import { PLUGIN_OPTION_FIELDS } from './pluginConfigSchema.js';
 import { createPluginConfigRequest } from './pluginDeps.js';
+import type { InstallOptions } from './workflows.js';
 
 /** Parsed values of the options added by {@link addPluginOptions}. */
 export const pluginCliOptionsSchema = pluginConfigCliOptionsSchema.extend({
@@ -84,7 +86,7 @@ export function addPluginOptions(command: OptionTarget): void {
  *   before anything is written).
  */
 export function pluginConfigRequestFromCli(
-  opts: PluginCliOptions,
+  opts: Pick<PluginCliOptions, 'pluginConfig'> & PluginConfigCliOptions,
   configRoot: ResolvedValue<string>,
 ): PluginConfigRequest {
   const file = opts.pluginConfig ? loadPluginConfigFile(opts.pluginConfig) : {};
@@ -101,4 +103,23 @@ export function pluginConfigRequestFromCli(
     file,
     inherited,
   );
+}
+
+/**
+ * Install options (plugin config request and reinstall policy) of
+ * `jeeves install` / `jeeves update`.
+ *
+ * @param opts - Parsed shared plugin options.
+ * @param configRoot - Resolved `core.configRoot` with provenance.
+ * @returns Options for `prepareInstall` / `installPlugins` (config input is
+ *   validated now, before anything is written).
+ */
+export function installOptionsFromCli(
+  opts: PluginCliOptions,
+  configRoot: ResolvedValue<string>,
+): InstallOptions {
+  return {
+    configRequest: pluginConfigRequestFromCli(opts, configRoot),
+    ...(opts.forceReinstall ? { forceReinstall: true } : {}),
+  };
 }

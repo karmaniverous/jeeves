@@ -21,15 +21,17 @@ import type { Command } from '@commander-js/extra-typings';
 
 import { resolveCliConfig } from './cliDefaults.js';
 import {
-  addPluginOptions,
-  pluginCliOptionsSchema,
-  pluginConfigRequestFromCli,
-} from './plugins/pluginConfigCli.js';
-import { pluginConfigNotices } from './plugins/pluginConfigReport.js';
-import {
-  createPluginWorkflowDeps,
+  DRY_RUN_COMPLETE,
+  installNotices,
+  printLines,
   RESTART_NOTICE,
-} from './plugins/pluginDeps.js';
+} from './cliOutput.js';
+import {
+  addPluginOptions,
+  installOptionsFromCli,
+  pluginCliOptionsSchema,
+} from './plugins/pluginConfigCli.js';
+import { createPluginWorkflowDeps } from './plugins/pluginDeps.js';
 import { parsePluginSpecs } from './plugins/pluginSpec.js';
 import { installPlugins, selectUpdateTargets } from './plugins/workflows.js';
 
@@ -58,24 +60,18 @@ export function registerUpdateCommand(program: Command): void {
       const dryRun = rawOpts.dryRun === true;
       const opts = pluginCliOptionsSchema.parse(rawOpts);
       const specs = parsePluginSpecs(packages);
-      const configRequest = pluginConfigRequestFromCli(
+      const installOptions = installOptionsFromCli(
         opts,
         resolveCliConfig(opts).core.configRoot,
       );
       const deps = createPluginWorkflowDeps(dryRun);
       const targets = await selectUpdateTargets(deps, specs);
-      const prepared = await installPlugins(deps, targets, {
-        configRequest,
-        ...(opts.forceReinstall ? { forceReinstall: true } : {}),
-      });
+      const prepared = await installPlugins(deps, targets, installOptions);
       console.log();
-      const notices = prepared.config
-        ? pluginConfigNotices(prepared.config, dryRun)
-        : [];
-      for (const notice of notices) console.log(notice);
+      printLines(installNotices(prepared, dryRun));
       console.log(
         dryRun
-          ? 'Dry run complete. Nothing was changed.'
+          ? DRY_RUN_COMPLETE
           : prepared.plan.length > 0
             ? `✅ Plugins updated. ${RESTART_NOTICE}`
             : '✅ Plugins already up to date.',
