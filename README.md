@@ -113,7 +113,19 @@ export default function register(api: PluginApi): void {
 
 - **`registerPromptContext(api, { content, priority?, timeoutMs?, registrationId? })`** registers a `before_prompt_build` handler that returns `{ appendSystemContext }`. `content` is a string or a (sync/async) provider; blank output injects nothing, and provider errors are logged and skipped. It never returns `systemPrompt` (which would replace the whole prompt).
 - Appended text lands after the prompt-cache boundary, is concatenated across plugins in priority order (higher first), and does **not** count toward `bootstrapMaxChars`. Keep it short.
-- **Host config gate:** OpenClaw only runs the hook for non-bundled plugins when `plugins.entries.<id>.hooks.allowConversationAccess` is `true`. `--accept-capabilities` does not set it; `jeeves install` / `jeeves update` set it for every Jeeves plugin.
+- **Host config gate:** OpenClaw only runs the hook for non-bundled plugins when `plugins.entries.<id>.hooks.allowConversationAccess` is `true`. `--accept-capabilities` does not set it. `jeeves install` / `jeeves update` set it only for plugins that declare conversation hooks in their `package.json` (see below).
+
+#### Declaring conversation hooks
+
+OpenClaw gates these typed hooks behind `allowConversationAccess`: `before_model_resolve`, `agent_turn_prepare`, `before_prompt_build`, `before_agent_reply`, `llm_input`, `llm_output`, `before_agent_finalize`, `agent_end` and `before_agent_run`. OpenClaw has no static declaration of the typed hooks a plugin registers: the manifest `hooks` field lists legacy hook directories, and `openclaw plugins inspect --runtime` executes plugin code and omits exactly the hooks that are blocked for lack of the grant. So a plugin that uses `registerPromptContext` (or registers any of those hooks) must declare them in its `package.json`:
+
+```json
+{
+  "jeeves": { "conversationHooks": ["before_prompt_build"] }
+}
+```
+
+The CLI reads the field from the registry for the exact version it installs (`npm view <pkg>@<version> jeeves.conversationHooks --json`, so it also works under `--dry-run`) and grants `allowConversationAccess` only when the field names at least one gated hook. No field means no grant. A malformed field fails the command. The CLI never removes a grant that is already set.
 
 ### Lifecycle
 
@@ -170,13 +182,13 @@ Pre-defined marker sets: `SOUL_MARKERS`, `AGENTS_MARKERS`, and `LEGACY_TOOLS_MAR
 
 ```bash
 jeeves install [plugins...]    # Render platform content, then install/update plugins
-jeeves update [packages...]    # Update installed Jeeves plugins (no content changes)
-jeeves uninstall [--plugins [specs...]]  # Remove managed blocks (incl. legacy TOOLS.md), optionally plugins
+jeeves update [packages...]    # Update Jeeves plugins, fill in missing plugin config (no content changes)
+jeeves uninstall               # Remove managed blocks (incl. legacy TOOLS.md), artifacts and the Jeeves plugins
 jeeves status                  # Probe all service ports, report health + memory hygiene
 jeeves config [jsonpath]       # Print effective config with provenance
 ```
 
-`install`, `uninstall` and `status` accept `--workspace <path>` and `--config-root <path>`.
+`install`, `update`, `uninstall` and `status` accept `--workspace <path>` and `--config-root <path>`.
 
 ### Install and update
 
@@ -184,20 +196,21 @@ OpenClaw must already be installed; `jeeves` checks for it and never installs it
 
 1. Renders the SOUL.md/AGENTS.md managed blocks (your content outside the markers is kept), the platform skills, the reference templates, and the core config if it's missing. It never writes TOOLS.md or HEARTBEAT.md.
 2. For each plugin (default: `runner`, `watcher`, `server`, `meta` at `latest`), resolves an exact version with `npm view`, then runs `openclaw plugins install npm:<pkg>@<version> --pin --accept-capabilities --force`. `--force` is required for any non-ClawHub source, and it also overwrites an existing install, which is how updates land.
+   The install is skipped when that exact version is already installed. The CLI reads OpenClaw's install records once with `openclaw plugins inspect --all --json` (no plugin code is loaded) and skips a plugin only if its record has `source: "npm"`, names the same package, and records the same version, and the loaded plugin reports that version too. A v0.x path install, a leftover legacy copy, or any record it cannot read means a reinstall. `--force-reinstall` always reinstalls. Steps 3 and 4 run either way.
 3. Removes any legacy `<openclaw dir>/extensions/<id>` copy left by the v0.x installer, but only if its `package.json` names the expected package.
-4. Sets `plugins.entries.<id>.hooks.allowConversationAccess: true` and the plugin config (`plugins.entries.<id>.config.<key>`, see [Plugin config](#plugin-config)) with one `openclaw config set --batch-json` call. Every write targets a leaf path, so unrelated keys are kept. `plugins.installs` is never written.
+4. Sets `plugins.entries.<id>.hooks.allowConversationAccess: true` for plugins that [declare conversation hooks](#declaring-conversation-hooks), and the plugin config (`plugins.entries.<id>.config.<key>`, see [Plugin config](#plugin-config)), with one `openclaw config set --batch-file <file>` call. The file is created owner-only in a fresh temp directory (mode `0600` in a `0700` directory on Linux/macOS; on Windows the directory ACL is reduced to the current user with `icacls`) and deleted afterwards, so no value, secret or not, appears on a command line. Every write targets a leaf path, so unrelated keys are kept. `plugins.installs` is never written.
 
 Plugin specs can be short (`watcher`, `watcher@1.2.3`, `runner@^1`) or full (`@karmaniverous/jeeves-watcher-openclaw@1.2.3`). Only `@karmaniverous/jeeves-*-openclaw` packages are accepted. `--content-only` skips the plugins.
 
-`jeeves update` runs steps 2–4 for the named packages, or for every Jeeves plugin that has a `plugins.entries` record, at `latest`. It grants hook access but does not touch plugin config; run `jeeves install` for that.
+`jeeves update` runs steps 2 to 4 for the named packages, or for every Jeeves plugin that has a `plugins.entries` record, at `latest`. It takes the same plugin options as `jeeves install` (including `--plugin-config` and `--force-reinstall`) and fills in missing plugin config with the same precedence: existing values are kept unless you pass them, and a missing required value fails the command before anything changes.
 
-`jeeves uninstall --plugins` runs `openclaw plugins uninstall <id> --force` for each Jeeves plugin. OpenClaw leaves `plugins.entries.<id> = { enabled: false }` behind and can delete `plugins.load`, so the CLI then unsets the leftover entry and restores `plugins.load` from its value before the uninstall.
+`jeeves uninstall` removes the managed blocks and platform artifacts, then runs `openclaw plugins uninstall <id> --force` for every Jeeves plugin that has a `plugins.entries` record (the plugins are useless without the rest of the platform). If OpenClaw is not installed, the plugin step is skipped. OpenClaw leaves `plugins.entries.<id> = { enabled: false }` behind and can delete `plugins.load`, so the CLI then unsets the leftover entry and restores `plugins.load` from its value before the uninstall.
 
 Plugin changes take effect when the gateway next starts. The CLI tells you to restart it; it never restarts the gateway itself, because it can't know how you run it (console, service, container). There is no `--restart` option.
 
 ### Plugin config
 
-The plugins read their settings from `plugins.entries.<id>.config` in `openclaw.json`, and most of them refuse to start without `configRoot`. `jeeves install` writes these values:
+The plugins read their settings from `plugins.entries.<id>.config` in `openclaw.json`, and most of them refuse to start without `configRoot`. `jeeves install` and `jeeves update` write these values:
 
 | Plugin | Key | Required | Default | Option |
 | --- | --- | --- | --- | --- |
@@ -215,7 +228,7 @@ For each key, the first of these wins:
 3. the value already in `openclaw.json`;
 4. the default.
 
-An existing value is never overwritten unless you pass it explicitly. If a required value has no source, `jeeves install` fails before it writes anything and lists the missing options. `configRoot` is written as an absolute path.
+An existing value is never overwritten unless you pass it explicitly. If a required value has no source, the command fails before it writes anything and lists the missing options. `configRoot` is written as an absolute path.
 
 The `--plugin-config` file has the same shape as the options:
 
@@ -229,18 +242,21 @@ The `--plugin-config` file has the same shape as the options:
 
 Unknown keys are rejected (every plugin's `configSchema` sets `additionalProperties: false`). A file is a better place for `pluginKey` than the command line, where it lands in your shell history.
 
-Secrets are never printed. The dry run, logs and error messages show `<redacted>` in place of `pluginKey`. If `jeeves install` generated a new `pluginKey`, jeeves-server has to trust the same seed. It prints a reminder to set `keys._plugin` in the server config to the value now in `openclaw.json`.
+Secrets are never printed and never passed on a command line. `openclaw` receives them in the owner-only batch file described above. The dry run, logs and error messages show `<redacted>` in place of `pluginKey`. If `jeeves install` generated a new `pluginKey`, jeeves-server has to trust the same seed. It prints a reminder to set `keys._plugin` in the server config to the value now in `openclaw.json`.
 
 ### Dry run and failures
 
-Every mutating command takes `--dry-run`. A dry run prints the files it would write and the exact `openclaw` commands and config changes it would run, and runs only read-only queries (`openclaw --version`, `openclaw config get plugins --json`, `npm view`):
+Every mutating command takes `--dry-run`. A dry run prints the files it would write, the exact `openclaw` commands, and the content of each batch file, and runs only read-only queries (`openclaw --version`, `openclaw config get plugins --json`, `openclaw plugins inspect --all --json`, `npm view`):
 
 ```text
 $ jeeves install watcher --dry-run
 …
-[dry-run] openclaw plugins install npm:@karmaniverous/jeeves-watcher-openclaw@0.15.6 --pin --accept-capabilities --force
+  @karmaniverous/jeeves-watcher-openclaw@0.16.0 (legacy copy found; conversation hooks: before_prompt_build)
+…
+[dry-run] openclaw plugins install npm:@karmaniverous/jeeves-watcher-openclaw@0.16.0 --pin --accept-capabilities --force
 [dry-run] remove legacy plugin copy: /home/jeeves/.openclaw/extensions/jeeves-watcher-openclaw
-[dry-run] openclaw config set --batch-json '[{"path":"plugins.entries.jeeves-watcher-openclaw.hooks.allowConversationAccess","value":true}]'
+[dry-run] openclaw config set --batch-file <private temp file>
+[dry-run]   batch file content: [{"path":"plugins.entries.jeeves-watcher-openclaw.hooks.allowConversationAccess","value":true}]
 ```
 
 With plugin config (fresh box, `--config-root` passed, server key generated):
@@ -253,7 +269,8 @@ Plugin config:
   jeeves-server-openclaw.apiUrl = "http://127.0.0.1:1934" (default; write)
   jeeves-server-openclaw.pluginKey = <redacted> (generated; write)
 …
-[dry-run] openclaw config set --batch-json '[{"path":"plugins.entries.jeeves-server-openclaw.hooks.allowConversationAccess","value":true},{"path":"plugins.entries.jeeves-server-openclaw.config.configRoot","value":"/srv/jeeves/config"},{"path":"plugins.entries.jeeves-server-openclaw.config.apiUrl","value":"http://127.0.0.1:1934"},{"path":"plugins.entries.jeeves-server-openclaw.config.pluginKey","value":"<redacted>"}]'
+[dry-run] openclaw config set --batch-file <private temp file>
+[dry-run]   batch file content: [{"path":"plugins.entries.jeeves-server-openclaw.config.configRoot","value":"/srv/jeeves/config"},{"path":"plugins.entries.jeeves-server-openclaw.config.apiUrl","value":"http://127.0.0.1:1934"},{"path":"plugins.entries.jeeves-server-openclaw.config.pluginKey","value":"<redacted>"}]
 ```
 
 A live run stops at the first failing step. A non-zero exit from any `openclaw` or `npm` command makes `jeeves` exit 1 and print the command and its error output. Commands are spawned with an argument vector and no shell, so the same invocation works on Linux, macOS and Windows.
@@ -280,7 +297,7 @@ ssh jeeves@<instance> 'source ~/.nvm/nvm.sh; jeeves install runner@<v> watcher@<
 ssh jeeves@<instance> 'source ~/.nvm/nvm.sh; jeeves update @karmaniverous/jeeves-runner-openclaw@<v>'
 ```
 
-It should check the SSH exit code: `jeeves` exits non-zero on any failure.
+It should check the SSH exit code: `jeeves` exits non-zero on any failure. Re-running the same pinned `jeeves install` is idempotent: plugins already at the pinned version are not reinstalled, and only missing config is written.
 
 ### Status
 

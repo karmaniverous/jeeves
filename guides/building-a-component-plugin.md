@@ -162,7 +162,16 @@ export default function register(api: PluginApi): void {
 - Keep rules short and static. Put detail in your skill; put live numbers behind a tool.
 - For dynamic text, pass a provider (`content: () => string | Promise<string>`). It is awaited on every prompt build (bounded by `timeoutMs`), so keep it fast: serve a value your plugin already holds rather than calling the network each time.
 - Never return `systemPrompt`: it replaces the entire system prompt. The helper's result type can't express it.
-- **Required host config:** `plugins.entries.<id>.hooks.allowConversationAccess: true`. Without it OpenClaw silently skips the hook for non-bundled plugins, and `--accept-capabilities` does not set it.
+- **Required host config:** `plugins.entries.<id>.hooks.allowConversationAccess: true`. Without it OpenClaw skips the hook for non-bundled plugins (only a registration warning in the gateway log), and `--accept-capabilities` does not set it.
+- **Declare the hook in `package.json`** so `jeeves install` / `jeeves update` grant that access. They grant it only to plugins that declare at least one conversation hook, because OpenClaw exposes no static list of the typed hooks a plugin registers:
+
+  ```json
+  {
+    "jeeves": { "conversationHooks": ["before_prompt_build"] }
+  }
+  ```
+
+  List every conversation hook you register (`before_prompt_build`, `llm_input`, `llm_output`, `agent_end`, …). A missing field means no grant; a field that is not an array of strings makes the install fail.
 
 ## Step 7: Lifecycle Hygiene
 
@@ -219,7 +228,7 @@ expect(() =>
 
 ## Installing
 
-Plugins are installed and updated with the standard OpenClaw CLI; there is no plugin-specific installer:
+Plugins are installed and updated with the standard OpenClaw CLI; there is no plugin-specific installer. `jeeves install` / `jeeves update` run this for you, skip it when the exact version is already installed, and then write the hook grant and plugin config:
 
 ```bash
 openclaw plugins install npm:@karmaniverous/jeeves-watcher-openclaw@<version> --pin --accept-capabilities --force

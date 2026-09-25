@@ -68,7 +68,7 @@ openclaw plugins update
 openclaw plugins inspect --json
 ```
 
-Plugins that inject prompt rules need `plugins.entries.<id>.hooks.allowConversationAccess: true`. Never hand-edit `~/.openclaw/extensions/` or `plugins.installs`.
+Plugins that inject prompt rules need `plugins.entries.<id>.hooks.allowConversationAccess: true`; `jeeves install` / `jeeves update` grant it to plugins whose `package.json` declares `jeeves.conversationHooks`. Never hand-edit `~/.openclaw/extensions/` or `plugins.installs`.
 
 ## Working Practices
 

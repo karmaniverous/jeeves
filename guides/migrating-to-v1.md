@@ -14,7 +14,7 @@ v1 retires everything in `@karmaniverous/jeeves` that wrote to a live workspace 
 4. Drop `sectionId`, `refreshIntervalSeconds`, `generateToolsContent`, and `dependencies` from your descriptor. (Zod strips them if you forget, so this is not a hard break at parse time, but TypeScript will flag them.)
 5. Declare your skill in `openclaw.plugin.json` (`"skills": [...]`) and ship it in the package.
 6. Make sure nothing in your plugin installs process signal handlers or leaves timers running; use `onPluginDispose`.
-7. Document that users need `plugins.entries.<id>.hooks.allowConversationAccess: true` if you use `registerPromptContext`.
+7. If you use `registerPromptContext` (or any other conversation hook), declare it in `package.json`: `"jeeves": { "conversationHooks": ["before_prompt_build"] }`. `jeeves install` / `jeeves update` grant `plugins.entries.<id>.hooks.allowConversationAccess: true` only to plugins that declare one; without the grant OpenClaw skips the hook.
 
 ## Removed → Replacement
 
@@ -28,7 +28,7 @@ v1 retires everything in `@karmaniverous/jeeves` that wrote to a live workspace 
 | Multi-writer convergence: `shouldWrite`, version-stamp arbitration, `SECTION_IDS`, `SECTION_ORDER`, `SectionId` | None. One renderer, run on demand. |
 | `updateManagedSection`, `removeManagedSection`, `UpdateManagedSectionOptions`, `RemoveManagedSectionOptions` (locked file I/O) | Pure `upsertManagedBlock` / `removeManagedBlock` (+ your own write) |
 | `parseManaged(content, markers?)` result `.sections`, `ManagedSection` | `parseManaged(content, markers)` (markers required; no `.sections`) |
-| `createPluginCli`, `CreatePluginCliOptions` (extension copy, `npm install`, `plugins.installs` / `plugins.entries` / `tools.alsoAllow` patching, `--memory` slot claim, HEARTBEAT seeding, skill seeding, `writeComponentVersion`) | `jeeves install` / `jeeves update`, which run `openclaw plugins install npm:<pkg>@<ver> --pin --accept-capabilities --force`, set `hooks.allowConversationAccess`, and remove legacy `extensions/<id>` copies |
+| `createPluginCli`, `CreatePluginCliOptions` (extension copy, `npm install`, `plugins.installs` / `plugins.entries` / `tools.alsoAllow` patching, `--memory` slot claim, HEARTBEAT seeding, skill seeding, `writeComponentVersion`) | `jeeves install` / `jeeves update`, which run `openclaw plugins install npm:<pkg>@<ver> --pin --accept-capabilities --force`, set `hooks.allowConversationAccess` for plugins that declare conversation hooks, write plugin config, and remove legacy `extensions/<id>` copies |
 | `patchConfig`, `PluginInstallRecord`, `resolveOpenClawHome`, `resolveConfigPath` | None; don't write `openclaw.json` from plugins |
 | `readComponentVersions`, `writeComponentVersion`, `removeComponentVersion`, `COMPONENT_VERSIONS_FILE`, `ComponentVersionEntry`, `ComponentVersionsState`, `WriteComponentVersionOptions`, `ComponentState` | `openclaw plugins inspect --json`; `jeeves status` probes `PLATFORM_COMPONENTS` |
 | `checkRegistryVersion`, `REGISTRY_CACHE_FILE` | None. `jeeves update` resolves versions with `npm view` when it runs |
@@ -48,8 +48,8 @@ v1 retires everything in `@karmaniverous/jeeves` that wrote to a live workspace 
 | --- | --- |
 | `renderManagedBlock`, `upsertManagedBlock`, `removeManagedBlock`, `formatBeginMarker`, `formatEndMarker` | Pure managed-block transforms |
 | `validateSkillFrontmatter`, `SkillFrontmatter` | `name`/`description` check for skill build steps |
-| `jeeves update [packages...]`, `jeeves install [plugins...]`, `jeeves uninstall --plugins`, `--dry-run` on all three | Plugin install/update/removal through the OpenClaw CLI (see README, CLI) |
-| `jeeves install` plugin config options: `--config-root` (shared), `--runner-api-url`, `--watcher-api-url`, `--server-api-url`, `--server-plugin-key`, `--meta-api-url`, `--plugin-config <file.json>` | Writes `plugins.entries.<id>.config` (replaces the per-plugin `npx <plugin> install` config step) |
+| `jeeves update [packages...]`, `jeeves install [plugins...]`, plugin removal in `jeeves uninstall`, `--dry-run` on all three, `--force-reinstall` on install/update | Plugin install/update/removal through the OpenClaw CLI; an exact version that is already installed is not reinstalled (see README, CLI) |
+| `jeeves install` / `jeeves update` plugin config options: `--config-root` (shared), `--runner-api-url`, `--watcher-api-url`, `--server-api-url`, `--server-plugin-key`, `--meta-api-url`, `--plugin-config <file.json>` | Writes missing (or explicitly passed) `plugins.entries.<id>.config` values through an owner-only `--batch-file` (replaces the per-plugin `npx <plugin> install` config step) |
 | `registerPromptContext`, `promptContextOptionsSchema`, `PromptBuild*` types | `before_prompt_build` → `{ appendSystemContext }` |
 | `onPluginDispose`, `PluginLifecycleApi` | Tie resources to the plugin lifecycle |
 | `PluginApi.on`, `.lifecycle`, `.logger`, `.pluginConfig` | Typed subset of the OpenClaw 2026.9.x plugin API |
@@ -73,13 +73,15 @@ jeeves install --config-root /srv/jeeves/config             # content + runner/w
 Later:
 
 ```bash
-jeeves update                # every installed Jeeves plugin to latest
+jeeves update                # every installed Jeeves plugin to latest, plus any missing config
 jeeves update watcher@1.2.3  # or one plugin to a pinned version
 ```
 
-`jeeves install` writes each plugin's `plugins.entries.<id>.config`:
+Re-running either command is cheap: a plugin already installed at the resolved version is not reinstalled (`--force-reinstall` overrides), but its hook grant and missing config are still written.
 
-- `configRoot` is required. It comes from `--config-root`, then the existing value, then `JEEVES_CONFIG_ROOT` or `jeeves.config.json`. With none of them, the install fails before writing anything and lists the missing options.
+`jeeves install` and `jeeves update` write each plugin's `plugins.entries.<id>.config`:
+
+- `configRoot` is required. It comes from `--config-root`, then the existing value, then `JEEVES_CONFIG_ROOT` or `jeeves.config.json`. With none of them, the command fails before writing anything and lists the missing options.
 - `apiUrl` defaults to the service's local port.
 - The server `pluginKey` defaults to the server's own `keys._plugin` seed, or else a newly generated one (shown only as `<redacted>`).
 
@@ -100,7 +102,8 @@ jeeves-tools no longer renders plugin config itself. It passes `--config-root` a
 
 Instances managed by v0.x keep working until their plugins are upgraded. On upgrade:
 
-- Run `jeeves install --dry-run`, review, then `jeeves install`. It replaces the old SOUL/AGENTS blocks in place (cleanup flags included), reinstalls each plugin from npm, sets `hooks.allowConversationAccess`, fills in missing plugin config without touching existing values, and deletes the legacy `extensions/<id>` copy only after the npm install succeeded. Restart the gateway afterwards.
+- Run `jeeves install --dry-run`, review, then `jeeves install`. It replaces the old SOUL/AGENTS blocks in place (cleanup flags included), reinstalls each plugin from npm (the v0.x path installs never count as current), sets `hooks.allowConversationAccess` for plugins that declare conversation hooks, fills in missing plugin config without touching existing values, and deletes the legacy `extensions/<id>` copy only after the npm install succeeded. Restart the gateway afterwards.
+- `jeeves uninstall` now removes the Jeeves plugins as well as the managed blocks and artifacts; there is no `--plugins` option. Use `--dry-run` to see the exact `openclaw` commands first.
 - TOOLS.md is no longer loaded by OpenClaw 2026.9.6. `jeeves uninstall` or `removeManagedBlock(content, LEGACY_TOOLS_MARKERS)` strips the old block. Nothing writes TOOLS.md any more; archiving the file is the owner's call.
 - HEARTBEAT.md's `# Jeeves Platform Status` section is no longer maintained and can be removed.
 - `{configRoot}/jeeves-core/component-versions.json` and `registry-cache.json` are no longer read or written and can be deleted.
