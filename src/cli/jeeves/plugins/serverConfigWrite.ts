@@ -9,12 +9,11 @@
  *   be in the planned state; otherwise nothing is written.
  * - Backup first: a copy beside the file, `config.json.bak-<UTC timestamp>`,
  *   never overwriting an existing file.
- * - Only `keys._plugin` (or `keys._plugin.key` for the object form) changes,
- *   as a minimal text edit with `jsonc-parser` (`modify` + `applyEdits`):
- *   every other byte (key order, inline layout, number spelling) stays as
- *   it was; inserted text uses the file's own indentation and line
- *   ending. The result must still parse with `JSON.parse` (jeeves-server's
- *   loader) or nothing is written.
+ * - Only `keys._plugin` (or `keys._plugin.key` for the object form) changes.
+ *   jeeves-server reads this file with `JSON.parse` (no comments possible)
+ *   and core's config-apply endpoint already rewrites it with
+ *   `JSON.stringify`, so the file is re-serialized the same way, keeping key
+ *   order, the detected indentation, line endings and final newline.
  * - Written with core `atomicWrite` (temp file + rename) with the original
  *   file mode applied to the temp file before the rename.
  *
@@ -22,8 +21,6 @@
  */
 
 import { constants, copyFileSync, readFileSync, statSync } from 'node:fs';
-
-import { applyEdits, type FormattingOptions, modify } from 'jsonc-parser';
 
 import { withFileLock } from '../../../managed/fileLock.js';
 import { atomicWrite } from '../../../managed/fileOps.js';
@@ -59,17 +56,15 @@ const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
 
 /**
- * Formatting of a JSON text (indent unit and line ending) for inserted text.
+ * Indentation of a JSON text for `JSON.stringify`.
  *
  * @param text - JSON text.
- * @returns `jsonc-parser` formatting options.
+ * @returns The first indented line's leading whitespace, `''` for
+ *   single-line JSON, or two spaces.
  */
-export function detectFormatting(text: string): FormattingOptions {
-  const eol = text.includes('\r\n') ? '\r\n' : '\n';
-  const indent = /\n([ \t]+)\S/.exec(text)?.[1] ?? '  ';
-  return indent.startsWith('\t')
-    ? { insertSpaces: false, tabSize: 1, eol }
-    : { insertSpaces: true, tabSize: indent.length, eol };
+export function detectIndent(text: string): string {
+  if (!text.trim().includes('\n')) return '';
+  return /\n([ \t]+)\S/.exec(text)?.[1] ?? '  ';
 }
 
 /**
@@ -84,20 +79,14 @@ export function detectFormatting(text: string): FormattingOptions {
 export function setPluginKeyInText(text: string, value: string): string {
   const raw: unknown = JSON.parse(text);
   if (!isRecord(raw)) throw new Error('server config is not a JSON object');
-  const keys = raw['keys'];
-  if (keys !== undefined && !isRecord(keys)) {
-    throw new Error('server config "keys" is not an object');
-  }
-  const path = isRecord(keys?.['_plugin'])
-    ? ['keys', '_plugin', 'key']
-    : ['keys', '_plugin'];
-  const edits = modify(text, path, value, {
-    formattingOptions: detectFormatting(text),
-  });
-  const next = applyEdits(text, edits);
-  // jeeves-server parses with JSON.parse: never write anything it can't read.
-  JSON.parse(next);
-  return next;
+  const keys = isRecord(raw['keys']) ? raw['keys'] : {};
+  const entry = keys['_plugin'];
+  keys['_plugin'] = isRecord(entry) ? { ...entry, key: value } : value;
+  raw['keys'] = keys;
+  const eol = text.includes('\r\n') ? '\r\n' : '\n';
+  const body = JSON.stringify(raw, null, detectIndent(text));
+  const trailing = /\r?\n$/.test(text) ? eol : '';
+  return body.replace(/\n/g, eol) + trailing;
 }
 
 /** Whether the file's current state is the planned one. */

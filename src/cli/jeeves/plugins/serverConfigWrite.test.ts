@@ -14,7 +14,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   backupPath,
   createServerConfigWriter,
-  detectFormatting,
+  detectIndent,
   setPluginKeyInText,
 } from './serverConfigWrite.js';
 
@@ -47,40 +47,16 @@ describe('setPluginKeyInText', () => {
     expect(setPluginKeyInText(before, 'S')).toBe(after);
   });
 
-  it('keeps hand-written layout and number spelling byte for byte', () => {
-    const before =
-      '{\n  "port": 1934, "ratio": 1.0,\n  "roots": ["/a", "/b"],\n  "keys": { "_plugin": "old", "z": "z" }\n}\n';
-    expect(setPluginKeyInText(before, 'S')).toBe(
-      before.replace('"old"', '"S"'),
-    );
-  });
-
-  it('rejects a commented file (jeeves-server could not read it either)', () => {
-    const before = '{\n  // note\n  "keys": {\n    "_plugin": "old"\n  }\n}';
-    expect(() => setPluginKeyInText(before, 'S')).toThrow();
-  });
-
-  it.each([
-    ['a non-object document', '[1]', 'not a JSON object'],
-    ['a non-object keys', '{"keys":"x"}', '"keys" is not an object'],
-  ])('rejects %s', (_label, text, message) => {
-    expect(() => setPluginKeyInText(text, 'S')).toThrow(message);
+  it('rejects a non-object document', () => {
+    expect(() => setPluginKeyInText('[1]', 'S')).toThrow('not a JSON object');
   });
 });
 
-describe('detectFormatting / backupPath', () => {
-  it('detects indentation and line endings', () => {
-    expect(detectFormatting('{"a":1}')).toEqual({
-      insertSpaces: true,
-      tabSize: 2,
-      eol: '\n',
-    });
-    expect(detectFormatting('{\r\n\t"a": 1\r\n}')).toEqual({
-      insertSpaces: false,
-      tabSize: 1,
-      eol: '\r\n',
-    });
-    expect(detectFormatting('{\n    "a": 1\n}')).toMatchObject({ tabSize: 4 });
+describe('detectIndent / backupPath', () => {
+  it('detects indentation', () => {
+    expect(detectIndent('{"a":1}')).toBe('');
+    expect(detectIndent('{\n\t"a": 1\n}')).toBe('\t');
+    expect(detectIndent('{\n   "a": 1\n}')).toBe('   ');
   });
 
   it('builds a timestamped sibling path', () => {
