@@ -72,7 +72,30 @@ describe('createConfigQueryHandler', () => {
     expect(result.status).toBe(400);
 
     const body = result.body as { error: string };
-    expect(body.error).toBeDefined();
+    expect(body.error).toEqual(expect.any(String));
+    expect(body.error).not.toBe('Query failed');
+  });
+
+  it.each([[null], [undefined]])(
+    'returns an empty result for a %s config',
+    async (config) => {
+      const result = await createConfigQueryHandler(() => config)({
+        path: '$.a',
+      });
+      expect(result).toEqual({ status: 200, body: { result: [], count: 0 } });
+    },
+  );
+
+  it('reports a generic message when the query throws a non-Error', async () => {
+    const config = {
+      get a(): unknown {
+        throw JSON.parse('"not an Error"') as unknown;
+      },
+    };
+    const result = await createConfigQueryHandler(() => config)({
+      path: '$.a',
+    });
+    expect(result).toEqual({ status: 400, body: { error: 'Query failed' } });
   });
 
   it('calls getConfig on each invocation', async () => {

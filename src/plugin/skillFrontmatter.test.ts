@@ -26,6 +26,20 @@ describe('validateSkillFrontmatter', () => {
     );
   });
 
+  it('ends a block scalar at the next top-level key', () => {
+    const content = [
+      '---',
+      'description: |',
+      '  Only this.',
+      'name: baz',
+      '---',
+    ].join('\n');
+    expect(validateSkillFrontmatter(content)).toEqual({
+      name: 'baz',
+      description: 'Only this.',
+    });
+  });
+
   it('handles CRLF line endings', () => {
     expect(
       validateSkillFrontmatter('---\r\nname: a\r\ndescription: b\r\n---\r\n'),

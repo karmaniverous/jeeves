@@ -124,6 +124,11 @@ describe('removeManagedBlock', () => {
     expect(removeManagedBlock(withBlock, SOUL_MARKERS)).toBe('Mine\n');
   });
 
+  it('leaves an empty file when the block was the only content', () => {
+    const blockOnly = upsertManagedBlock('', SOUL_MARKERS, 'Body', stamp);
+    expect(removeManagedBlock(blockOnly, SOUL_MARKERS)).toBe('');
+  });
+
   it('returns content unchanged when no block exists', () => {
     expect(removeManagedBlock('Mine', SOUL_MARKERS)).toBe('Mine');
   });

@@ -94,9 +94,10 @@ describe('atomicWrite', () => {
       atomicWrite(filePath, 'new content');
     }).toThrow('EPERM');
 
-    for (const tempPath of renamedTemps) {
-      expect(existsSync(tempPath)).toBe(false);
-    }
+    expect(renamedTemps).toHaveLength(3);
+    expect(new Set(renamedTemps).size).toBe(1);
+    expect(existsSync(renamedTemps[0])).toBe(false);
+    expect(readFileSync(filePath, 'utf-8')).toBe('original');
   });
 
   it('does not retry on non-EPERM errors', () => {

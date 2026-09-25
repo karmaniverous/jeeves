@@ -75,6 +75,14 @@ describe('withFileLock', () => {
     expect(existsSync(lockPath)).toBe(false);
   });
 
+  it('propagates an unexpected lock error without running fn', async () => {
+    const fn = vi.fn();
+    await expect(
+      withFileLock(join(testDir, 'no-such-dir', 'config.json'), fn),
+    ).rejects.toMatchObject({ code: 'ENOENT' });
+    expect(fn).not.toHaveBeenCalled();
+  });
+
   it('respects a fresh lock held by another process', async () => {
     mkdirSync(`${target}.lock`);
     await expect(withFileLock(target, vi.fn())).rejects.toMatchObject({
