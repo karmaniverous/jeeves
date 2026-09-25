@@ -239,6 +239,37 @@ describe('resolvePluginConfig', () => {
     expect(res.serverKeyWrite).toBeUndefined();
   });
 
+  it('takes pluginKey from --plugin-config below a CLI option', () => {
+    const fromFile = resolvePluginConfig(
+      {},
+      [S],
+      request({
+        options: { configRoot: '/c' },
+        file: { server: { pluginKey: 'file-seed' } },
+      }),
+    );
+    expect(valueOf(fromFile, S, 'pluginKey')).toMatchObject({
+      value: 'file-seed',
+      source: 'file',
+      write: true,
+    });
+    expect(fromFile.serverKeyWrite?.value).toBe('file-seed');
+
+    const both = resolvePluginConfig(
+      {},
+      [S],
+      request({
+        options: { configRoot: '/c', server: { pluginKey: 'opt-seed' } },
+        file: { server: { pluginKey: 'file-seed' } },
+      }),
+    );
+    expect(valueOf(both, S, 'pluginKey')).toMatchObject({
+      value: 'opt-seed',
+      source: 'option',
+    });
+    expect(both.secrets).toEqual(['opt-seed']);
+  });
+
   it('treats an explicit pluginKey as a secret', () => {
     const res = resolvePluginConfig(
       {},

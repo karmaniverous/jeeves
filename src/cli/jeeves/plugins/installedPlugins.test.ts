@@ -33,6 +33,36 @@ describe('isInstalledAt', () => {
       entry({ source: 'npm', spec: `npm:${PKG}@1.0.0`, version: '1.0.0' }),
       true,
     ],
+    [
+      'npm record with a spec without the npm: prefix',
+      entry({ source: 'npm', spec: `${PKG}@1.0.0`, version: '1.0.0' }),
+      true,
+    ],
+    [
+      'npm record whose resolvedSpec wins over spec',
+      entry({
+        source: 'npm',
+        resolvedSpec: `${PKG}@1.0.0`,
+        spec: '@x/y@1.0.0',
+        version: '1.0.0',
+      }),
+      true,
+    ],
+    [
+      'npm record with an unversioned spec',
+      entry({ source: 'npm', spec: `npm:${PKG}`, version: '1.0.0' }),
+      true,
+    ],
+    [
+      'npm record naming no package',
+      entry({ source: 'npm', version: '1.0.0' }),
+      false,
+    ],
+    [
+      'npm record without a recorded version',
+      entry({ source: 'npm', resolvedName: PKG }, '1.0.0'),
+      false,
+    ],
     ['not installed', undefined, false],
     ['no record', entry(undefined, '1.0.0'), false],
     [

@@ -175,6 +175,21 @@ describe('installPlugins with plugin config', () => {
     expect(serverWrites).toEqual([]);
   });
 
+  it('leaves OpenClaw untouched when the server config write fails', async () => {
+    const { fake, temp, deps } = setupWorkflow({
+      'openclaw config get plugins': ok('{}'),
+    });
+    deps.serverConfig = () =>
+      Promise.reject(new Error('Lock file is already being held'));
+    await expect(
+      installPlugins(deps, parsePluginSpecs(['server']), {
+        configRequest: request(),
+      }),
+    ).rejects.toThrow(/already being held/);
+    expect(mutating(fake.lines())).toEqual([]);
+    expect(temp.written).toEqual([]);
+  });
+
   it('fails on missing required config before any mutation', async () => {
     const { fake, deps } = setupWorkflow({
       'openclaw config get plugins': ok('{}'),

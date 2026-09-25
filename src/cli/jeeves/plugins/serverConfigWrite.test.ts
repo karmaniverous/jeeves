@@ -56,6 +56,8 @@ describe('detectIndent / backupPath', () => {
     expect(detectIndent('{"a":1}')).toBe('');
     expect(detectIndent('{\n\t"a": 1\n}')).toBe('\t');
     expect(detectIndent('{\n   "a": 1\n}')).toBe('   ');
+    // Multi-line but nothing indented: fall back to two spaces.
+    expect(detectIndent('{\n"a": 1\n}')).toBe('  ');
   });
 
   it('builds a timestamped sibling path', () => {

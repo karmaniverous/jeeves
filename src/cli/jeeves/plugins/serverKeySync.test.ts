@@ -113,7 +113,16 @@ describe('decideServerPluginKey', () => {
     const d = decideServerPluginKey(input(s, { explicit: option('x') }));
     expect(d).toMatchObject({ value: 'x', writePlugin: true });
     expect(d.serverWrite).toBeUndefined();
-    expect(d.warning).toBeDefined();
+    expect(d.warning).toContain(PATH);
+  });
+
+  it('names the server config generically when configRoot is unknown', () => {
+    const d = decideServerPluginKey(
+      input(noFile, { plugin: 'p', serverPath: undefined }),
+    );
+    expect(d.warning).toBe(
+      'the jeeves-server config (configRoot unknown) not found; only the plugin side was set. Set keys._plugin there to the same seed, then restart jeeves-server.',
+    );
   });
 
   it.each([

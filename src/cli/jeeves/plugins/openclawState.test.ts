@@ -76,6 +76,15 @@ describe('readPluginsConfig', () => {
     );
   });
 
+  it('fails loudly when a failed read prints no JSON', async () => {
+    const fake = fakeRunner({
+      'openclaw config get': failed('gateway config unreadable'),
+    });
+    await expect(readPluginsConfig(fake.runner)).rejects.toThrow(
+      /exit 1\): openclaw config get plugins --json\ngateway config unreadable/,
+    );
+  });
+
   it('fails loudly on non-JSON output', async () => {
     const fake = fakeRunner({ 'openclaw config get': ok('not json') });
     await expect(readPluginsConfig(fake.runner)).rejects.toThrow(/non-JSON/);

@@ -46,6 +46,32 @@ describe('runChecked', () => {
     expect((err as CommandFailedError).result.exitCode).toBe(3);
   });
 
+  it.each([
+    [
+      'stderr is empty: the stdout tail',
+      { stdout: 'out line', stderr: '' },
+      'out line',
+    ],
+    ['both are empty: no detail line', { stdout: ' ', stderr: '' }, undefined],
+  ])('reports, when %s', async (_label, output, detail) => {
+    const fake = fakeRunner({ openclaw: { exitCode: 4, ...output } });
+    const err = (await runChecked(fake.runner, 'openclaw', ['x']).catch(
+      (e: unknown) => e,
+    )) as CommandFailedError;
+    expect(err.message).toBe(
+      `Command failed (exit 4): openclaw x${detail ? `\n${detail}` : ''}`,
+    );
+  });
+
+  it('keeps only the last 10 output lines in the message', async () => {
+    const lines = Array.from({ length: 12 }, (_, i) => `l${String(i)}`);
+    const fake = fakeRunner({ openclaw: failed(lines.join('\n')) });
+    const err = (await runChecked(fake.runner, 'openclaw', []).catch(
+      (e: unknown) => e,
+    )) as CommandFailedError;
+    expect(err.message.split('\n').slice(1)).toEqual(lines.slice(2));
+  });
+
   it('redacts secrets from the error message and captured output', async () => {
     const fake = fakeRunner({ openclaw: failed('bad value s3cr3t', 1) });
     const err = (await runChecked(
@@ -96,6 +122,31 @@ describe('spawnCommandRunner', () => {
     child.emit('close', 0);
     await pending;
     expect(write).toHaveBeenCalledWith('1.0.0');
+  });
+
+  it('streams stderr as it arrives when echoing without secrets', async () => {
+    const child = new FakeChild();
+    spawnMock.mockReturnValue(child);
+    vi.spyOn(process.stdout, 'write').mockReturnValue(true);
+    const errWrite = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+    const pending = spawnCommandRunner('npm', ['view'], { echo: true });
+    child.stderr.write('npm warn');
+    await vi.waitFor(() => {
+      expect(errWrite).toHaveBeenCalledWith('npm warn');
+    });
+    child.emit('close', 0);
+    await expect(pending).resolves.toMatchObject({ stderr: 'npm warn' });
+  });
+
+  it('does not echo unless asked', async () => {
+    const child = new FakeChild();
+    spawnMock.mockReturnValue(child);
+    const write = vi.spyOn(process.stdout, 'write').mockReturnValue(true);
+    const pending = spawnCommandRunner('npm', ['view']);
+    child.stdout.write('quiet');
+    child.emit('close', 0);
+    await expect(pending).resolves.toMatchObject({ stdout: 'quiet' });
+    expect(write).not.toHaveBeenCalled();
   });
 
   it('buffers and redacts echoed output when secrets are present', async () => {
