@@ -32,7 +32,7 @@ Runner (schedule) → Scripts → Services ← Server (present) ← Browser
 - **Meta** reads from Qdrant, synthesizes `.meta/` directories, which watcher re-indexes.
 - **Runner** executes scheduled scripts that may call any service's HTTP API.
 - **Server** presents files, renders documents, and provides the event gateway.
-- **Core** provides shared content management (TOOLS.md, SOUL.md, AGENTS.md), service discovery, config resolution, and the component SDK.
+- **Core** provides the static platform content (SOUL.md/AGENTS.md managed blocks, platform skills), service discovery, config resolution, and the component SDK.
 
 ## Service Discovery
 
@@ -48,75 +48,43 @@ Template: `@karmaniverous/jeeves-scripts-template`
 
 Scripts use utilities from `@karmaniverous/jeeves` (general) and `@karmaniverous/jeeves-runner` (runner-specific). Any script that could be useful outside runner scheduling belongs in core.
 
-## Managed Content System
+## Platform Content
 
-Core maintains managed sections in workspace files using comment markers:
-- **TOOLS.md** — Component sections (section mode) + Platform section
-- **SOUL.md** — Professional discipline and behavioral foundations (block mode)
-- **AGENTS.md** — Operational protocols and memory architecture (block mode)
-- **HEARTBEAT.md** — Platform health status (heading-based)
+Core ships **static** platform content, rendered once into the workspace at instance creation (by jeeves-tools or `npx @karmaniverous/jeeves install`) and re-rendered on deploy:
 
-Managed blocks are stationary after initial insertion. Cleanup detection uses Jaccard similarity on 3-word shingles. Cleanup escalation spawns a gateway session when orphaned content is detected.
+- **SOUL.md** and **AGENTS.md**: a managed block between `<!-- BEGIN JEEVES … -->` / `<!-- END JEEVES … -->` markers. Never edit inside the markers; put local content outside them.
+- **Platform skills** under `skills/` (this skill, `coding`, `operations`, `playbooks`, `slack-bot-provisioner`).
+- **Reference templates** (`spec.md`, `spec-to-code-guide.md`) under `{configRoot}/jeeves-core/templates/`. Read them when creating specs or onboarding to a project.
+
+Nothing rewrites these files at runtime. Live state (index size, job status, versions) is one tool call away: use each component's `*_status` tool. Rules that must always be in context are injected by the owning plugin via OpenClaw's `before_prompt_build` hook.
+
+## Plugin Lifecycle
+
+Component plugins are standard OpenClaw plugins:
+
+```bash
+openclaw plugins install npm:@karmaniverous/jeeves-{component}-openclaw@<version> --pin --accept-capabilities --force
+openclaw plugins update
+openclaw plugins inspect --json
+```
+
+Plugins that inject prompt rules need `plugins.entries.<id>.hooks.allowConversationAccess: true`. Never hand-edit `~/.openclaw/extensions/` or `plugins.installs`.
+
+## Working Practices
+
+- **Shell scripting:** default to `node -e` or `.js` scripts for `exec` calls. On Windows, PowerShell corrupts multi-byte UTF-8 and mangles escaping; use it only for Windows-specific administration.
+- **File bridge for external repos:** copy in → edit the workspace copy → bridge out. Never write temp patch scripts.
+- **Source code preference:** when investigating Jeeves components, read TypeScript source from the dev repos (`core.devRepos` in `jeeves.config.json`), never compiled `dist/`. `git pull` first.
 
 ## Workspace Configuration
 
 `jeeves.config.json` at workspace root provides shared defaults:
 - Precedence: CLI flags → env vars → file → defaults
 - Namespaced: `core.*` (workspace, configRoot, gatewayUrl, devRepos) and `memory.*` (budget, warningThreshold)
-- Inspect with `jeeves config [jsonpath]`
-
-## HEARTBEAT Protocol
-
-The HEARTBEAT system uses a state machine per component:
-`not_installed → deps_missing → config_missing → service_not_installed → service_stopped → healthy`
-
-Dependency-aware: hard deps block alerts, soft deps add informational notes. Declined components are tracked via heading suffix.
-
-## Plugin Lifecycle
-
-```bash
-# Core install (seed workspace content)
-npx @karmaniverous/jeeves install
-
-# Component plugin install
-npx @karmaniverous/jeeves-{component}-openclaw install
-
-# Component plugin uninstall
-npx @karmaniverous/jeeves-{component}-openclaw uninstall
-
-# Core uninstall (remove managed sections)
-npx @karmaniverous/jeeves uninstall
-```
+- Inspect with `jeeves config [jsonpath]`; check health with `jeeves status`
 
 ## Memory Hygiene
 
-MEMORY.md has a character budget (default 20,000). Core tracks:
-- Character count and usage percentage
-- Warning at 80% of budget
-- Stale section candidates (H2 sections whose most recent ISO date exceeds the staleness threshold)
-- Evergreen sections (no dates) are never flagged
+MEMORY.md has a character budget (default 20,000; warning at 80%). `jeeves status` reports usage. Review is human/agent-mediated: core never auto-deletes.
 
-Review is human/agent-mediated — core does not auto-delete.
-
-### HEARTBEAT Integration
-
-Memory hygiene is checked on every `ComponentWriter` cycle alongside component health. When budget or staleness thresholds are breached, a `## MEMORY.md` alert appears in HEARTBEAT.md under `# Jeeves Platform Status`. The alert includes character count, budget usage percentage, and any stale section names. When memory is healthy, the heading is absent — no alert content, no LLM cost on heartbeat polls.
-
-The `## MEMORY.md` heading follows the same declined/active lifecycle as component headings (`## jeeves-{name}`). Users can decline memory alerts by changing the heading to `## MEMORY.md: declined`.
-
-## Workspace File Size Monitoring
-
-OpenClaw applies a ~20,000-char injection limit to all workspace bootstrap files (AGENTS.md, SOUL.md, TOOLS.md, USER.md, MEMORY.md). Files exceeding the limit are silently truncated.
-
-Core monitors all five files on every `ComponentWriter` cycle:
-- Warning at 80% of budget (fixed threshold; not configurable via `jeeves.config.json`)
-- Over-budget alert when charCount exceeds the budget
-- Missing files are silently skipped
-
-### HEARTBEAT Integration
-
-When a workspace file exceeds the warning threshold, a `## {filename}` alert appears in HEARTBEAT.md (e.g., `## AGENTS.md`). The alert includes:
-- Character count, budget, and usage percentage
-- Trimming guidance in priority order: (1) move domain-specific content to a local skill, (2) extract reference material to companion files with a pointer, (3) summarize verbose instructions, (4) remove stale content
-
-Each file heading follows the same declined/active lifecycle as component headings. Users can decline alerts by changing the heading to `## {filename}: declined` (e.g., `## AGENTS.md: declined`).
+OpenClaw truncates each workspace bootstrap file (AGENTS.md, SOUL.md, USER.md, MEMORY.md, …) at `agents.defaults.bootstrapMaxChars` (default 20,000). When a file approaches the limit: (1) move domain-specific content to a local skill, (2) extract reference material to companion files with a pointer, (3) summarize verbose instructions, (4) remove stale content.

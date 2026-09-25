@@ -1,11 +1,19 @@
 /**
- * Core types for the OpenClaw plugin SDK.
+ * Structural subset of the OpenClaw plugin API used by Jeeves plugins.
  *
  * @remarks
- * These types define the contract between plugins and the OpenClaw gateway.
- * They unify the various `PluginApi` definitions previously duplicated
- * across component plugins into a single canonical source.
+ * Mirrors the shapes in OpenClaw's plugin SDK (v2026.9.6:
+ * `src/plugins/plugin-api.types.ts`, `hook-types.ts`,
+ * `hook-before-agent-start.types.ts`, `plugin-instance.types.ts`) without
+ * depending on OpenClaw. Only the members Jeeves uses are declared; optional
+ * members degrade gracefully on older hosts.
  */
+
+import type {
+  HookRegistrationOptions,
+  PluginLifecycleApi,
+  PromptBuildHandler,
+} from './hookTypes.js';
 
 /** Result shape returned by tool executions. */
 export interface ToolResult {
@@ -77,6 +85,35 @@ export interface PluginApi {
    * Present on newer OpenClaw builds; optional for backwards compatibility.
    */
   resolvePath?: (input: string) => string;
+
+  /** Plugin-scoped config (`plugins.entries.<id>.config`), when provided. */
+  pluginConfig?: Record<string, unknown>;
+
+  /** Host logger, when provided. */
+  logger?: {
+    /** Log a warning. */
+    warn: (message: string) => void;
+  };
+
+  /**
+   * Plugin-owned lifecycle: disposal signal and cleanup registration.
+   * Present on OpenClaw 2026.9.x.
+   */
+  lifecycle?: PluginLifecycleApi;
+
+  /**
+   * Register a typed hook handler. Jeeves only uses `before_prompt_build`
+   * (see {@link registerPromptContext}).
+   *
+   * @param hookName - Hook name.
+   * @param handler - Hook handler.
+   * @param opts - Registration options.
+   */
+  on?(
+    hookName: 'before_prompt_build',
+    handler: PromptBuildHandler,
+    opts?: HookRegistrationOptions,
+  ): void;
 
   /**
    * Register a tool with the OpenClaw gateway.

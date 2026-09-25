@@ -1,10 +1,10 @@
 /**
- * CLI uninstall command: remove managed sections and platform artifacts.
+ * CLI uninstall command: remove managed blocks and platform artifacts.
  *
  * @remarks
- * Removes managed sections from SOUL.md, AGENTS.md, TOOLS.md.
- * Removes templates and config dir artifacts. Warns if services
- * still responding on known ports.
+ * Removes the managed blocks from SOUL.md and AGENTS.md (and any legacy v0.x
+ * TOOLS.md block). Removes templates and the config schema file. Warns if
+ * platform services are still responding.
  */
 
 import { existsSync, rmSync } from 'node:fs';
@@ -12,12 +12,12 @@ import { join } from 'node:path';
 
 import type { Command } from '@commander-js/extra-typings';
 
-import { readComponentVersions } from '../../component/componentVersions.js';
 import {
   AGENTS_MARKERS,
+  LEGACY_TOOLS_MARKERS,
+  PLATFORM_COMPONENTS,
   SOUL_MARKERS,
   TEMPLATES_DIR,
-  TOOLS_MARKERS,
   WORKSPACE_FILES,
 } from '../../constants/index.js';
 import { getServiceUrl } from '../../discovery/getServiceUrl.js';
@@ -48,18 +48,17 @@ export function registerUninstallCommand(program: Command): void {
       const wsPath = getWorkspacePath();
       const coreConfigDir = getCoreConfigDir();
 
-      // Remove managed sections from workspace files
-      const toolsPath = join(wsPath, WORKSPACE_FILES.tools);
-      removeManagedBlockFromFile(toolsPath, TOOLS_MARKERS);
-      console.log('  ✓ TOOLS.md managed section removed');
-
-      const soulPath = join(wsPath, WORKSPACE_FILES.soul);
-      removeManagedBlockFromFile(soulPath, SOUL_MARKERS);
-      console.log('  ✓ SOUL.md managed section removed');
-
-      const agentsPath = join(wsPath, WORKSPACE_FILES.agents);
-      removeManagedBlockFromFile(agentsPath, AGENTS_MARKERS);
-      console.log('  ✓ AGENTS.md managed section removed');
+      // Remove managed blocks from workspace files
+      const targets = [
+        [WORKSPACE_FILES.soul, SOUL_MARKERS],
+        [WORKSPACE_FILES.agents, AGENTS_MARKERS],
+        [WORKSPACE_FILES.legacyTools, LEGACY_TOOLS_MARKERS],
+      ] as const;
+      for (const [file, markers] of targets) {
+        if (removeManagedBlockFromFile(join(wsPath, file), markers)) {
+          console.log(`  ✓ ${file} managed block removed`);
+        }
+      }
 
       // Remove templates directory
       const templatesDir = join(coreConfigDir, TEMPLATES_DIR);
@@ -79,11 +78,9 @@ export function registerUninstallCommand(program: Command): void {
 
       // Warn if services still responding
       try {
-        const componentVersions = readComponentVersions(coreConfigDir);
-        const componentNames = Object.keys(componentVersions);
         const running: string[] = [];
 
-        for (const name of componentNames) {
+        for (const name of PLATFORM_COMPONENTS) {
           try {
             const url = getServiceUrl(name);
             const response = await fetchWithTimeout(`${url}/status`, 2000);

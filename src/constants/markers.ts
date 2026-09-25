@@ -1,14 +1,14 @@
 /**
- * Comment markers for managed content blocks.
+ * Comment markers delimiting Jeeves managed content blocks in SOUL.md and AGENTS.md.
  *
  * @remarks
- * Managed content in TOOLS.md, SOUL.md, and AGENTS.md is enclosed
- * in HTML comment markers. Content between markers is refreshed
- * atomically on each writer cycle. User content outside the markers
- * is never touched.
+ * Managed content is enclosed in HTML comment markers so that re-rendering at
+ * deploy time can replace the Jeeves block in place while leaving user content
+ * outside the markers untouched. Marker text is unchanged from v0.x so that
+ * blocks written by earlier versions are recognised and replaced.
  */
 
-/** Shape of managed content markers used by updateManagedSection and removeManagedSection. */
+/** Shape of a managed content marker set. */
 export interface ManagedMarkers {
   /** BEGIN comment marker text. */
   begin: string;
@@ -17,8 +17,8 @@ export interface ManagedMarkers {
   /** Optional H1 title prepended inside the managed block. */
   title?: string;
   /**
-   * Position of the managed block within the file.
-   * - `'top'`: managed block first, user content below (current default).
+   * Position of a newly inserted managed block within the file.
+   * - `'top'`: managed block first, user content below.
    * - `'bottom'`: user content first, managed block at end.
    *
    * @defaultValue `'top'`
@@ -26,19 +26,7 @@ export interface ManagedMarkers {
   position?: 'top' | 'bottom';
 }
 
-/** Default markers for TOOLS.md managed block. */
-export const TOOLS_MARKERS: ManagedMarkers = {
-  /** BEGIN comment marker text. */
-  begin: 'BEGIN JEEVES PLATFORM TOOLS — DO NOT EDIT THIS SECTION',
-  /** END comment marker text. */
-  end: 'END JEEVES PLATFORM TOOLS',
-  /** H1 title prepended in section mode. */
-  title: 'Jeeves Platform Tools',
-  /** Managed block at bottom of file. */
-  position: 'bottom',
-} as const;
-
-/** Default markers for SOUL.md managed block. */
+/** Markers for the SOUL.md managed block. */
 export const SOUL_MARKERS: ManagedMarkers = {
   /** BEGIN comment marker text. */
   begin: 'BEGIN JEEVES SOUL — DO NOT EDIT THIS SECTION',
@@ -50,7 +38,7 @@ export const SOUL_MARKERS: ManagedMarkers = {
   position: 'bottom',
 } as const;
 
-/** Default markers for AGENTS.md managed block. */
+/** Markers for the AGENTS.md managed block. */
 export const AGENTS_MARKERS: ManagedMarkers = {
   /** BEGIN comment marker text. */
   begin: 'BEGIN JEEVES AGENTS — DO NOT EDIT THIS SECTION',
@@ -62,15 +50,27 @@ export const AGENTS_MARKERS: ManagedMarkers = {
   position: 'bottom',
 } as const;
 
-/** All known marker sets — single source of truth for cross-contamination detection. */
-export const ALL_MARKERS: readonly ManagedMarkers[] = [
-  TOOLS_MARKERS,
-  SOUL_MARKERS,
-  AGENTS_MARKERS,
-] as const;
+/**
+ * Markers for the legacy (v0.x) TOOLS.md managed block.
+ *
+ * @remarks
+ * OpenClaw 2026.9.6 no longer loads TOOLS.md, and Jeeves no longer writes it.
+ * Retained only so that tooling can recognise and strip blocks written by
+ * earlier versions (e.g. `jeeves uninstall`).
+ */
+export const LEGACY_TOOLS_MARKERS: ManagedMarkers = {
+  /** BEGIN comment marker text. */
+  begin: 'BEGIN JEEVES PLATFORM TOOLS — DO NOT EDIT THIS SECTION',
+  /** END comment marker text. */
+  end: 'END JEEVES PLATFORM TOOLS',
+  /** H1 title used by v0.x. */
+  title: 'Jeeves Platform Tools',
+  /** Managed block at bottom of file. */
+  position: 'bottom',
+} as const;
 
 /**
- * Regex pattern to extract version stamp from a BEGIN marker comment.
+ * Regex pattern to extract the version stamp from a BEGIN marker comment.
  *
  * @remarks
  * Format: `\<!-- BEGIN MARKER | core:X.Y.Z | ISO-TIMESTAMP --\>`
@@ -78,10 +78,3 @@ export const ALL_MARKERS: readonly ManagedMarkers[] = [
  */
 export const VERSION_STAMP_PATTERN =
   /<!--\s*(.+?)\s*\|\s*core:(\S+)\s*\|\s*(\S+)\s*-->/;
-
-/** Staleness threshold for version-stamp convergence in milliseconds. */
-export const STALENESS_THRESHOLD_MS = 5 * 60 * 1000;
-
-/** Warning text injected inside managed block when cleanup is needed. */
-export const CLEANUP_FLAG =
-  '> ⚠️ CLEANUP NEEDED: Orphaned Jeeves content detected outside this managed block. Review the file and remove any content outside the BEGIN/END markers that duplicates what appears inside them.';

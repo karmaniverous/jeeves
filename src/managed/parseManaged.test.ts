@@ -1,156 +1,79 @@
 import { describe, expect, it } from 'vitest';
 
-import { SOUL_MARKERS, TOOLS_MARKERS } from '../constants';
-import { parseManaged } from './parseManaged';
+import {
+  AGENTS_MARKERS,
+  LEGACY_TOOLS_MARKERS,
+  SOUL_MARKERS,
+} from '../constants/index.js';
+import { escapeForRegex, parseManaged } from './parseManaged.js';
 
 describe('parseManaged', () => {
-  it('should handle fresh file (no markers)', () => {
-    const result = parseManaged('# My Notes\n\nSome user content.');
+  it('handles a fresh file (no markers)', () => {
+    const result = parseManaged(
+      '# My Notes\n\nSome user content.',
+      SOUL_MARKERS,
+    );
     expect(result.found).toBe(false);
     expect(result.versionStamp).toBeUndefined();
-    expect(result.sections).toEqual([]);
     expect(result.userContent).toBe('# My Notes\n\nSome user content.');
   });
 
-  it('should handle empty file', () => {
-    const result = parseManaged('');
+  it('handles an empty file', () => {
+    const result = parseManaged('', SOUL_MARKERS);
     expect(result.found).toBe(false);
     expect(result.userContent).toBe('');
   });
 
-  it('should parse valid managed block with version stamp', () => {
-    const content = [
-      `<!-- ${TOOLS_MARKERS.begin} | core:0.1.0 | 2026-03-17T00:00:00Z -->`,
-      '',
-      '## Platform',
-      '',
-      'Platform content here.',
-      '',
-      '## Watcher',
-      '',
-      'Watcher content here.',
-      '',
-      `<!-- ${TOOLS_MARKERS.end} -->`,
-      '',
-      '# User Notes',
-      '',
-      'My custom content.',
-    ].join('\n');
-
-    const result = parseManaged(content);
-    expect(result.found).toBe(true);
-    expect(result.versionStamp).toEqual({
-      version: '0.1.0',
-      timestamp: '2026-03-17T00:00:00Z',
-    });
-    expect(result.sections).toHaveLength(2);
-    expect(result.sections[0]).toMatchObject({
-      id: 'Platform',
-      content: 'Platform content here.',
-    });
-    expect(result.sections[1]).toMatchObject({
-      id: 'Watcher',
-      content: 'Watcher content here.',
-    });
-    expect(result.userContent).toContain('My custom content.');
-  });
-
-  it('should handle managed block without version stamp', () => {
-    const content = [
-      `<!-- ${TOOLS_MARKERS.begin} -->`,
-      '',
-      '## Platform',
-      '',
-      'Content.',
-      '',
-      `<!-- ${TOOLS_MARKERS.end} -->`,
-    ].join('\n');
-
-    const result = parseManaged(content);
-    expect(result.found).toBe(true);
-    expect(result.versionStamp).toBeUndefined();
-    expect(result.sections).toHaveLength(1);
-  });
-
-  it('should handle corrupt markers (BEGIN without END)', () => {
-    const content = [
-      `<!-- ${TOOLS_MARKERS.begin} | core:0.1.0 | 2026-03-17T00:00:00Z -->`,
-      '## Platform',
-      'Content.',
-    ].join('\n');
-
-    const result = parseManaged(content);
-    expect(result.found).toBe(false);
-    expect(result.userContent).toContain(TOOLS_MARKERS.begin);
-  });
-
-  it('should sort sections by stable order', () => {
-    const content = [
-      `<!-- ${TOOLS_MARKERS.begin} | core:0.1.0 | 2026-03-17T00:00:00Z -->`,
-      '',
-      '## Meta',
-      '',
-      'Meta content.',
-      '',
-      '## Platform',
-      '',
-      'Platform content.',
-      '',
-      '## Watcher',
-      '',
-      'Watcher content.',
-      '',
-      `<!-- ${TOOLS_MARKERS.end} -->`,
-    ].join('\n');
-
-    const result = parseManaged(content);
-    expect(result.sections[0]).toMatchObject({ id: 'Platform' });
-    expect(result.sections[1]).toMatchObject({ id: 'Watcher' });
-    expect(result.sections[2]).toMatchObject({ id: 'Meta' });
-  });
-
-  it('should preserve content before markers', () => {
+  it('parses a block with version stamp and surrounding content', () => {
     const content = [
       '# Title',
       '',
-      `<!-- ${TOOLS_MARKERS.begin} | core:0.1.0 | 2026-03-17T00:00:00Z -->`,
+      `<!-- ${AGENTS_MARKERS.begin} | core:0.5.11 | 2026-09-25T08:39:31.418Z -->`,
       '',
-      '## Platform',
+      'Managed.',
       '',
-      'Content.',
+      `<!-- ${AGENTS_MARKERS.end} -->`,
       '',
-      `<!-- ${TOOLS_MARKERS.end} -->`,
+      'User notes.',
     ].join('\n');
 
-    const result = parseManaged(content);
-    expect(result.beforeContent).toBe('# Title');
+    const result = parseManaged(content, AGENTS_MARKERS);
+    expect(result).toEqual({
+      found: true,
+      versionStamp: {
+        version: '0.5.11',
+        timestamp: '2026-09-25T08:39:31.418Z',
+      },
+      managedContent: 'Managed.',
+      beforeContent: '# Title',
+      userContent: 'User notes.',
+    });
   });
 
-  it('should work with custom markers', () => {
-    const content = [
-      `<!-- ${SOUL_MARKERS.begin} | core:0.1.0 | 2026-03-17T00:00:00Z -->`,
-      '',
-      'Soul content here.',
-      '',
-      `<!-- ${SOUL_MARKERS.end} -->`,
-      '',
-      'User soul content.',
-    ].join('\n');
-
+  it('handles a block without version stamp', () => {
+    const content = `<!-- ${SOUL_MARKERS.begin} -->\nX\n<!-- ${SOUL_MARKERS.end} -->`;
     const result = parseManaged(content, SOUL_MARKERS);
     expect(result.found).toBe(true);
-    expect(result.managedContent).toBe('Soul content here.');
-    expect(result.userContent).toBe('User soul content.');
+    expect(result.versionStamp).toBeUndefined();
+    expect(result.managedContent).toBe('X');
   });
 
-  it('should not match wrong markers', () => {
-    const content = [
-      `<!-- ${SOUL_MARKERS.begin} | core:0.1.0 | 2026-03-17T00:00:00Z -->`,
-      'Soul content.',
-      `<!-- ${SOUL_MARKERS.end} -->`,
-    ].join('\n');
-
-    const result = parseManaged(content, TOOLS_MARKERS);
+  it('treats BEGIN without END as not found', () => {
+    const content = `<!-- ${SOUL_MARKERS.begin} | core:0.1.0 | 2026-03-17T00:00:00Z -->\nX`;
+    const result = parseManaged(content, SOUL_MARKERS);
     expect(result.found).toBe(false);
+    expect(result.userContent).toBe(content);
+  });
+
+  it('does not match a different marker set', () => {
+    const content = `<!-- ${SOUL_MARKERS.begin} -->\nX\n<!-- ${SOUL_MARKERS.end} -->`;
+    expect(parseManaged(content, LEGACY_TOOLS_MARKERS).found).toBe(false);
+  });
+});
+
+describe('escapeForRegex', () => {
+  it('escapes regex metacharacters', () => {
+    const raw = 'a.b*c+d?e^f$g{h}i(j)k|l[m]n\\o';
+    expect(new RegExp(`^${escapeForRegex(raw)}$`).test(raw)).toBe(true);
   });
 });

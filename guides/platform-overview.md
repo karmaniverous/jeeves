@@ -33,12 +33,12 @@ Knowledge synthesis engine that discovers `.meta/` directories in the filesystem
 ### @karmaniverous/jeeves (this package)
 
 Shared library and CLI that provides the substrate all components build on:
-- **Managed content system** — maintains SOUL.md, AGENTS.md, TOOLS.md with version-stamp convergence, file locking, and cleanup detection
-- **Plugin SDK** — canonical types (`PluginApi`, `ToolResult`, `ToolDescriptor`), result formatters (`ok`/`fail`/`connectionFail`), HTTP helpers (`fetchJson`/`postJson`), resolution utilities (`resolveWorkspacePath`/`resolvePluginSetting`), and OpenClaw config patching (`patchConfig`)
-- **Config query handler** — transport-agnostic JSONPath query support for service `GET /config` endpoints
-- **Service discovery** — URL resolution, health probing, and npm registry version checks
-- **ComponentWriter** — timer-based orchestrator for managed content writes
-- **Content seeding** — CLI commands to bootstrap and tear down platform content
+
+- **Static platform content** — SOUL.md/AGENTS.md managed sections, platform skills, and reference templates as pure data, with pure render functions and test-enforced character budgets
+- **Plugin SDK** — canonical types (`PluginApi`, `ToolResult`, `ToolDescriptor`), result formatters (`ok`/`fail`/`connectionFail`), HTTP helpers (`fetchJson`/`postJson`), resolution utilities (`resolveWorkspacePath`/`resolvePluginSetting`), the `before_prompt_build` prompt-context helper (`registerPromptContext`), and lifecycle disposal (`onPluginDispose`)
+- **Service SDK** — service CLI, service manager, and transport-agnostic config query/apply and status handlers
+- **Service discovery** — URL and bind-address resolution
+- **CLI** — `jeeves install` renders the static content once; `status`, `config`, `uninstall`
 
 ## How Components Interact
 
@@ -52,77 +52,33 @@ Shared library and CLI that provides the substrate all components build on:
 
 ## Content Lifecycle
 
-The platform maintains three workspace files that form the assistant's identity and operational context:
+The platform contributes static content to two workspace bootstrap files, rendered once at instance creation (jeeves-tools or `jeeves install`) and re-rendered only on deploy/upgrade:
 
 ### SOUL.md
 
-Professional discipline, hard gates, and genesis orientation. Written in block mode — core owns the entire managed block. The assistant reads this at session start to know who it is.
+Professional discipline, hard gates, and genesis orientation, in a managed block at the bottom of the file. The assistant reads this at session start to know who it is.
 
 ### AGENTS.md
 
-Memory architecture, cost discipline, messaging protocols, and operational gates. Also written in block mode. The assistant reads this to know how to operate.
+Memory architecture, cost discipline, messaging protocols, and operational gates, in a managed block at the bottom of the file. The assistant reads this to know how to operate.
 
-### TOOLS.md
+Both blocks are capped by documented budgets (7,500 chars each) so owner content keeps most of OpenClaw's 20,000-char per-file bootstrap limit. See the [Managed Content System](./managed-content-system.md) guide.
 
-Live platform state written in section mode. Multiple components each contribute an H2 section:
+### What is not in the prompt
 
-| Section | Written By | Content |
-|---------|-----------|---------|
-| Platform | All (via `refreshPlatformContent`) | Service health table, version info, platform guidance |
-| Watcher | jeeves-watcher-openclaw | Index stats, search configuration, indexed paths |
-| Server | jeeves-server-openclaw | Export capabilities, connected services |
-| Runner | jeeves-runner-openclaw | Job status, active scripts |
-| Meta | jeeves-meta-openclaw | Synthesis entity summary, tools reference |
+- **Live state** (index size, job status, versions, health) is served by each component's `*_status` tool, not written into files.
+- **Always-in-context component rules** are injected by the owning plugin through OpenClaw's `before_prompt_build` hook as `appendSystemContext`.
+- **How-to and reference** lives in skills: platform skills from core, component skills shipped in each plugin package.
 
-Sections always appear in stable order (Platform → Watcher → Server → Runner → Meta) regardless of write sequence.
-
-## Version-Stamp Convergence
-
-Each component plugin bundles its own copy of `@karmaniverous/jeeves`. When plugins have different library versions, they independently write the same shared content (SOUL.md, AGENTS.md, Platform section). The version stamp in the BEGIN marker prevents oscillation:
-
-- **My version ≥ stamped version** → write (I'm current or newer)
-- **My version < stamped, stamp is fresh** → skip (a newer version is maintaining this)
-- **My version < stamped, stamp is stale (>5 min)** → write (the newer plugin was probably uninstalled)
-
-This means the highest-version plugin "wins" without any coordination protocol. See the [Managed Content System](./managed-content-system.md) guide for details.
-
-## Component Versions State File
-
-Each `ComponentWriter` cycle writes its component's version entry to `{coreConfigDir}/component-versions.json`. This shared state file tracks:
-
-```typescript
-interface ComponentVersionEntry {
-  serviceVersion?: string;   // From health probe response
-  pluginVersion?: string;    // The OpenClaw plugin package version
-  servicePackage?: string;   // npm package name for the service
-  pluginPackage?: string;    // npm package name for the plugin
-  updatedAt: string;         // ISO timestamp of last update
-}
-```
-
-The Platform section template reads this file to populate ALL rows in the service health table, not just the calling component's. This means any component's writer cycle produces a complete, up-to-date Platform section.
+TOOLS.md and HEARTBEAT.md are no longer written (OpenClaw 2026.9.6 does not load TOOLS.md).
 
 ## Service Health Probing
 
-On each writer cycle, `refreshPlatformContent` calls `probeAllServices()` which probes all four services by name (server, watcher, runner, meta):
+`jeeves status` probes all four services by name (runner, watcher, server, meta):
 
 1. Resolve the service URL via `getServiceUrl`: consumer config → core config → default port (`DEFAULT_PORTS`)
-2. HTTP GET to `/status`, then `/health` as fallback
+2. HTTP GET `/status`
 3. Extract `version` from the JSON response body if available
-4. Return a `ProbeResult` with `name`, `port`, `healthy`, and optional `version`
-
-Probe timeout defaults to 3 seconds. Results are merged with component version entries and rendered into the Platform section's service health table.
-
-## Registry Version Checks
-
-The platform checks npm for newer versions of each component's service and plugin packages using `checkRegistryVersion()`:
-
-1. Check a local cache file (`registry-cache.json`) in the component's config directory
-2. If the cache is stale (default: 1-hour TTL), run `npm view {package} version`
-3. Compare using `semver.gt()` — only flag genuinely newer versions
-4. Display update arrows (⬆) in the Platform service health table
-
-This uses proper semver comparison, not string comparison, so pre-release versions and version ranges are handled correctly.
 
 ## The Team
 
@@ -137,10 +93,10 @@ Each component plugin bundles its own copy of `@karmaniverous/jeeves` as a regul
 ## Port Assignments
 
 | Port | Year | Significance |
-|------|------|-------------|
-| 1934 | 1934 | Wodehouse: *Thank You, Jeeves* — first full Jeeves novel |
+| --- | --- | --- |
+| 1934 | 1934 | Wodehouse: _Thank You, Jeeves_ — first full Jeeves novel |
 | 1936 | 1936 | Turing: "On Computable Numbers" — theoretical foundation of computing |
-| 1937 | 1937 | Turing's paper published in *Proceedings of the London Mathematical Society* |
+| 1937 | 1937 | Turing's paper published in _Proceedings of the London Mathematical Society_ |
 | 1938 | 1938 | Shannon: "A Symbolic Analysis of Relay and Switching Circuits" |
 
 ## File Organization
@@ -150,8 +106,6 @@ Each component plugin bundles its own copy of `@karmaniverous/jeeves` as a regul
   jeeves-core/                ← Core config + templates
     config.json               ← Service URLs, owners
     config.schema.json        ← JSON Schema for IDE autocomplete
-    component-versions.json   ← Shared version state (all components)
-    registry-cache.json       ← npm version cache
     templates/                ← Spec skeleton, dev practice guide
   jeeves-watcher/             ← Watcher-specific config
   jeeves-runner/              ← Runner-specific config
@@ -159,40 +113,14 @@ Each component plugin bundles its own copy of `@karmaniverous/jeeves` as a regul
   jeeves-meta/                ← Meta-specific config
 
 {workspace}/
-  SOUL.md                     ← Professional discipline (managed + user sections)
-  AGENTS.md                   ← Operational protocols (managed + user sections)
-  TOOLS.md                    ← Live platform state (managed + user sections)
+  SOUL.md                     ← Professional discipline (managed block + owner content)
+  AGENTS.md                   ← Operational protocols (managed block + owner content)
+  skills/                     ← Platform skills (jeeves, coding, operations, playbooks, slack-bot-provisioner)
 ```
 
-## HEARTBEAT Health Orchestration
+## Lifecycle Hygiene
 
-The HEARTBEAT system maintains a `# Jeeves Platform Status` heading in HEARTBEAT.md with per-component subsections. Each component follows a state machine:
-
-`not_installed → deps_missing → config_missing → service_not_installed → service_stopped → healthy`
-
-On each `ComponentWriter` cycle, `runHeartbeatCycle()`:
-
-1. Reads existing HEARTBEAT.md and parses declined headings
-2. Runs `orchestrateHeartbeat()` — probes all components through the state machine
-3. Checks memory hygiene (budget warnings)
-4. Checks workspace file health (SOUL.md, AGENTS.md, TOOLS.md size)
-5. Writes the consolidated result to HEARTBEAT.md
-
-**Dependency-aware alert suppression:** Hard dependencies block downstream alerts (e.g., if watcher is missing, meta won't alert about missing index). Soft dependencies add informational notes without blocking.
-
-**Declined state:** When the user declines a component alert, the heading suffix changes to `## jeeves-{name}: declined` and content is removed. Declined components are not re-prompted.
-
-**Proactive update alerts:** `checkRegistryVersion()` compares installed vs latest npm versions and renders update arrows (⬆) in HEARTBEAT alerts when newer versions are available.
-
-## Dual-Layer Locking Architecture
-
-Managed content writes use two locking layers to prevent conflicts:
-
-**Workspace lock (outer):** `withWorkspaceLock()` acquires a workspace-level lock (`jeeves.lock`) with zero-retry semantics. If the lock is held by another plugin's cycle, the current cycle skips silently. This eliminates lock stampedes when multiple plugin timer cycles align.
-
-**File lock (inner):** `withFileLock()` acquires per-file locks in `updateManagedSection`, `writeHeartbeatSection`, and `removeManagedSection`. This inner layer protects out-of-cycle callers (e.g., plugin uninstall) that bypass the workspace lock.
-
-Both layers use a 2-minute stale threshold (`STALE_LOCK_MS`) to recover from crashed processes. The workspace lock wraps the entire cycle body, so within a cycle all file operations execute without contention.
+Core registers no process signal handlers and starts no timers, so any process that loads a Jeeves plugin (the gateway, or a one-shot `openclaw plugins inspect`) can exit on its own. Plugins tie any background work to `api.lifecycle` via `onPluginDispose`. `withFileLock` (used by service-side config persistence) is an atomic-`mkdir` lock with a 2-minute stale threshold and no process hooks.
 
 ## Workspace Configuration
 
@@ -210,9 +138,9 @@ MEMORY.md is the assistant's curated long-term memory, loaded at every session s
 
 `jeeves status` prints a memory hygiene summary alongside the service health table. Memory hygiene is reporting-only — core never auto-deletes content (Decision 42). Size pressure is the right signal for curation.
 
-## Skill Seeding
+## Platform Skills
 
-`jeeves install` (and component plugin installers) seed a platform skill at `{workspace}/skills/jeeves/SKILL.md`. This skill gives the assistant architectural context about the platform: component roles, data flow, service discovery patterns, managed content, HEARTBEAT protocol, and memory hygiene. The skill is regenerated on every install to stay current with the library version.
+The installer writes the platform skills (`PLATFORM_SKILLS`) to `{workspace}/skills/<name>/SKILL.md`. The `jeeves` skill gives the assistant architectural context: component roles, data flow, service discovery, platform content, plugin lifecycle, and memory hygiene. Component plugins ship their own skills in their packages via the plugin manifest.
 
 ## Node.js Requirement
 
@@ -220,10 +148,10 @@ Jeeves requires Node.js >= 22. The CLI enforces this at startup via `checkNodeVe
 
 ## Design Philosophy
 
-**The content is the bootstrap.** The assistant doesn't know what plugins are installed or what services are running. He reads files. TOOLS.md tells him what tools exist. SOUL.md tells him who he is. AGENTS.md tells him how to operate. Everything else — plugins, services, npm packages — is infrastructure for maintaining those files.
+**The content is the bootstrap.** SOUL.md tells the assistant who he is. AGENTS.md tells him how to operate. Skills tell him how things work. Tools tell him what is true right now. Static content is rendered once; nothing is rewritten on a timer.
 
-**No core plugin.** Jeeves is a library, not a plugin. He registers zero tools with the OpenClaw gateway. Component plugins bundle the library and maintain managed content on timer cycles. The CLI seeds files and exits.
+**No core plugin.** Jeeves is a library, not a plugin. He registers zero tools with the OpenClaw gateway. Component plugins are standard OpenClaw plugins installed with `openclaw plugins install`.
 
-**Components are autonomous.** Each component can deploy and function without any other component being installed. Running `npx @karmaniverous/jeeves install` first provides a better experience (the assistant immediately knows what to bootstrap), but it's not required.
+**Components are autonomous.** Each component can deploy and function without any other component being installed.
 
 **Earned, not prescribed.** Hard gates in SOUL.md carry provenance: "Earned: triggered a full reindex just to pick up one file." Every behavioral rule exists because something went wrong. The platform encodes accumulated operational wisdom, not theoretical best practices.

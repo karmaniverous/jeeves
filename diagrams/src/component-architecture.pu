@@ -14,10 +14,10 @@ package "OpenClaw Gateway" as gw {
 }
 
 package "@karmaniverous/jeeves" as lib {
-  [Managed Content\nWriter] as writer
+  [Static Platform\nContent] as content
+  [Plugin SDK\n(tools, prompt context,\nlifecycle)] as sdk
   [Service Discovery] as discovery
   [Config Resolution] as config
-  [Version Convergence] as convergence
 }
 
 runner_plugin -down-> lib : bundles

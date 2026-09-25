@@ -25,6 +25,7 @@
     "./guides/platform-overview.md",
     "./guides/managed-content-system.md",
     "./guides/building-a-component-plugin.md",
+    "./guides/migrating-to-v1.md",
     "./CHANGELOG.md"
   ],
   "replaceText": {

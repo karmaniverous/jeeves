@@ -7,34 +7,24 @@
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 
-import { parseManaged } from '../../managed/parseManaged.js';
+import type { ManagedMarkers } from '../../constants/index.js';
+import { removeManagedBlock } from '../../managed/managedBlock.js';
 
 /**
- * Remove managed block from a file, keeping user content.
+ * Remove a managed block from a file, keeping user content.
  *
  * @param filePath - Absolute path to the workspace file.
  * @param markers - Begin/end marker pair.
+ * @returns `true` if a block was removed.
  */
 export function removeManagedBlockFromFile(
   filePath: string,
-  markers: { begin: string; end: string },
-): void {
-  if (!existsSync(filePath)) return;
-
+  markers: Pick<ManagedMarkers, 'begin' | 'end'>,
+): boolean {
+  if (!existsSync(filePath)) return false;
   const content = readFileSync(filePath, 'utf-8');
-  const parsed = parseManaged(content, markers);
-  if (!parsed.found) return;
-
-  // Reconstruct file with only user content
-  const parts: string[] = [];
-  if (parsed.beforeContent) {
-    parts.push(parsed.beforeContent);
-  }
-  if (parsed.userContent) {
-    if (parts.length > 0) parts.push('');
-    parts.push(parsed.userContent);
-  }
-
-  const newContent = parts.join('\n').trim() + '\n';
-  writeFileSync(filePath, newContent, 'utf-8');
+  const updated = removeManagedBlock(content, markers);
+  if (updated === content) return false;
+  writeFileSync(filePath, updated, 'utf-8');
+  return true;
 }

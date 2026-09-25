@@ -109,7 +109,7 @@ Key principles:
 
 **Activities:**
 - Update README, CHANGELOG, API docs
-- Verify that managed content (TOOLS.md sections, skills) reflects new capabilities
+- Verify that shipped content (skills, prompt rules) reflects new capabilities
 - Update spec to reflect any implementation-time decisions
 
 **Output:** Documentation that matches code. No stale references.

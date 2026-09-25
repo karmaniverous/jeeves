@@ -42,9 +42,6 @@ export function makeTestDescriptor(
     run: async () => {
       /* no-op for tests */
     },
-    sectionId: 'Watcher',
-    refreshIntervalSeconds: 71,
-    generateToolsContent: () => 'content',
     ...overrides,
   };
 }

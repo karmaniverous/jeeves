@@ -2,9 +2,11 @@
  * `@karmaniverous/jeeves` — Shared library and CLI for the Jeeves platform.
  *
  * @remarks
- * Provides managed content writing, service discovery, config resolution,
- * and the `JeevesComponentDescriptor` / `ComponentWriter` integration point for
- * Jeeves platform component plugins.
+ * Provides the static platform content (SOUL/AGENTS managed sections,
+ * platform skills, templates) as pure data and render functions, service
+ * discovery, config resolution, the `JeevesComponentDescriptor` schema, and
+ * OpenClaw plugin helpers (tool toolset, `before_prompt_build` prompt context,
+ * lifecycle disposal). Importing it registers no process handlers or timers.
  *
  * @packageDocumentation
  */
@@ -29,31 +31,11 @@ export {
   type WorkspaceOptions,
 } from './cli/jeeves/cliDefaults.js';
 export { buildEffectiveConfig } from './cli/jeeves/configCommand.js';
-export {
-  createPluginCli,
-  type CreatePluginCliOptions,
-} from './cli/plugin/index.js';
 export { createServiceCli } from './cli/service/index.js';
 export {
-  type AsyncContentCacheOptions,
-  type ComponentDependencies,
-  type ComponentState,
-  type ComponentVersionEntry,
-  type ComponentVersionsState,
-  ComponentWriter,
-  type ComponentWriterOptions,
-  createAsyncContentCache,
-  createComponentWriter,
   getEffectiveServiceName,
-  isPrime,
   type JeevesComponentDescriptor,
   jeevesComponentDescriptorSchema,
-  orchestrateHeartbeat,
-  type OrchestrateHeartbeatOptions,
-  readComponentVersions,
-  removeComponentVersion,
-  writeComponentVersion,
-  type WriteComponentVersionOptions,
 } from './component/index.js';
 export {
   type ConfigProvenance,
@@ -69,35 +51,43 @@ export {
 } from './config/index.js';
 export {
   AGENTS_MARKERS,
-  CLEANUP_FLAG,
   COMPONENT_CONFIG_PREFIX,
-  COMPONENT_VERSIONS_FILE,
   CONFIG_FILE,
   CORE_CONFIG_DIR,
   CORE_VERSION,
   DEFAULT_PORTS,
-  JEEVES_SKILL_DIR,
+  LEGACY_TOOLS_MARKERS,
   type ManagedMarkers,
   META_PORT,
   PLATFORM_COMPONENTS,
   type PlatformComponent,
-  REGISTRY_CACHE_FILE,
   RUNNER_PORT,
-  SECTION_IDS,
-  SECTION_ORDER,
-  type SectionId,
   SERVER_PORT,
   SKILLS_DIR,
   SOUL_MARKERS,
-  STALENESS_THRESHOLD_MS,
   TEMPLATES_DIR,
-  TOOLS_MARKERS,
   VERSION_STAMP_PATTERN,
   WATCHER_PORT,
   WORKSPACE_FILES,
 } from './constants/index.js';
 export {
-  checkRegistryVersion,
+  BOOTSTRAP_FILE_MAX_CHARS,
+  PLATFORM_CONTENT_TOTAL_BUDGET,
+  PLATFORM_SECTION_BUDGETS,
+  PLATFORM_SECTIONS,
+  PLATFORM_SKILLS,
+  PLATFORM_TEMPLATES,
+  type PlatformSection,
+  type PlatformSectionId,
+  type RenderedFile,
+  type RenderedPlatformContent,
+  renderPlatformContent,
+  type RenderPlatformContentOptions,
+  type SkillFrontmatter,
+  upsertPlatformSection,
+  validateSkillFrontmatter,
+} from './content/index.js';
+export {
   type CoreConfig,
   coreConfigSchema,
   DEFAULT_BIND_ADDRESS,
@@ -122,60 +112,47 @@ export {
 } from './init.js';
 export {
   atomicWrite,
-  buildHeartbeatSection,
-  DEFAULT_CORE_VERSION,
   formatBeginMarker,
   formatEndMarker,
-  HEARTBEAT_HEADING,
-  type HeartbeatEntry,
-  jaccard,
-  type ManagedSection,
-  needsCleanup,
-  type ParsedHeartbeat,
-  parseHeartbeat,
+  type ManagedBlockStampOptions,
   parseManaged,
   type ParseManagedResult,
-  removeManagedSection,
-  type RemoveManagedSectionOptions,
-  shingles,
-  shouldWrite,
+  removeManagedBlock,
+  renderManagedBlock,
   STALE_LOCK_MS,
-  updateManagedSection,
-  type UpdateManagedSectionOptions,
+  upsertManagedBlock,
   type VersionStamp,
   withFileLock,
-  writeHeartbeatSection,
 } from './managed/index.js';
 export {
   analyzeMemory,
-  checkMemoryHealth,
-  MEMORY_HEARTBEAT_NAME,
   type MemoryHygieneOptions,
   type MemoryHygieneResult,
 } from './memory/index.js';
 export {
-  refreshPlatformContent,
-  type RefreshPlatformContentOptions,
-  seedContent,
-  type SeedContentOptions,
-  seedSkill,
-  seedSkills,
-} from './platform/index.js';
-export {
+  type AsyncContentCacheOptions,
   connectionFail,
+  createAsyncContentCache,
   createPluginToolset,
   fail,
   fetchJson,
   fetchWithTimeout,
   getPackageRoot,
   getPackageVersion,
+  type HookRegistrationOptions,
   ok,
-  patchConfig,
+  onPluginDispose,
   type PluginApi,
-  type PluginInstallRecord,
+  type PluginLifecycleApi,
   postJson,
-  resolveConfigPath,
-  resolveOpenClawHome,
+  type PromptBuildContext,
+  type PromptBuildEvent,
+  type PromptBuildHandler,
+  type PromptBuildResult,
+  type PromptContextOptions,
+  promptContextOptionsSchema,
+  type PromptContextProvider,
+  registerPromptContext,
   resolveOptionalPluginSetting,
   resolvePluginSetting,
   resolveWorkspacePath,
