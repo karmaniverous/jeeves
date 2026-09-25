@@ -10,8 +10,9 @@
  *
  * **Host config gate:** OpenClaw only runs this hook for non-bundled plugins
  * when `plugins.entries.<id>.hooks.allowConversationAccess` is `true`.
- * `openclaw plugins install --accept-capabilities` does NOT set it; the
- * installer (jeeves-tools) must render it.
+ * `openclaw plugins install --accept-capabilities` does NOT set it;
+ * `jeeves install` / `jeeves update` grant it to plugins that declare the
+ * hook in `package.json` `jeeves.conversationHooks`.
  *
  * @module
  */

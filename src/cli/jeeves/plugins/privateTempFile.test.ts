@@ -11,13 +11,13 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { failed, fakeRunner, fakeTempFiles } from './fakePorts.js';
 import {
   createNodePrivateTempFiles,
   icaclsRestrictArgs,
   windowsAccount,
   withPrivateTempFile,
 } from './privateTempFile.js';
-import { failed, fakeRunner, fakeTempFiles } from './testRunner.js';
 
 describe('withPrivateTempFile', () => {
   it('restricts the directory before writing, then removes it', async () => {

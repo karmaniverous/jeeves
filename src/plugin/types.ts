@@ -7,6 +7,8 @@
  * `hook-before-agent-start.types.ts`, `plugin-instance.types.ts`) without
  * depending on OpenClaw. Only the members Jeeves uses are declared; optional
  * members degrade gracefully on older hosts.
+ *
+ * @module
  */
 
 import type {

@@ -4,6 +4,8 @@
  * @remarks
  * Locates the BEGIN/END comment markers, extracts the managed content and its
  * version stamp, and returns the user content before and after the block.
+ *
+ * @module
  */
 
 import {

@@ -12,13 +12,13 @@ import { Command } from '@commander-js/extra-typings';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SOUL_MARKERS } from '../../constants/index.js';
-import type * as PluginDepsModule from './plugins/pluginDeps.js';
 import {
   type FakeRunner,
   fakeRunner,
   fakeTempFiles,
   ok,
-} from './plugins/testRunner.js';
+} from './plugins/fakePorts.js';
+import type * as PluginDepsModule from './plugins/pluginDeps.js';
 import type { PluginWorkflowDeps } from './plugins/workflows.js';
 import { registerUninstallCommand } from './uninstallCommand.js';
 

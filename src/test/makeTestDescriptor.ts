@@ -4,6 +4,8 @@
  * @remarks
  * Centralises the mock descriptor builder used across test files.
  * Provides sensible defaults that can be overridden per-test.
+ *
+ * @module
  */
 
 import { z } from 'zod';

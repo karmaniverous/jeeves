@@ -85,7 +85,7 @@ export function addPluginOptions(command: OptionTarget): void {
  * @returns The request (validated; the file is read now, so bad input fails
  *   before anything is written).
  */
-export function pluginConfigRequestFromCli(
+function pluginConfigRequestFromCli(
   opts: Pick<PluginCliOptions, 'pluginConfig'> & PluginConfigCliOptions,
   configRoot: ResolvedValue<string>,
 ): PluginConfigRequest {

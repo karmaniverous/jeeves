@@ -3,6 +3,8 @@
  *
  * @remarks
  * The four essential components that constitute the Jeeves platform.
+ *
+ * @module
  */
 
 /** The four essential platform components. */

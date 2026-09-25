@@ -104,7 +104,7 @@ function matches(text: string, write: ServerKeyWrite): boolean {
  * @returns The backup path.
  * @throws Error when the file changed since the plan (nothing written).
  */
-export async function writeServerPluginKey(
+async function writeServerPluginKey(
   files: ServerConfigFiles,
   write: ServerKeyWrite,
   now: () => Date = () => new Date(),
@@ -126,7 +126,7 @@ export async function writeServerPluginKey(
 }
 
 /** Node adapter for {@link ServerConfigFiles}. */
-export const nodeServerConfigFiles: ServerConfigFiles = {
+const nodeServerConfigFiles: ServerConfigFiles = {
   read: (path) => readFileSync(path, 'utf-8'),
   copyNew: (src, dest) => {
     copyFileSync(src, dest, constants.COPYFILE_EXCL);

@@ -8,7 +8,7 @@ import {
   runChecked,
   spawnCommandRunner,
 } from './commandRunner.js';
-import { failed, fakeRunner, ok } from './testRunner.js';
+import { failed, fakeRunner, ok } from './fakePorts.js';
 
 /** Minimal fake ChildProcess. */
 class FakeChild extends EventEmitter {

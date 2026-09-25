@@ -4,6 +4,7 @@
  * @packageDocumentation
  */
 
+export { PLATFORM_COMPONENTS, type PlatformComponent } from './components.js';
 export {
   AGENTS_MARKERS,
   LEGACY_TOOLS_MARKERS,
@@ -26,5 +27,4 @@ export {
   SERVER_PORT,
   WATCHER_PORT,
 } from './ports.js';
-export { PLATFORM_COMPONENTS, type PlatformComponent } from './sections.js';
 export { CORE_VERSION } from './version.js';

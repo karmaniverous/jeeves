@@ -7,6 +7,8 @@
  * drive the OpenClaw CLI as child processes; any failure exits non-zero.
  * Dynamic proxy commands are added for installed `@karmaniverous/jeeves-*`
  * component packages.
+ *
+ * @module
  */
 
 import { Command } from '@commander-js/extra-typings';

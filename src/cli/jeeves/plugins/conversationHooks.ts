@@ -36,7 +36,7 @@ import { type CommandRunner, runChecked } from './commandRunner.js';
 import { NPM_BIN, npmViewFieldArgs } from './openclawCommands.js';
 
 /** package.json field in which a plugin declares its conversation hooks. */
-export const CONVERSATION_HOOKS_FIELD = 'jeeves.conversationHooks';
+const CONVERSATION_HOOKS_FIELD = 'jeeves.conversationHooks';
 
 /**
  * Read the conversation hooks a published plugin version declares.

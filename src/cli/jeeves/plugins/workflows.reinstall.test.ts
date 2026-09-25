@@ -5,8 +5,8 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { failed, ok } from './fakePorts.js';
 import { parsePluginSpecs } from './pluginSpec.js';
-import { failed, ok } from './testRunner.js';
 import { installPlugins } from './workflows.js';
 import {
   legacy,

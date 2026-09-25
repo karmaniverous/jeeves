@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import { CommandFailedError, type CommandRunner } from './commandRunner.js';
+import { failed, fakeRunner, ok } from './fakePorts.js';
 import {
   assertOpenClawAvailable,
   readPluginsConfig,
   resolveExactVersion,
 } from './openclawState.js';
-import { failed, fakeRunner, ok } from './testRunner.js';
 
 const UNSET = JSON.stringify({
   ok: false,

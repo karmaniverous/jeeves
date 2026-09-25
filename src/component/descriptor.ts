@@ -6,6 +6,8 @@
  * drives the service CLI, service manager, config handlers, and standard
  * plugin toolset. v1 removed the TOOLS.md writer fields (`sectionId`,
  * `refreshIntervalSeconds`, `generateToolsContent`, `dependencies`).
+ *
+ * @module
  */
 
 import type { Command } from '@commander-js/extra-typings';

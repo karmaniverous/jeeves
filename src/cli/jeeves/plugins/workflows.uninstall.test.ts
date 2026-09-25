@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { CommandFailedError } from './commandRunner.js';
-import { failed, ok } from './testRunner.js';
+import { failed, ok } from './fakePorts.js';
 import { uninstallPlugins } from './workflows.js';
 import {
   BATCH_PREFIX,

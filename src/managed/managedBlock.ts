@@ -7,6 +7,8 @@
  * `jeeves install` / `jeeves uninstall`. An existing block is replaced in
  * place; a new block is inserted at the marker set's configured position.
  * User content outside the markers is preserved verbatim (trimmed).
+ *
+ * @module
  */
 
 import type { ManagedMarkers } from '../constants/index.js';

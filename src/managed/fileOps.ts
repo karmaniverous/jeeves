@@ -4,6 +4,8 @@
  * @remarks
  * Synchronous; touches only the target directory. Used by service-side config
  * persistence and by `jeeves install`.
+ *
+ * @module
  */
 
 import { randomUUID } from 'node:crypto';

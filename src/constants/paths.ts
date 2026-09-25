@@ -1,5 +1,7 @@
 /**
  * Directory and file path conventions for the Jeeves platform.
+ *
+ * @module
  */
 
 /** Core config directory name within the config root. */

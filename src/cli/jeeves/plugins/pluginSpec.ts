@@ -16,7 +16,7 @@ import { z } from 'zod';
 import { PLATFORM_COMPONENTS } from '../../../constants/index.js';
 
 /** npm scope of Jeeves packages. */
-export const JEEVES_SCOPE = '@karmaniverous';
+const JEEVES_SCOPE = '@karmaniverous';
 
 /** Unscoped Jeeves plugin package name / OpenClaw plugin id (regex source). */
 const PLUGIN_ID_SOURCE = 'jeeves(?:-[a-z0-9]+)*-openclaw';
@@ -28,7 +28,7 @@ const PLUGIN_ID_PATTERN = new RegExp(`^${PLUGIN_ID_SOURCE}$`);
 const SHORT_NAME_PATTERN = /^[a-z][a-z0-9]*$/;
 
 /** A resolved-or-unresolved Jeeves plugin install target. */
-export const pluginTargetSchema = z.object({
+const pluginTargetSchema = z.object({
   /** Scoped npm package name. */
   packageName: z
     .string()
@@ -57,7 +57,7 @@ export const pluginIdOf = (component: string): string =>
  * @param pluginId - OpenClaw plugin id (the unscoped package name).
  * @returns e.g. `@karmaniverous/jeeves-watcher-openclaw`.
  */
-export const packageNameOf = (pluginId: string): string =>
+const packageNameOf = (pluginId: string): string =>
   `${JEEVES_SCOPE}/${pluginId}`;
 
 /**

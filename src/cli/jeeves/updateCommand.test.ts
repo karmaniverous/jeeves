@@ -18,16 +18,16 @@ import { join, resolve } from 'node:path';
 import { Command } from '@commander-js/extra-typings';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { MissingPluginConfigError } from './plugins/pluginConfigResolve.js';
-import type * as PluginDepsModule from './plugins/pluginDeps.js';
-import { ServerPluginKeyError } from './plugins/serverKeySync.js';
 import {
   type FakeRunner,
   fakeRunner,
   type FakeTempFiles,
   fakeTempFiles,
   ok,
-} from './plugins/testRunner.js';
+} from './plugins/fakePorts.js';
+import { MissingPluginConfigError } from './plugins/pluginConfigResolve.js';
+import type * as PluginDepsModule from './plugins/pluginDeps.js';
+import { ServerPluginKeyError } from './plugins/serverKeySync.js';
 import type { PluginWorkflowDeps } from './plugins/workflows.js';
 import { registerUpdateCommand } from './updateCommand.js';
 

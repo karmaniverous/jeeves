@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { readDeclaredConversationHooks } from './conversationHooks.js';
-import { failed, fakeRunner, ok } from './testRunner.js';
+import { failed, fakeRunner, ok } from './fakePorts.js';
 
 const PKG = '@karmaniverous/jeeves-watcher-openclaw';
 const KEY = `npm view ${PKG}@1.0.0 jeeves.conversationHooks --json`;

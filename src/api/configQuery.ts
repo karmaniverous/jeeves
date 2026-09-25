@@ -5,6 +5,8 @@
  * Provides a transport-agnostic config query function that can be
  * used by any Jeeves component's HTTP API. Returns the full config
  * document or filters it via JSONPath expressions.
+ *
+ * @module
  */
 
 import { JSONPath } from 'jsonpath-plus';

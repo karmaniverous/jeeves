@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import { executePlan } from './executePlan.js';
+import { fakeRunner, fakeTempFiles, ok } from './fakePorts.js';
 import type { LegacyFs } from './legacyExtensions.js';
 import type { ServerKeyWrite } from './serverKeySync.js';
-import { fakeRunner, fakeTempFiles, ok } from './testRunner.js';
 
 const noServerWrite = (): Promise<string> =>
   Promise.reject(new Error('must not write the server config'));

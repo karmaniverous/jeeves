@@ -5,15 +5,15 @@
  * @module
  */
 
-import type { LegacyFs } from './legacyExtensions.js';
-import type { ServerKeyWrite } from './serverKeySync.js';
 import {
   type FakeRunner,
   fakeRunner,
   type FakeTempFiles,
   fakeTempFiles,
   ok,
-} from './testRunner.js';
+} from './fakePorts.js';
+import type { LegacyFs } from './legacyExtensions.js';
+import type { ServerKeyWrite } from './serverKeySync.js';
 import type { PluginWorkflowDeps } from './workflows.js';
 
 /** Watcher plugin id. */

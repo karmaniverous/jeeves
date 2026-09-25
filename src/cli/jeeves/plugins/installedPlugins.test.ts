@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
+import { failed, fakeRunner, ok } from './fakePorts.js';
 import {
   isInstalledAt,
   type PluginInspectEntry,
   readInstalledPlugins,
 } from './installedPlugins.js';
-import { failed, fakeRunner, ok } from './testRunner.js';
 
 const PKG = '@karmaniverous/jeeves-meta-openclaw';
 const ID = 'jeeves-meta-openclaw';

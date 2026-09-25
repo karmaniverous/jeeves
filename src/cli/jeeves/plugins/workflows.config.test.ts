@@ -2,13 +2,13 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { ok } from './fakePorts.js';
 import {
   MissingPluginConfigError,
   type PluginConfigRequest,
 } from './pluginConfigResolve.js';
 import { parsePluginSpecs } from './pluginSpec.js';
 import { ServerPluginKeyError } from './serverKeySync.js';
-import { ok } from './testRunner.js';
 import { installPlugins } from './workflows.js';
 import { mutating, S, setupWorkflow, SPKG, W } from './workflowTestKit.js';
 

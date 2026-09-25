@@ -19,17 +19,17 @@ import { Command } from '@commander-js/extra-typings';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { registerInstallCommand } from './installCommand.js';
-import { MissingPluginConfigError } from './plugins/pluginConfigResolve.js';
-import type * as PluginDepsModule from './plugins/pluginDeps.js';
-import type * as SecretsModule from './plugins/secrets.js';
-import { ServerPluginKeyError } from './plugins/serverKeySync.js';
 import {
   type FakeRunner,
   fakeRunner,
   type FakeTempFiles,
   fakeTempFiles,
   ok,
-} from './plugins/testRunner.js';
+} from './plugins/fakePorts.js';
+import { MissingPluginConfigError } from './plugins/pluginConfigResolve.js';
+import type * as PluginDepsModule from './plugins/pluginDeps.js';
+import type * as SecretsModule from './plugins/secrets.js';
+import { ServerPluginKeyError } from './plugins/serverKeySync.js';
 import type { PluginWorkflowDeps } from './plugins/workflows.js';
 
 const SEED = 'c0ffee'.repeat(10) + 'c0ff';

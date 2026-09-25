@@ -6,6 +6,8 @@
  * deploy time can replace the Jeeves block in place while leaving user content
  * outside the markers untouched. Marker text is unchanged from v0.x so that
  * blocks written by earlier versions are recognised and replaced.
+ *
+ * @module
  */
 
 /** Shape of a managed content marker set. */

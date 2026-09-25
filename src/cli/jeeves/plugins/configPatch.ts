@@ -40,7 +40,7 @@ export const entryPath = (pluginId: string): string =>
   `plugins.entries.${pluginId}`;
 
 /** Config path of a plugin's conversation-access hook gate. */
-export const hookAccessPath = (pluginId: string): string =>
+const hookAccessPath = (pluginId: string): string =>
   `${entryPath(pluginId)}.hooks.allowConversationAccess`;
 
 /** Config path of one key of a plugin's own config. */
