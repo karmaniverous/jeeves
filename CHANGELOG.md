@@ -6,7 +6,13 @@ All notable changes to this project will be documented in this file.
 
 ### 💼 Other
 
+- [108] fix: sweep pending plugin migrations before config writes and before each retry
+## [0.6.0-1] - 2026-09-26
+
+### 💼 Other
+
 - [108] fix: retry config writes while freshly installed plugins converge
+- [108] chore: release v0.6.0-1
 ## [0.6.0-0] - 2026-09-26
 
 ### 💼 Other
