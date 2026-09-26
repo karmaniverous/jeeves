@@ -64,7 +64,6 @@ export {
   type PlatformComponent,
   RUNNER_PORT,
   SERVER_PORT,
-  SKILLS_DIR,
   SOUL_MARKERS,
   VERSION_STAMP_PATTERN,
   WATCHER_PORT,

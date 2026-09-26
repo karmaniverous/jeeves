@@ -25,8 +25,5 @@ export const WORKSPACE_FILES = {
   legacyTools: 'TOOLS.md',
 } as const;
 
-/** Skills directory name within the workspace. */
-export const SKILLS_DIR = 'skills';
-
 /** Core config file name. */
 export const CONFIG_FILE = 'config.json';

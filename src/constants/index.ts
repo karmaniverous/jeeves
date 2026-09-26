@@ -16,7 +16,6 @@ export {
   COMPONENT_CONFIG_PREFIX,
   CONFIG_FILE,
   CORE_CONFIG_DIR,
-  SKILLS_DIR,
   WORKSPACE_FILES,
 } from './paths.js';
 export {
