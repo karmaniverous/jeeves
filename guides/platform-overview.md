@@ -38,7 +38,7 @@ Shared library and CLI that provides the substrate all components build on:
 - **Service SDK** — service CLI, service manager, and transport-agnostic config query/apply and status handlers
 - **Service discovery** — URL and bind-address resolution
 - **Managed-block primitives** — pure `renderManagedBlock` / `upsertManagedBlock` / `removeManagedBlock` / `parseManaged`, `atomicWrite` and `withFileLock`
-- **CLI** — `jeeves install` renders the static platform content (SOUL.md/AGENTS.md managed blocks, platform skills, reference templates; CLI-internal, with test-enforced character budgets) and installs the component plugins; `jeeves update` updates the plugins; `uninstall`, `status`, `config`
+- **CLI** — `jeeves install` renders the static platform content (SOUL.md/AGENTS.md managed blocks, reference templates; CLI-internal, with test-enforced character budgets) and installs the component plugins; `jeeves update` updates the plugins; `uninstall`, `status`, `config`
 
 ## How Components Interact
 
@@ -68,7 +68,7 @@ Both blocks are capped by documented budgets (7,500 chars each) so owner content
 
 - **Live state** (index size, job status, versions, health) is served by each component's `*_status` tool, not written into files.
 - **Always-in-context component rules** are injected by the owning plugin through OpenClaw's `before_prompt_build` hook as `appendSystemContext`.
-- **How-to and reference** lives in skills: platform skills from core, component skills shipped in each plugin package.
+- **How-to and reference** lives in skills shipped in each plugin package. Core ships no skills in v1.
 
 TOOLS.md and HEARTBEAT.md are no longer written (OpenClaw 2026.9.6 does not load TOOLS.md).
 
@@ -115,7 +115,6 @@ Each component plugin bundles its own copy of `@karmaniverous/jeeves` as a regul
 {workspace}/
   SOUL.md                     ← Professional discipline (managed block + owner content)
   AGENTS.md                   ← Operational protocols (managed block + owner content)
-  skills/                     ← Platform skills (jeeves, coding, operations, playbooks, slack-bot-provisioner)
 ```
 
 ## Lifecycle Hygiene
@@ -138,9 +137,9 @@ MEMORY.md is the assistant's curated long-term memory, loaded at every session s
 
 `jeeves status` prints a memory hygiene summary alongside the service health table. Memory hygiene is reporting-only — core never auto-deletes content (Decision 42). Size pressure is the right signal for curation.
 
-## Platform Skills
+## Skills
 
-`jeeves install` writes the platform skills to `{workspace}/skills/<name>/SKILL.md`. The `jeeves` skill gives the assistant architectural context: component roles, data flow, service discovery, platform content, plugin lifecycle, and memory hygiene. Component plugins ship their own skills in their packages via the plugin manifest.
+Core ships no skills in v1. `jeeves install` writes nothing under `{workspace}/skills/` and `jeeves uninstall` leaves it alone, so skills written by v0.x stay where they are. Component plugins ship their own skills in their packages via the plugin manifest.
 
 ## Node.js Requirement
 

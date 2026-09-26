@@ -22,7 +22,8 @@ v1 retires everything in `@karmaniverous/jeeves` that wrote to a live workspace 
 | --- | --- |
 | `createComponentWriter`, `ComponentWriter`, `ComponentWriterOptions` (timer cycle, TOOLS.md section writes) | None at runtime. Always-in-context rules: `registerPromptContext`. Live state: your `*_status` tool. |
 | `refreshPlatformContent`, `seedContent`, `RefreshPlatformContentOptions`, `SeedContentOptions` (SOUL/AGENTS/TOOLS refresh on every cycle) | `jeeves install` (the only writer; jeeves-tools runs it over SSH) |
-| `seedSkills`, `seedSkill`, `JEEVES_SKILL_DIR` | `jeeves install` writes the core skills; plugin skills ship via the plugin manifest |
+| `seedSkills`, `seedSkill`, `JEEVES_SKILL_DIR` | None. Plugin skills ship via the plugin manifest |
+| Platform skills `content/skills/` (`jeeves`, `coding`, `operations`, `playbooks`, `slack-bot-provisioner`) | None in core. `jeeves install` writes no skills and never deletes skill folders written by v0.x; `jeeves uninstall` leaves `skills/` alone |
 | HEARTBEAT orchestration: `orchestrateHeartbeat`, `OrchestrateHeartbeatOptions`, `parseHeartbeat`, `writeHeartbeatSection`, `buildHeartbeatSection`, `HEARTBEAT_HEADING`, `HeartbeatEntry`, `ParsedHeartbeat`, `ComponentDependencies`, `checkMemoryHealth`, `MEMORY_HEARTBEAT_NAME` | None. OpenClaw's heartbeat is owner-controlled; component health is `jeeves status` / `*_status` tools. |
 | Cleanup escalation and flags: `CLEANUP_FLAG`, `needsCleanup`, `jaccard`, `shingles`, `STALENESS_THRESHOLD_MS` | None. Static render replaces the whole block. |
 | Multi-writer convergence: `shouldWrite`, version-stamp arbitration, `SECTION_IDS`, `SECTION_ORDER`, `SectionId` | None. One renderer, run on demand. |
@@ -32,9 +33,10 @@ v1 retires everything in `@karmaniverous/jeeves` that wrote to a live workspace 
 | `patchConfig`, `PluginInstallRecord`, `resolveOpenClawHome`, `resolveConfigPath` | None; don't write `openclaw.json` from plugins |
 | `readComponentVersions`, `writeComponentVersion`, `removeComponentVersion`, `COMPONENT_VERSIONS_FILE`, `ComponentVersionEntry`, `ComponentVersionsState`, `WriteComponentVersionOptions`, `ComponentState` | `openclaw plugins inspect --json`; `jeeves status` probes `PLATFORM_COMPONENTS` |
 | `checkRegistryVersion`, `REGISTRY_CACHE_FILE` | None. `jeeves update` resolves versions with `npm view` when it runs |
+| `registryCache` (`ttlSeconds`) in core `config.json` / `CoreConfig` | None; nothing read it. New core configs omit it. Existing files that still carry it keep validating (the key is stripped on load) and it can be deleted |
 | `DEFAULT_CORE_VERSION`, `isPrime` | None |
 | `TOOLS_MARKERS`, `WORKSPACE_FILES.tools`, `WORKSPACE_FILES.heartbeat` | `LEGACY_TOOLS_MARKERS`, `WORKSPACE_FILES.legacyTools` (strip-only) |
-| `content/tools-platform.md` (TOOLS.md platform section) | Durable guidance folded into the AGENTS block and the `jeeves` skill; watcher's tool hierarchy moves to the watcher plugin's prompt hook |
+| `content/tools-platform.md` (TOOLS.md platform section) | Durable guidance folded into the AGENTS block; watcher's tool hierarchy moves to the watcher plugin's prompt hook |
 | `createAsyncContentCache`, `AsyncContentCacheOptions` | None (spec v1 §2.1). `registerPromptContext` accepts async providers; keep them fast |
 | `proper-lockfile` (and its `signal-exit` process handlers), `handlebars` | In-house `withFileLock` (same `{file}.lock` convention); no templating needed |
 
@@ -108,4 +110,5 @@ Instances managed by v0.x keep working until their plugins are upgraded. On upgr
 - `jeeves uninstall` now removes the Jeeves plugins as well as the managed blocks and artifacts; there is no `--plugins` option. Use `--dry-run` to see the exact `openclaw` commands first.
 - TOOLS.md is no longer loaded by OpenClaw 2026.9.6. `jeeves uninstall` or `removeManagedBlock(content, LEGACY_TOOLS_MARKERS)` strips the old block. Nothing writes TOOLS.md any more; archiving the file is the owner's call.
 - HEARTBEAT.md's `# Jeeves Platform Status` section is no longer maintained and can be removed.
-- `{configRoot}/jeeves-core/component-versions.json` and `registry-cache.json` are no longer read or written and can be deleted.
+- `{configRoot}/jeeves-core/component-versions.json` and `registry-cache.json` are no longer read or written and can be deleted, as can the `registryCache` key in `jeeves-core/config.json` (harmless if left).
+- Platform skills written by v0.x under `{workspace}/skills/` (`jeeves`, `coding`, `operations`, `playbooks`, `slack-bot-provisioner`) are no longer updated. `jeeves install` and `jeeves uninstall` leave them in place; removing them is the owner's call.

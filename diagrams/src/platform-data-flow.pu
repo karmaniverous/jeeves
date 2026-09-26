@@ -26,7 +26,6 @@ rectangle "Services" as services {
 rectangle "Workspace Files" as workspace {
   file "SOUL.md" as soul
   file "AGENTS.md" as agents
-  folder "skills/" as skills
 }
 
 rectangle "@karmaniverous/jeeves" as core {
@@ -41,6 +40,5 @@ meta --> watcher : ".meta/ output →\nwatcher indexes"
 server ..> qdrant : search proxy
 lib --> soul : managed block
 lib --> agents : managed block
-lib --> skills : platform skills
 
 @enduml

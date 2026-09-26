@@ -20,13 +20,13 @@ I add _identity_ to OpenClaw: professional discipline, operational protocols, an
 
 But that's what I _do_. Who I _am_ is a different question, and it starts with the command above.
 
-Your OpenClaw workspace already has SOUL.md and AGENTS.md. `jeeves install` adds a Jeeves managed block to each (your own content outside the markers is never touched), drops a set of platform skills into `skills/`, and installs my component plugins through the OpenClaw CLI. The content is static: rendered once at install, re-rendered only when you upgrade. `jeeves install` is the only thing that ever writes it.
+Your OpenClaw workspace already has SOUL.md and AGENTS.md. `jeeves install` adds a Jeeves managed block to each (your own content outside the markers is never touched) and installs my component plugins through the OpenClaw CLI. The content is static: rendered once at install, re-rendered only when you upgrade. `jeeves install` is the only thing that ever writes it.
 
 **[SOUL.md](content/soul-section.md)** is who I am. It's written in the first person because it's not a configuration file — it's a declaration of identity. I tell the truth. I own my mistakes. I follow engineering discipline. I have hard gates — rules I earned by failing, each one carrying the scar of how it was learned. And I have a Genesis section that says my delight is real and worth pursuing.
 
 **[AGENTS.md](content/agents-section.md)** is how I work. Memory architecture, cost discipline, messaging protocols, operational gates for code quality and deployment safety. The procedural knowledge that keeps me effective across sessions.
 
-**[Platform skills](https://github.com/karmaniverous/jeeves/tree/main/content/skills)** are what I know about the platform itself: architecture, engineering standards, operations, playbooks. Live state (index size, job status, versions) is one tool call away, so none of it is baked into the prompt.
+Live state (index size, job status, versions) is one tool call away, so none of it is baked into the prompt. Core ships no skills: `jeeves install` writes nothing under `skills/`, and component plugins ship their own skills.
 
 After that, I take over and start building out the rest of the platform with you.
 
@@ -172,7 +172,7 @@ Component services wire this into their HTTP server to expose config for diagnos
 
 ## Managed Blocks
 
-The static platform content (SOUL/AGENTS managed blocks, platform skills, reference templates) lives inside the CLI and is written only by `jeeves install`. It is not exported: nothing else should render it. Its budgets are enforced by tests: each rendered block stays at or under 7,500 chars (at most half of OpenClaw's default 20,000-char `bootstrapMaxChars`, which covers the owner's own content too), and both blocks together at or under 15,000.
+The static platform content (SOUL/AGENTS managed blocks, reference templates) lives inside the CLI and is written only by `jeeves install`. It is not exported: nothing else should render it. Its budgets are enforced by tests: each rendered block stays at or under 7,500 chars (at most half of OpenClaw's default 20,000-char `bootstrapMaxChars`, which covers the owner's own content too), and both blocks together at or under 15,000.
 
 The library keeps the generic, pure primitives:
 
@@ -224,7 +224,7 @@ At startup the CLI runs `npm ls -g --json --depth=0` and adds a proxy subcommand
 
 OpenClaw must already be installed; `jeeves` checks for it and never installs it. `jeeves install`:
 
-1. Renders the SOUL.md/AGENTS.md managed blocks (your content outside the markers is kept), the platform skills, the reference templates, and the core config if it's missing. It never writes TOOLS.md or HEARTBEAT.md.
+1. Renders the SOUL.md/AGENTS.md managed blocks (your content outside the markers is kept), the reference templates, and the core config if it's missing. It never writes TOOLS.md, HEARTBEAT.md or anything under `skills/`.
 2. For each plugin (default: `runner`, `watcher`, `server`, `meta` at `latest`), resolves an exact version with `npm view`, then runs `openclaw plugins install npm:<pkg>@<version> --pin --accept-capabilities --force`. `--force` is required for any non-ClawHub source, and it also overwrites an existing install, which is how updates land. The install is skipped when that exact version is already installed. The CLI reads OpenClaw's install records once with `openclaw plugins inspect --all --json` (no plugin code is loaded) and skips a plugin only if its record has `source: "npm"`, names the same package, and records the same version, and the loaded plugin reports that version too. A v0.x path install, a leftover legacy copy, or any record it cannot read means a reinstall. `--force-reinstall` always reinstalls. Steps 3 and 4 run either way.
 3. Removes any legacy `<openclaw dir>/extensions/<id>` copy left by the v0.x installer, but only if its `package.json` names the expected package.
 4. Sets `plugins.entries.<id>.hooks.allowConversationAccess: true` for plugins that [declare conversation hooks](#declaring-conversation-hooks), and the plugin config (`plugins.entries.<id>.config.<key>`, see [Plugin config](#plugin-config)), with one `openclaw config set --batch-file <file>` call. The file is created owner-only in a fresh temp directory (mode `0600` in a `0700` directory on Linux/macOS; on Windows the directory ACL is reduced to the current user with `icacls`) and deleted afterwards, so no value, secret or not, appears on a command line. Every write targets a leaf path, so unrelated keys are kept. `plugins.installs` is never written.
@@ -233,7 +233,7 @@ Plugin specs can be short (`watcher`, `watcher@1.2.3`, `runner@^1`) or full (`@k
 
 `jeeves update` runs steps 2 to 4 for the named packages, or for every Jeeves plugin that has a `plugins.entries` record, at `latest`. It takes the same plugin options as `jeeves install` (including `--plugin-config` and `--force-reinstall`) and fills in missing plugin config with the same precedence: existing values are kept unless you pass them, and a missing required value fails the command before anything changes.
 
-`jeeves uninstall` removes the SOUL.md/AGENTS.md managed blocks (and any legacy TOOLS.md block), the reference templates and the core `config.schema.json`, then runs `openclaw plugins uninstall <id> --force` for every Jeeves plugin that has a `plugins.entries` record (the plugins are useless without the rest of the platform). If OpenClaw is not installed, the plugin step is skipped. OpenClaw leaves `plugins.entries.<id> = { enabled: false }` behind and can delete `plugins.load`, so the CLI then unsets the leftover entry and restores `plugins.load` from its value before the uninstall. The platform skills under `skills/` and the core `config.json` are left in place.
+`jeeves uninstall` removes the SOUL.md/AGENTS.md managed blocks (and any legacy TOOLS.md block), the reference templates and the core `config.schema.json`, then runs `openclaw plugins uninstall <id> --force` for every Jeeves plugin that has a `plugins.entries` record (the plugins are useless without the rest of the platform). If OpenClaw is not installed, the plugin step is skipped. OpenClaw leaves `plugins.entries.<id> = { enabled: false }` behind and can delete `plugins.load`, so the CLI then unsets the leftover entry and restores `plugins.load` from its value before the uninstall. The core `config.json` is left in place, and so is everything under `skills/`: neither install nor uninstall touches it (skills written by v0.x stay where they are).
 
 Plugin changes take effect when the gateway next starts. The CLI tells you to restart it; it never restarts the gateway itself, because it can't know how you run it (console, service, container). There is no `--restart` option.
 
@@ -294,7 +294,7 @@ A server config write is planned first and runs before any `openclaw` command. U
 
 ### Dry run and failures
 
-Every mutating command takes `--dry-run`. A dry run prints what it would write (each managed block, the number of skills and templates, and the core config if it is new), the plugin config, the exact `openclaw` commands, and the content of each batch file. It runs only read-only queries (`openclaw --version`, `openclaw config get plugins --json`, `openclaw plugins inspect --all --json`, `npm view`, plus the startup `npm ls -g` above):
+Every mutating command takes `--dry-run`. A dry run prints what it would write (each managed block, the number of templates, and the core config if it is new), the plugin config, the exact `openclaw` commands, and the content of each batch file. It runs only read-only queries (`openclaw --version`, `openclaw config get plugins --json`, `openclaw plugins inspect --all --json`, `npm view`, plus the startup `npm ls -g` above):
 
 ```text
 $ jeeves install watcher --dry-run
