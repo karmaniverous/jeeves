@@ -6,7 +6,7 @@
  * Markdown sources live in the package's `content/` directory and are
  * inlined into the CLI bundle at build time (rollup md plugin). Not part of
  * the library API: `jeeves install` is the sole writer of this content.
- * The spec templates ship with the jeeves-coding skill in jeeves-tools.
+ * The spec templates ship with the jeeves-design skill in jeeves-tools.
  * No I/O.
  *
  * @module
