@@ -97,7 +97,22 @@ export const descriptor: JeevesComponentDescriptor =
   });
 ```
 
-`createPluginToolset(descriptor)` returns the standard `{name}_status`, `{name}_config`, `{name}_config_apply`, and `{name}_service` tools.
+`createPluginToolset(descriptor, { apiUrl })` returns the standard `{name}_status`, `{name}_config`, `{name}_config_apply`, and `{name}_service` tools. The HTTP tools call `apiUrl`; always pass the plugin's resolved `apiUrl`, or the tools fall back to `http://127.0.0.1:<defaultPort>` and hit the wrong service on an instance with custom ports. `apiUrl` can be a string or a resolver evaluated on every tool call, so it can be read lazily like `configRoot`:
+
+```typescript
+const tools = createPluginToolset(descriptor, {
+  apiUrl: () =>
+    resolvePluginSetting(
+      api,
+      PLUGIN_ID,
+      'apiUrl',
+      'JEEVES_WATCHER_URL',
+      'http://127.0.0.1:1936',
+    ),
+});
+```
+
+An unset or empty `apiUrl` (or a resolver returning `undefined`) falls back to `http://127.0.0.1:<defaultPort>`; trailing slashes are stripped.
 
 ### Plugin config
 

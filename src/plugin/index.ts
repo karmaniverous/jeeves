@@ -24,6 +24,11 @@ export type {
 export { fetchJson, fetchWithTimeout, postJson } from './http.js';
 export { onPluginDispose } from './lifecycle.js';
 export {
+  type PluginApiUrlResolver,
+  type PluginToolsetOptions,
+  pluginToolsetOptionsSchema,
+} from './pluginApiUrl.js';
+export {
   type PromptContextOptions,
   promptContextOptionsSchema,
   type PromptContextProvider,
