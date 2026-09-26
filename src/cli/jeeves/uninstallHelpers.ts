@@ -4,7 +4,9 @@
  *
  * @remarks
  * Separate from the command so the file operations are testable without
- * the CLI.
+ * the CLI. Never deletes the workspace `skills/` directory or the core
+ * config `templates/` directory: core no longer writes either (both ship
+ * with jeeves-tools), so files there belong to someone else.
  *
  * @module
  */
@@ -17,7 +19,6 @@ import {
   LEGACY_TOOLS_MARKERS,
   type ManagedMarkers,
   SOUL_MARKERS,
-  TEMPLATES_DIR,
   WORKSPACE_FILES,
 } from '../../constants/index.js';
 import { removeManagedBlock } from '../../managed/managedBlock.js';
@@ -51,7 +52,7 @@ const MANAGED_FILES = [
 ] as const;
 
 /**
- * Remove the managed blocks, the templates directory and the config schema.
+ * Remove the managed blocks and the config schema.
  *
  * @param workspacePath - Workspace root.
  * @param coreConfigDir - Core config directory.
@@ -70,12 +71,6 @@ export function removePlatformArtifacts(
     ) {
       removed.push(`${file} managed block`);
     }
-  }
-
-  const templatesDir = join(coreConfigDir, TEMPLATES_DIR);
-  if (existsSync(templatesDir)) {
-    if (!dryRun) rmSync(templatesDir, { recursive: true, force: true });
-    removed.push('templates');
   }
 
   const schemaPath = join(coreConfigDir, 'config.schema.json');

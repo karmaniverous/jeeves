@@ -28,8 +28,5 @@ export const WORKSPACE_FILES = {
 /** Skills directory name within the workspace. */
 export const SKILLS_DIR = 'skills';
 
-/** Templates directory name within the core config directory. */
-export const TEMPLATES_DIR = 'templates';
-
 /** Core config file name. */
 export const CONFIG_FILE = 'config.json';

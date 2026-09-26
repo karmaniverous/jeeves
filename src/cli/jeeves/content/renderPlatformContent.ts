@@ -4,14 +4,14 @@
  *
  * @remarks
  * `jeeves install` writes the returned strings to disk; it is the only
- * writer. No skills are rendered: core ships none (they live in
- * jeeves-tools for now). Re-rendering is idempotent for a given stamp and preserves user
- * content outside the managed markers.
+ * writer. Only the SOUL/AGENTS managed blocks are rendered: core ships no
+ * skills and no templates (both live in jeeves-tools). Re-rendering is
+ * idempotent for a given stamp and preserves user content outside the
+ * managed markers.
  *
  * @module
  */
 
-import { TEMPLATES_DIR } from '../../../constants/paths.js';
 import { CORE_VERSION } from '../../../constants/version.js';
 import {
   type ManagedBlockStampOptions,
@@ -20,17 +20,8 @@ import {
 } from '../../../managed/managedBlock.js';
 import {
   PLATFORM_SECTIONS,
-  PLATFORM_TEMPLATES,
   type PlatformSectionId,
 } from './platformContent.js';
-
-/** A file to write, relative to a base directory. */
-export interface RenderedFile {
-  /** Relative path using forward slashes (e.g. `templates/spec.md`). */
-  path: string;
-  /** Full file content. */
-  content: string;
-}
 
 /** Options for rendering platform content. */
 export interface RenderPlatformContentOptions {
@@ -44,8 +35,6 @@ export interface RenderPlatformContentOptions {
 export interface RenderedPlatformContent {
   /** Complete managed blocks, keyed by section (see {@link upsertPlatformSection}). */
   sections: Record<PlatformSectionId, { file: string; block: string }>;
-  /** Template files, relative to the core config directory. */
-  templates: RenderedFile[];
 }
 
 /** Resolve stamp options with defaults. */
@@ -59,7 +48,7 @@ function toStamp(
  * Render all static platform content.
  *
  * @param options - Stamp options.
- * @returns Managed blocks and template files.
+ * @returns The managed blocks.
  */
 export function renderPlatformContent(
   options: RenderPlatformContentOptions = {},
@@ -72,10 +61,6 @@ export function renderPlatformContent(
 
   return {
     sections: { soul: section('soul'), agents: section('agents') },
-    templates: Object.entries(PLATFORM_TEMPLATES).map(([name, content]) => ({
-      path: `${TEMPLATES_DIR}/${name}`,
-      content,
-    })),
   };
 }
 

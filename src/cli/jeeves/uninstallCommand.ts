@@ -4,8 +4,9 @@
  *
  * @remarks
  * Removes the managed blocks from SOUL.md and AGENTS.md (and any legacy v0.x
- * TOOLS.md block; nothing writes TOOLS.md any more). Removes templates and
- * the config schema file. Then runs
+ * TOOLS.md block; nothing writes TOOLS.md any more) and the config schema
+ * file. Leaves `skills/` and `jeeves-core/templates/` alone (core writes
+ * neither; they ship with jeeves-tools). Then runs
  * `openclaw plugins uninstall <id> --force` for every configured Jeeves
  * plugin (they are useless without the rest of the platform) and repairs the
  * leftovers (see `plugins/workflows.ts`). If OpenClaw is not installed the

@@ -17,7 +17,6 @@ export {
   CONFIG_FILE,
   CORE_CONFIG_DIR,
   SKILLS_DIR,
-  TEMPLATES_DIR,
   WORKSPACE_FILES,
 } from './paths.js';
 export {

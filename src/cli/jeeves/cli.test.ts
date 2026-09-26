@@ -40,12 +40,11 @@ describe('installPlatformContent', () => {
     installPlatformContent({ workspacePath, coreConfigDir, version: '1.0.0' });
   const read = (...p: string[]) => readFileSync(join(...p), 'utf-8');
 
-  it('writes SOUL/AGENTS blocks, templates, and core config', () => {
+  it('writes SOUL/AGENTS blocks and core config', () => {
     const written = install();
     expect(written).toEqual([
       'SOUL.md managed block',
       'AGENTS.md managed block',
-      '2 reference templates',
       'core config (new)',
     ]);
     expect(install()).not.toContain('core config (new)');
@@ -56,7 +55,6 @@ describe('installPlatformContent', () => {
     expect(
       parseManaged(read(workspacePath, 'AGENTS.md'), AGENTS_MARKERS).found,
     ).toBe(true);
-    expect(existsSync(join(coreConfigDir, 'templates', 'spec.md'))).toBe(true);
     const config: unknown = JSON.parse(read(coreConfigDir, 'config.json'));
     expect(config).toEqual({
       $schema: './config.schema.json',
@@ -120,6 +118,17 @@ describe('installPlatformContent', () => {
     writeFileSync(skill, 'old');
     install();
     expect(readFileSync(skill, 'utf-8')).toBe('old');
+  });
+
+  it('writes no templates and leaves an existing templates/ folder untouched', () => {
+    install();
+    expect(existsSync(join(coreConfigDir, 'templates'))).toBe(false);
+
+    const spec = join(coreConfigDir, 'templates', 'spec.md');
+    mkdirSync(join(coreConfigDir, 'templates'), { recursive: true });
+    writeFileSync(spec, 'old');
+    install();
+    expect(readFileSync(spec, 'utf-8')).toBe('old');
   });
 });
 

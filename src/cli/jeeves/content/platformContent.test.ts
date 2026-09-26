@@ -7,7 +7,6 @@ import {
 } from './budgets.js';
 import {
   PLATFORM_SECTIONS,
-  PLATFORM_TEMPLATES,
   type PlatformSectionId,
 } from './platformContent.js';
 import { renderPlatformContent } from './renderPlatformContent.js';
@@ -48,12 +47,5 @@ describe('platform content hygiene', () => {
     const body = PLATFORM_SECTIONS[id].body;
     expect(body).not.toMatch(/HEARTBEAT\.md|TOOLS\.md|CLEANUP NEEDED/);
     expect(body).not.toMatch(/-openclaw install/);
-  });
-
-  it('ships the reference templates', () => {
-    expect(Object.keys(PLATFORM_TEMPLATES).sort()).toEqual([
-      'spec-to-code-guide.md',
-      'spec.md',
-    ]);
   });
 });

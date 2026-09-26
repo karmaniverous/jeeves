@@ -19,6 +19,7 @@ beforeEach(() => {
   mkdirSync(join(ws, 'skills', 'jeeves'), { recursive: true });
   writeFileSync(join(ws, 'skills', 'jeeves', 'SKILL.md'), 'skill');
   mkdirSync(join(cfg, 'templates'), { recursive: true });
+  writeFileSync(join(cfg, 'templates', 'spec.md'), 'spec');
   writeFileSync(join(cfg, 'config.json'), '{}');
   writeFileSync(join(cfg, 'config.schema.json'), '{}');
   writeFileSync(
@@ -37,24 +38,24 @@ describe('removePlatformArtifacts', () => {
     expect(removePlatformArtifacts(ws, cfg, true)).toEqual([
       'SOUL.md managed block',
       'TOOLS.md managed block',
-      'templates',
       'config schema',
     ]);
     expect(readFileSync(join(ws, 'SOUL.md'), 'utf-8')).toBe(soul);
-    expect(existsSync(join(cfg, 'templates'))).toBe(true);
     expect(existsSync(join(cfg, 'config.schema.json'))).toBe(true);
   });
 
   it('removes the artifacts, then finds nothing', () => {
-    expect(removePlatformArtifacts(ws, cfg, false)).toHaveLength(4);
+    expect(removePlatformArtifacts(ws, cfg, false)).toHaveLength(3);
     expect(readFileSync(join(ws, 'SOUL.md'), 'utf-8')).toBe('mine\n');
     expect(readFileSync(join(ws, 'TOOLS.md'), 'utf-8')).toBe('notes\n');
-    expect(existsSync(join(cfg, 'templates'))).toBe(false);
     expect(existsSync(join(cfg, 'config.schema.json'))).toBe(false);
     expect(removePlatformArtifacts(ws, cfg, false)).toEqual([]);
     expect(
       readFileSync(join(ws, 'skills', 'jeeves', 'SKILL.md'), 'utf-8'),
     ).toBe('skill');
+    expect(readFileSync(join(cfg, 'templates', 'spec.md'), 'utf-8')).toBe(
+      'spec',
+    );
     expect(existsSync(join(cfg, 'config.json'))).toBe(true);
   });
 });

@@ -1,11 +1,12 @@
 /**
  * Static Jeeves platform content as pure data (internal to the jeeves CLI):
- * SOUL/AGENTS managed-section bodies and reference templates (no skills).
+ * the SOUL/AGENTS managed-section bodies (no skills, no templates).
  *
  * @remarks
  * Markdown sources live in the package's `content/` directory and are
  * inlined into the CLI bundle at build time (rollup md plugin). Not part of
  * the library API: `jeeves install` is the sole writer of this content.
+ * The spec templates ship with the jeeves-coding skill in jeeves-tools.
  * No I/O.
  *
  * @module
@@ -13,8 +14,6 @@
 
 import agentsSection from '../../../../content/agents-section.md';
 import soulSection from '../../../../content/soul-section.md';
-import specTemplate from '../../../../content/templates/spec.md';
-import specToCodeGuideTemplate from '../../../../content/templates/spec-to-code-guide.md';
 import {
   AGENTS_MARKERS,
   type ManagedMarkers,
@@ -49,10 +48,4 @@ export const PLATFORM_SECTIONS: Readonly<
     markers: AGENTS_MARKERS,
     body: agentsSection,
   },
-};
-
-/** Reference templates keyed by file name. */
-export const PLATFORM_TEMPLATES: Readonly<Record<string, string>> = {
-  'spec.md': specTemplate,
-  'spec-to-code-guide.md': specToCodeGuideTemplate,
 };

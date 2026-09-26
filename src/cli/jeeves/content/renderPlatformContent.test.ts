@@ -27,13 +27,10 @@ describe('renderPlatformContent', () => {
     expect(agents.managedContent).toContain('Context Compaction Recovery');
   });
 
-  it('renders only the managed blocks and templates (no skills)', () => {
+  it('renders only the managed blocks (no skills, no templates)', () => {
     const out = renderPlatformContent({ now });
-    expect(Object.keys(out).sort()).toEqual(['sections', 'templates']);
-    expect(out.templates.map((f) => f.path)).toEqual([
-      'templates/spec.md',
-      'templates/spec-to-code-guide.md',
-    ]);
+    expect(Object.keys(out)).toEqual(['sections']);
+    expect(Object.keys(out.sections).sort()).toEqual(['agents', 'soul']);
   });
 
   it('is deterministic for a fixed stamp', () => {

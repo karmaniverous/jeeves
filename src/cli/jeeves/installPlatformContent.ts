@@ -6,7 +6,8 @@
  * Thin I/O boundary over the pure {@link renderPlatformContent} /
  * {@link upsertPlatformSection} functions. Synchronous; writes only under the
  * given workspace and core config directories. Never writes or deletes
- * anything under the workspace `skills/` directory.
+ * anything under the workspace `skills/` directory or the core config
+ * `templates/` directory (skills and spec templates ship with jeeves-tools).
  *
  * @module
  */
@@ -87,11 +88,6 @@ export function installPlatformContent(
     put(filePath, upsertPlatformSection(id, existing, { version }));
     written.push(`${rendered.sections[id].file} managed block`);
   }
-
-  for (const file of rendered.templates) {
-    put(join(coreConfigDir, file.path), file.content);
-  }
-  written.push(`${String(rendered.templates.length)} reference templates`);
 
   if (ensureCoreConfig(coreConfigDir, dryRun)) {
     written.push('core config (new)');
