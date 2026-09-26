@@ -5,7 +5,8 @@
  * @remarks
  * Generated seeds are 32 random bytes from `node:crypto`, hex-encoded (the
  * same 64-char shape the server's `keys._plugin` seeds use). Redaction is
- * plain substring replacement, applied to command lines, logs, dry-run
+ * plain substring replacement of each secret and of its JSON-escaped form
+ * (batch file contents are JSON), applied to command lines, logs, dry-run
  * output and error messages before they are printed.
  *
  * @module
@@ -24,7 +25,13 @@ export const REDACTED = '<redacted>';
 export const generatePluginKey = (): string => randomBytes(32).toString('hex');
 
 /**
- * Replace every occurrence of each secret with {@link REDACTED}.
+ * Replace every occurrence of each secret, raw or JSON-escaped, with
+ * {@link REDACTED}.
+ *
+ * @remarks
+ * The escaped form matters for secrets containing quotes, backslashes or
+ * control characters: inside serialized JSON (a batch file payload) they
+ * no longer appear verbatim.
  *
  * @param text - Text to print.
  * @param secrets - Secret values (empty strings are ignored).
@@ -36,7 +43,11 @@ export function redactSecrets(
 ): string {
   let out = text;
   for (const secret of secrets) {
-    if (secret) out = out.split(secret).join(REDACTED);
+    if (!secret) continue;
+    const escaped = JSON.stringify(secret).slice(1, -1);
+    for (const form of new Set([secret, escaped])) {
+      out = out.split(form).join(REDACTED);
+    }
   }
   return out;
 }

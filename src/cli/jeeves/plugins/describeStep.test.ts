@@ -29,4 +29,15 @@ describe('describeConfigBatchLines', () => {
       '  batch file content: [{"path":"a.b","value":"<redacted>"}]',
     ]);
   });
+
+  it('redacts a secret that JSON serialization escapes', () => {
+    const secret = 'k"e\\y';
+    const [, content] = describeConfigBatchLines(
+      [{ path: 'a.b', value: { key: secret } }],
+      [secret],
+    );
+    expect(content).toBe(
+      '  batch file content: [{"path":"a.b","value":{"key":"<redacted>"}}]',
+    );
+  });
 });

@@ -18,6 +18,14 @@ describe('redactSecrets', () => {
     );
   });
 
+  it('also replaces the JSON-escaped form of a secret', () => {
+    const secret = 'a"b\\c\n';
+    const json = JSON.stringify({ key: secret, again: secret });
+    expect(redactSecrets(`${json} raw=${secret}`, [secret])).toBe(
+      `{"key":"${REDACTED}","again":"${REDACTED}"} raw=${REDACTED}`,
+    );
+  });
+
   it('ignores empty secrets and no secrets', () => {
     expect(redactSecrets('plain', [''])).toBe('plain');
     expect(redactSecrets('plain')).toBe('plain');
