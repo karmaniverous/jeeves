@@ -11,7 +11,7 @@ start
 :jeeves install runs\n(locally, or via SSH from jeeves-tools);
 
 :Render content (CLI-internal);
-note right: Pure: SOUL/AGENTS blocks,\nreference templates (no skills)
+note right: Pure: SOUL/AGENTS blocks\n(no skills, no templates)
 
 :Read existing SOUL.md / AGENTS.md;
 
@@ -24,7 +24,7 @@ else (no)
   :Insert block at marker position;
 endif
 
-:Write SOUL.md / AGENTS.md,\ntemplates, core config if missing;
+:Write SOUL.md / AGENTS.md,\ncore config if missing;
 
 stop
 
