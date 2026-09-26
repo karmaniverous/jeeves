@@ -6,6 +6,11 @@ All notable changes to this project will be documented in this file.
 
 ### 💼 Other
 
+- [108] fix: retry config writes while freshly installed plugins converge
+## [0.6.0-0] - 2026-09-26
+
+### 💼 Other
+
 - [108] feat!: static-only platform content; retire installer CLI and ComponentWriter (#108)
 
 Remove every live-workspace writer and the plugin installer from core, and
@@ -184,6 +189,7 @@ withFileLock removed a stale {file}.lock unconditionally after stat; another pro
 
 redactSecrets matched only the raw secret, so a pluginKey containing quotes, backslashes or control characters leaked through the JSON-serialized batch file content in dry-run and live logs. Redact the JSON-escaped form too. Addresses Copilot review on #109.
 - [108] chore(deps): approve install scripts by package name
+- [108] chore: release v0.6.0-0
 ## [0.5.12] - 2026-06-11
 
 ### 💼 Other
