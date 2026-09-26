@@ -7,7 +7,11 @@
  * Live: runs steps in order and stops at the first failure; a non-zero exit
  * from any `openclaw` command throws {@link CommandFailedError}, which the CLI
  * turns into a non-zero exit. Config batches are written to an owner-only
- * temp file, passed with `--batch-file`, and deleted afterwards.
+ * temp file, passed with `--batch-file`, and deleted afterwards. Config
+ * writes (batches and unsets) are retried with bounded backoff only while
+ * OpenClaw reports that a freshly installed plugin has not converged yet
+ * (see {@link withConvergenceRetry}); the batch file is kept for the retries
+ * and deleted once.
  *
  * @module
  */
@@ -15,6 +19,11 @@
 import { formatCommand } from './commandLine.js';
 import { type CommandRunner, runChecked } from './commandRunner.js';
 import { computePostUninstallRepair } from './configPatch.js';
+import {
+  type Sleep,
+  timerSleep,
+  withConvergenceRetry,
+} from './convergenceRetry.js';
 import { describeConfigBatchLines, describeStep } from './describeStep.js';
 import type { LegacyFs } from './legacyExtensions.js';
 import {
@@ -47,7 +56,19 @@ export interface ExecutePlanContext {
   log: (line: string) => void;
   /** Print only; mutate nothing. */
   dryRun: boolean;
+  /** Sleep port for convergence retries (default: real timer). */
+  sleep?: Sleep;
 }
+
+/** Retry an idempotent config write while plugins converge. */
+const retryingConfigWrite = (
+  ctx: ExecutePlanContext,
+  action: () => Promise<void>,
+): Promise<void> =>
+  withConvergenceRetry(action, {
+    sleep: ctx.sleep ?? timerSleep,
+    log: ctx.log,
+  });
 
 /** Run one command (echoing its output), logging its command line first. */
 async function runLogged(
@@ -78,12 +99,15 @@ async function runConfigBatch(
     ctx.tempFiles,
     BATCH_FILE_NAME,
     configBatchPayload(ops),
-    async (path) => {
-      await runChecked(ctx.runner, OPENCLAW_BIN, configSetBatchFileArgs(path), {
-        echo: true,
-        ...(redact ? { redact } : {}),
-      });
-    },
+    (path) =>
+      retryingConfigWrite(ctx, async () => {
+        await runChecked(
+          ctx.runner,
+          OPENCLAW_BIN,
+          configSetBatchFileArgs(path),
+          { echo: true, ...(redact ? { redact } : {}) },
+        );
+      }),
     ctx.log,
   );
 }
@@ -123,7 +147,9 @@ async function executeStep(
         step.pluginIds,
       );
       for (const path of repair.unsetPaths) {
-        await runLogged(ctx, OPENCLAW_BIN, configUnsetArgs(path));
+        await retryingConfigWrite(ctx, () =>
+          runLogged(ctx, OPENCLAW_BIN, configUnsetArgs(path)),
+        );
       }
       if (repair.setOps.length > 0) await runConfigBatch(ctx, repair.setOps);
       return;
