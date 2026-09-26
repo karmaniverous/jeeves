@@ -7,14 +7,20 @@
  * install records, declared hooks, legacy directories) and then either
  * printed (`--dry-run`) or executed by {@link executePlan}. Step order encodes
  * the safety rules: legacy copies are removed only after the npm install
- * succeeded; config repair runs only after uninstall succeeded. Config writes
+ * succeeded; a plugin's config is written before its install (a running
+ * gateway activates it at once); config repair runs only after uninstall
+ * succeeded. Config writes
  * are `configSetBatch` steps, run as `openclaw config set --batch-file` with an
  * owner-only temp file, so no value (secret or not) is on a command line.
  *
  * @module
  */
 
-import { computeHookAccessOps, type PluginsConfig } from './configPatch.js';
+import {
+  computeHookAccessOps,
+  configValuePath,
+  type PluginsConfig,
+} from './configPatch.js';
 import {
   type ConfigSetOperation,
   OPENCLAW_BIN,
@@ -76,6 +82,40 @@ const openclaw = (args: string[]): PlanStep => ({
   args,
 });
 
+/** A config batch step (secrets attached for redaction when present). */
+const configBatch = (
+  ops: ConfigSetOperation[],
+  secrets: readonly string[],
+): PlanStep => ({
+  kind: 'configSetBatch',
+  ops,
+  ...(secrets.length > 0 ? { redact: [...secrets] } : {}),
+});
+
+/**
+ * Split resolved config ops into per-plugin groups for the given plugin ids
+ * and the rest.
+ *
+ * @param ops - Resolved `plugins.entries.<id>.config.<key>` operations.
+ * @param pluginIds - Plugins whose config is written before their install.
+ * @returns Ops by plugin id, and the ops not claimed by any of them.
+ */
+function splitConfigOps(
+  ops: readonly ConfigSetOperation[],
+  pluginIds: readonly string[],
+): { byPlugin: Map<string, ConfigSetOperation[]>; rest: ConfigSetOperation[] } {
+  const byPlugin = new Map<string, ConfigSetOperation[]>();
+  const rest: ConfigSetOperation[] = [];
+  for (const op of ops) {
+    const owner = pluginIds.find((id) =>
+      op.path.startsWith(configValuePath(id, '')),
+    );
+    if (owner === undefined) rest.push(op);
+    else byPlugin.set(owner, [...(byPlugin.get(owner) ?? []), op]);
+  }
+  return { byPlugin, rest };
+}
+
 /**
  * Build the install/update plan.
  *
@@ -83,13 +123,19 @@ const openclaw = (args: string[]): PlanStep => ({
  * @param plugins - Current `plugins` config slice.
  * @param config - Resolved plugin config to write (optional).
  * @returns The server `keys._plugin` write (if planned; first, so a failure
- *   there, e.g. a held lock, leaves OpenClaw untouched), then install steps
- *   (targets not yet installed at their version), then legacy removals, then
- *   (when there is config to write) a migration sweep so OpenClaw clears the
- *   pending migration records it keeps for freshly installed plugins, then
- *   one config batch with hook access (only for targets that declare
- *   conversation hooks) and plugin config. Re-running after a later failure
- *   converges: the server then has the key and the plugin side copies it.
+ *   there, e.g. a held lock, leaves OpenClaw untouched); then, per target not
+ *   yet installed at its version: a config batch with that plugin's resolved
+ *   `plugins.entries.<id>.config` values (when any need writing), the
+ *   `openclaw plugins install`, and a migration sweep. A running gateway
+ *   activates each plugin as soon as it is installed and plugins read their
+ *   config (e.g. `configRoot`) at registration, so the config must already
+ *   be there; it also overrides manifest defaults (e.g. the watcher's
+ *   `configRoot`). Then legacy removals, then one final batch (preceded by
+ *   a sweep when nothing was installed) with hook access (only for targets
+ *   that declare conversation hooks; OpenClaw checks the installed package)
+ *   and the config of already installed targets. Re-running after a later
+ *   failure converges: the server then has the key and the plugin side
+ *   copies it.
  */
 export function buildInstallPlan(
   targets: readonly ResolvedTarget[],
@@ -99,10 +145,17 @@ export function buildInstallPlan(
   const steps: PlanStep[] = config?.serverKeyWrite
     ? [{ kind: 'serverKeyWrite', write: config.serverKeyWrite }]
     : [];
-  for (const t of targets) {
-    if (t.installed !== true) {
-      steps.push(openclaw(pluginInstallArgs(t.packageName, t.version)));
-    }
+  const secrets = config?.secrets ?? [];
+  const toInstall = targets.filter((t) => t.installed !== true);
+  const { byPlugin, rest } = splitConfigOps(
+    config?.ops ?? [],
+    toInstall.map((t) => t.pluginId),
+  );
+  for (const t of toInstall) {
+    const ops = byPlugin.get(t.pluginId);
+    if (ops) steps.push(configBatch(ops, secrets));
+    steps.push(openclaw(pluginInstallArgs(t.packageName, t.version)));
+    steps.push({ kind: 'migrationSweep' });
   }
   for (const t of targets) {
     if (t.legacyDir) steps.push({ kind: 'removeDir', path: t.legacyDir });
@@ -114,16 +167,11 @@ export function buildInstallPlan(
         .filter((t) => t.conversationHooks.length > 0)
         .map((t) => t.pluginId),
     ),
-    ...(config?.ops ?? []),
+    ...rest,
   ];
   if (ops.length > 0) {
-    const secrets = config?.secrets ?? [];
-    steps.push({ kind: 'migrationSweep' });
-    steps.push({
-      kind: 'configSetBatch',
-      ops,
-      ...(secrets.length > 0 ? { redact: [...secrets] } : {}),
-    });
+    if (toInstall.length === 0) steps.push({ kind: 'migrationSweep' });
+    steps.push(configBatch(ops, secrets));
   }
   return steps;
 }

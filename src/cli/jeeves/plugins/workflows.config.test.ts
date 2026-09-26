@@ -38,7 +38,7 @@ describe('installPlugins with plugin config', () => {
       }),
     );
 
-  it('writes hook access and plugin config in one batch file, preserving unrelated keys', async () => {
+  it('writes each plugin config before its install, then hook access, preserving unrelated keys', async () => {
     const { fake, temp, log, serverWrites, deps } = setupWorkflow({
       'openclaw config get plugins': ok(PLUGINS),
     });
@@ -46,20 +46,38 @@ describe('installPlugins with plugin config', () => {
       configRequest: request(),
     });
 
-    const sets = fake.lines().filter((l) => l.includes(' config set '));
-    expect(sets).toHaveLength(1);
-    expect(temp.batch()).toEqual([
-      {
-        path: `plugins.entries.${W}.hooks.allowConversationAccess`,
-        value: true,
-      },
+    const kinds = fake
+      .lines()
+      .filter((l) => / (config set|plugins install|plugins inspect) /.test(l))
+      .map(
+        (l) => / (config set|plugins install|plugins inspect) /.exec(l)?.[1],
+      );
+    expect(kinds).toEqual([
+      'plugins inspect', // installed-plugin state
+      'config set',
+      'plugins install',
+      'plugins inspect',
+      'config set',
+      'plugins install',
+      'plugins inspect',
+      'config set',
+    ]);
+    expect(temp.batch(0)).toEqual([
       { path: `plugins.entries.${W}.config.configRoot`, value: '/srv/cfg' },
+    ]);
+    expect(temp.batch(1)).toEqual([
       { path: `plugins.entries.${S}.config.configRoot`, value: '/srv/cfg' },
       {
         path: `plugins.entries.${S}.config.apiUrl`,
         value: 'http://127.0.0.1:1934',
       },
       { path: `plugins.entries.${S}.config.pluginKey`, value: SEED },
+    ]);
+    expect(temp.batch(2)).toEqual([
+      {
+        path: `plugins.entries.${W}.hooks.allowConversationAccess`,
+        value: true,
+      },
     ]);
     // The secret is only in the temp file: never on a command line or log.
     expect(fake.lines().join('\n')).not.toContain(SEED);

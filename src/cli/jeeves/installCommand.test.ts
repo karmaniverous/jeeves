@@ -102,11 +102,8 @@ describe('jeeves install (plugin config)', () => {
     writeServer(cfg, { port: 1934, keys: { alice: 'a' } });
     await run('-c', cfg);
     expect(existsSync(join(ws, 'SOUL.md'))).toBe(true);
-    expect(batch()).toEqual([
-      {
-        path: `plugins.entries.${S}.hooks.allowConversationAccess`,
-        value: true,
-      },
+    // Plugin config before the install (the plugin reads it on activation).
+    expect(state.temp?.batch(0)).toEqual([
       { path: `plugins.entries.${S}.config.configRoot`, value: resolve(cfg) },
       {
         path: `plugins.entries.${S}.config.apiUrl`,
@@ -114,6 +111,17 @@ describe('jeeves install (plugin config)', () => {
       },
       { path: `plugins.entries.${S}.config.pluginKey`, value: SEED },
     ]);
+    expect(batch()).toEqual([
+      {
+        path: `plugins.entries.${S}.hooks.allowConversationAccess`,
+        value: true,
+      },
+    ]);
+    const lines = state.fake?.lines() ?? [];
+    const firstSet = lines.findIndex((l) => l.includes(' config set '));
+    const install = lines.findIndex((l) => l.includes(' plugins install '));
+    expect(firstSet).toBeGreaterThanOrEqual(0);
+    expect(firstSet).toBeLessThan(install);
     const printed = out.join('\n');
     expect(printed).not.toContain(SEED);
     expect(state.fake?.lines().join('\n')).not.toContain(SEED);
