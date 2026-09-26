@@ -1,6 +1,6 @@
 /**
  * Static Jeeves platform content as pure data (internal to the jeeves CLI):
- * SOUL/AGENTS managed-section bodies, platform skills, reference templates.
+ * SOUL/AGENTS managed-section bodies and reference templates (no skills).
  *
  * @remarks
  * Markdown sources live in the package's `content/` directory and are
@@ -12,11 +12,6 @@
  */
 
 import agentsSection from '../../../../content/agents-section.md';
-import codingSkill from '../../../../content/skills/coding.md';
-import jeevesSkill from '../../../../content/skills/jeeves.md';
-import operationsSkill from '../../../../content/skills/operations.md';
-import playbooksSkill from '../../../../content/skills/playbooks.md';
-import slackBotProvisionerSkill from '../../../../content/skills/slack-bot-provisioner.md';
 import soulSection from '../../../../content/soul-section.md';
 import specTemplate from '../../../../content/templates/spec.md';
 import specToCodeGuideTemplate from '../../../../content/templates/spec-to-code-guide.md';
@@ -54,18 +49,6 @@ export const PLATFORM_SECTIONS: Readonly<
     markers: AGENTS_MARKERS,
     body: agentsSection,
   },
-};
-
-/**
- * Platform skills keyed by skill directory name. Each value is a complete
- * `SKILL.md` including `name`/`description` frontmatter.
- */
-export const PLATFORM_SKILLS: Readonly<Record<string, string>> = {
-  jeeves: jeevesSkill,
-  coding: codingSkill,
-  operations: operationsSkill,
-  playbooks: playbooksSkill,
-  'slack-bot-provisioner': slackBotProvisionerSkill,
 };
 
 /** Reference templates keyed by file name. */

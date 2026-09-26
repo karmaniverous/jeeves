@@ -5,7 +5,8 @@
  * @remarks
  * Thin I/O boundary over the pure {@link renderPlatformContent} /
  * {@link upsertPlatformSection} functions. Synchronous; writes only under the
- * given workspace and core config directories.
+ * given workspace and core config directories. Never writes or deletes
+ * anything under the workspace `skills/` directory.
  *
  * @module
  */
@@ -86,11 +87,6 @@ export function installPlatformContent(
     put(filePath, upsertPlatformSection(id, existing, { version }));
     written.push(`${rendered.sections[id].file} managed block`);
   }
-
-  for (const file of rendered.skills) {
-    put(join(workspacePath, file.path), file.content);
-  }
-  written.push(`${String(rendered.skills.length)} platform skills`);
 
   for (const file of rendered.templates) {
     put(join(coreConfigDir, file.path), file.content);

@@ -27,9 +27,9 @@ describe('renderPlatformContent', () => {
     expect(agents.managedContent).toContain('Context Compaction Recovery');
   });
 
-  it('renders skills and templates with relative paths', () => {
+  it('renders only the managed blocks and templates (no skills)', () => {
     const out = renderPlatformContent({ now });
-    expect(out.skills.map((f) => f.path)).toContain('skills/jeeves/SKILL.md');
+    expect(Object.keys(out).sort()).toEqual(['sections', 'templates']);
     expect(out.templates.map((f) => f.path)).toEqual([
       'templates/spec.md',
       'templates/spec-to-code-guide.md',

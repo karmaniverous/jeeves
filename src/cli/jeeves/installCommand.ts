@@ -5,8 +5,8 @@
  *
  * @remarks
  * Content: SOUL.md/AGENTS.md managed blocks (user content preserved),
- * platform skills, reference templates, core config if missing. Never
- * TOOLS.md or HEARTBEAT.md. Plugins: one standard
+ * reference templates, core config if missing. Never TOOLS.md,
+ * HEARTBEAT.md or anything under `skills/`. Plugins: one standard
  * `openclaw plugins install npm:<pkg>\@<ver> --pin --accept-capabilities --force`
  * per plugin that is not already installed at that exact version (unless
  * `--force-reinstall`), then legacy cleanup and one

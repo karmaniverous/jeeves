@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 
-import { validateSkillFrontmatter } from '../../../plugin/skillFrontmatter.js';
 import {
   BOOTSTRAP_FILE_MAX_CHARS,
   PLATFORM_CONTENT_TOTAL_BUDGET,
@@ -8,7 +7,6 @@ import {
 } from './budgets.js';
 import {
   PLATFORM_SECTIONS,
-  PLATFORM_SKILLS,
   PLATFORM_TEMPLATES,
   type PlatformSectionId,
 } from './platformContent.js';
@@ -50,21 +48,6 @@ describe('platform content hygiene', () => {
     const body = PLATFORM_SECTIONS[id].body;
     expect(body).not.toMatch(/HEARTBEAT\.md|TOOLS\.md|CLEANUP NEEDED/);
     expect(body).not.toMatch(/-openclaw install/);
-  });
-
-  it.each(Object.keys(PLATFORM_SKILLS))(
-    'skill %s has valid frontmatter matching its directory name',
-    (name) => {
-      const fm = validateSkillFrontmatter(PLATFORM_SKILLS[name]);
-      expect(fm.name).toBe(name);
-      expect(fm.description.length).toBeGreaterThan(20);
-    },
-  );
-
-  it('skills do not reference the retired installer or live writer', () => {
-    for (const content of Object.values(PLATFORM_SKILLS)) {
-      expect(content).not.toMatch(/-openclaw install|ComponentWriter/);
-    }
   });
 
   it('ships the reference templates', () => {

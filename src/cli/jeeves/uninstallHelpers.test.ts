@@ -16,8 +16,10 @@ beforeEach(() => {
   root = tempDir();
   ws = join(root, 'ws');
   cfg = join(root, 'cfg');
-  mkdirSync(ws, { recursive: true });
+  mkdirSync(join(ws, 'skills', 'jeeves'), { recursive: true });
+  writeFileSync(join(ws, 'skills', 'jeeves', 'SKILL.md'), 'skill');
   mkdirSync(join(cfg, 'templates'), { recursive: true });
+  writeFileSync(join(cfg, 'config.json'), '{}');
   writeFileSync(join(cfg, 'config.schema.json'), '{}');
   writeFileSync(
     join(ws, 'SOUL.md'),
@@ -50,5 +52,9 @@ describe('removePlatformArtifacts', () => {
     expect(existsSync(join(cfg, 'templates'))).toBe(false);
     expect(existsSync(join(cfg, 'config.schema.json'))).toBe(false);
     expect(removePlatformArtifacts(ws, cfg, false)).toEqual([]);
+    expect(
+      readFileSync(join(ws, 'skills', 'jeeves', 'SKILL.md'), 'utf-8'),
+    ).toBe('skill');
+    expect(existsSync(join(cfg, 'config.json'))).toBe(true);
   });
 });

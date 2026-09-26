@@ -4,13 +4,14 @@
  *
  * @remarks
  * `jeeves install` writes the returned strings to disk; it is the only
- * writer. Re-rendering is idempotent for a given stamp and preserves user
+ * writer. No skills are rendered: core ships none (they live in
+ * jeeves-tools for now). Re-rendering is idempotent for a given stamp and preserves user
  * content outside the managed markers.
  *
  * @module
  */
 
-import { SKILLS_DIR, TEMPLATES_DIR } from '../../../constants/paths.js';
+import { TEMPLATES_DIR } from '../../../constants/paths.js';
 import { CORE_VERSION } from '../../../constants/version.js';
 import {
   type ManagedBlockStampOptions,
@@ -19,14 +20,13 @@ import {
 } from '../../../managed/managedBlock.js';
 import {
   PLATFORM_SECTIONS,
-  PLATFORM_SKILLS,
   PLATFORM_TEMPLATES,
   type PlatformSectionId,
 } from './platformContent.js';
 
 /** A file to write, relative to a base directory. */
 export interface RenderedFile {
-  /** Relative path using forward slashes (e.g. `skills/jeeves/SKILL.md`). */
+  /** Relative path using forward slashes (e.g. `templates/spec.md`). */
   path: string;
   /** Full file content. */
   content: string;
@@ -44,8 +44,6 @@ export interface RenderPlatformContentOptions {
 export interface RenderedPlatformContent {
   /** Complete managed blocks, keyed by section (see {@link upsertPlatformSection}). */
   sections: Record<PlatformSectionId, { file: string; block: string }>;
-  /** Skill files, relative to the workspace root. */
-  skills: RenderedFile[];
   /** Template files, relative to the core config directory. */
   templates: RenderedFile[];
 }
@@ -61,7 +59,7 @@ function toStamp(
  * Render all static platform content.
  *
  * @param options - Stamp options.
- * @returns Managed blocks, skill files, and template files.
+ * @returns Managed blocks and template files.
  */
 export function renderPlatformContent(
   options: RenderPlatformContentOptions = {},
@@ -74,10 +72,6 @@ export function renderPlatformContent(
 
   return {
     sections: { soul: section('soul'), agents: section('agents') },
-    skills: Object.entries(PLATFORM_SKILLS).map(([name, content]) => ({
-      path: `${SKILLS_DIR}/${name}/SKILL.md`,
-      content,
-    })),
     templates: Object.entries(PLATFORM_TEMPLATES).map(([name, content]) => ({
       path: `${TEMPLATES_DIR}/${name}`,
       content,

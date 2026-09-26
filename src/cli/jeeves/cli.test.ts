@@ -40,12 +40,11 @@ describe('installPlatformContent', () => {
     installPlatformContent({ workspacePath, coreConfigDir, version: '1.0.0' });
   const read = (...p: string[]) => readFileSync(join(...p), 'utf-8');
 
-  it('writes SOUL/AGENTS blocks, skills, templates, and core config', () => {
+  it('writes SOUL/AGENTS blocks, templates, and core config', () => {
     const written = install();
     expect(written).toEqual([
       'SOUL.md managed block',
       'AGENTS.md managed block',
-      expect.stringMatching(/^[1-9]\d* platform skills$/) as string,
       '2 reference templates',
       'core config (new)',
     ]);
@@ -57,12 +56,14 @@ describe('installPlatformContent', () => {
     expect(
       parseManaged(read(workspacePath, 'AGENTS.md'), AGENTS_MARKERS).found,
     ).toBe(true);
-    expect(read(workspacePath, 'skills', 'jeeves', 'SKILL.md')).toContain(
-      'name: jeeves',
-    );
     expect(existsSync(join(coreConfigDir, 'templates', 'spec.md'))).toBe(true);
     const config: unknown = JSON.parse(read(coreConfigDir, 'config.json'));
-    expect(config).toHaveProperty('$schema');
+    expect(config).toEqual({
+      $schema: './config.schema.json',
+      owners: [],
+      bindAddress: '0.0.0.0',
+      services: {},
+    });
     expect(existsSync(join(coreConfigDir, 'config.schema.json'))).toBe(true);
   });
 
@@ -110,12 +111,15 @@ describe('installPlatformContent', () => {
     expect(existsSync(coreConfigDir)).toBe(false);
   });
 
-  it('overwrites a stale platform skill', () => {
+  it('writes no skills and leaves an existing skills/ folder untouched', () => {
+    install();
+    expect(existsSync(join(workspacePath, 'skills'))).toBe(false);
+
     const skill = join(workspacePath, 'skills', 'jeeves', 'SKILL.md');
     mkdirSync(join(workspacePath, 'skills', 'jeeves'), { recursive: true });
     writeFileSync(skill, 'old');
     install();
-    expect(readFileSync(skill, 'utf-8')).toContain('Jeeves Platform Skill');
+    expect(readFileSync(skill, 'utf-8')).toBe('old');
   });
 });
 
