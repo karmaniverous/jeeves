@@ -34,13 +34,15 @@ const PROBE_TIMEOUT_MS = 5000;
  * Create the standard plugin tool set from a component descriptor.
  *
  * @param descriptor - The component descriptor.
- * @param options - Tool options; pass the plugin's `apiUrl` (string or lazy
- *   resolver). Omitted, the tools call `http://127.0.0.1:<defaultPort>`.
+ * @param options - Tool options (required, so each plugin consciously
+ *   chooses its service URL). Pass the plugin's `apiUrl` (string or lazy
+ *   resolver); with `apiUrl` unset, the tools call
+ *   `http://127.0.0.1:<defaultPort>`.
  * @returns Array of tool descriptors to register.
  */
 export function createPluginToolset(
   descriptor: JeevesComponentDescriptor,
-  options: PluginToolsetOptions = {},
+  options: PluginToolsetOptions,
 ): ToolDescriptor[] {
   const { name, defaultPort } = descriptor;
   const { apiUrl } = pluginToolsetOptionsSchema.parse(options);

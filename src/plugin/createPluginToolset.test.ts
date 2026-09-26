@@ -39,12 +39,12 @@ describe('createPluginToolset', () => {
   });
 
   it('should produce four standard tools', () => {
-    const tools = createPluginToolset(makeTestDescriptor());
+    const tools = createPluginToolset(makeTestDescriptor(), {});
     expect(tools).toHaveLength(4);
   });
 
   it('should name tools with component prefix', () => {
-    const tools = createPluginToolset(makeTestDescriptor());
+    const tools = createPluginToolset(makeTestDescriptor(), {});
     const names = tools.map((t) => t.name);
     expect(names).toContain('watcher_status');
     expect(names).toContain('watcher_config');
@@ -55,6 +55,7 @@ describe('createPluginToolset', () => {
   it('should use correct names for different components', () => {
     const tools = createPluginToolset(
       makeTestDescriptor({ name: 'runner', defaultPort: 1937 }),
+      {},
     );
     const names = tools.map((t) => t.name);
     expect(names).toContain('runner_status');
@@ -64,14 +65,14 @@ describe('createPluginToolset', () => {
   });
 
   it('should have descriptions on all tools', () => {
-    const tools = createPluginToolset(makeTestDescriptor());
+    const tools = createPluginToolset(makeTestDescriptor(), {});
     for (const tool of tools) {
       expect(tool.description).toBeTruthy();
     }
   });
 
   it('should have parameter schemas on all tools', () => {
-    const tools = createPluginToolset(makeTestDescriptor());
+    const tools = createPluginToolset(makeTestDescriptor(), {});
     for (const tool of tools) {
       expect(tool.parameters).toBeDefined();
       expect(typeof tool.parameters).toBe('object');
@@ -79,7 +80,7 @@ describe('createPluginToolset', () => {
   });
 
   it('should have executable handlers on all tools', () => {
-    const tools = createPluginToolset(makeTestDescriptor());
+    const tools = createPluginToolset(makeTestDescriptor(), {});
     for (const tool of tools) {
       expect(typeof tool.execute).toBe('function');
     }
@@ -88,6 +89,7 @@ describe('createPluginToolset', () => {
   it('status tool should return connection error for unreachable service', async () => {
     const tools = createPluginToolset(
       makeTestDescriptor({ defaultPort: 19999 }),
+      {},
     );
     const statusTool = tools.find((t) => t.name === 'watcher_status');
     expect(statusTool).toBeDefined();
@@ -97,7 +99,7 @@ describe('createPluginToolset', () => {
   });
 
   it('service tool should reject invalid actions', async () => {
-    const tools = createPluginToolset(makeTestDescriptor());
+    const tools = createPluginToolset(makeTestDescriptor(), {});
     const serviceTool = tools.find((t) => t.name === 'watcher_service');
     expect(serviceTool).toBeDefined();
 
@@ -109,7 +111,7 @@ describe('createPluginToolset', () => {
   });
 
   it('config_apply tool should reject missing config', async () => {
-    const tools = createPluginToolset(makeTestDescriptor());
+    const tools = createPluginToolset(makeTestDescriptor(), {});
     const applyTool = tools.find((t) => t.name === 'watcher_config_apply');
     expect(applyTool).toBeDefined();
 
@@ -160,7 +162,7 @@ describe('createPluginToolset', () => {
 
     it('falls back to the descriptor defaultPort when apiUrl is unset', async () => {
       await runHttpTools(
-        createPluginToolset(makeTestDescriptor({ defaultPort: 1936 })),
+        createPluginToolset(makeTestDescriptor({ defaultPort: 1936 }), {}),
       );
       expect(calledUrls()).toEqual([
         'http://127.0.0.1:1936/status',
@@ -193,7 +195,7 @@ describe('createPluginToolset', () => {
 
   describe('error paths', () => {
     const tool = (n: string) =>
-      createPluginToolset(makeTestDescriptor()).find((t) => t.name === n)!;
+      createPluginToolset(makeTestDescriptor(), {}).find((t) => t.name === n)!;
 
     it('status tool reports a non-OK HTTP response', async () => {
       vi.stubGlobal(
@@ -220,7 +222,7 @@ describe('createPluginToolset', () => {
 
   describe('service tool', () => {
     const serviceTool = () =>
-      createPluginToolset(makeTestDescriptor()).find(
+      createPluginToolset(makeTestDescriptor(), {}).find(
         (t) => t.name === 'watcher_service',
       )!;
 
