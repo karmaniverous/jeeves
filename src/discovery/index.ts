@@ -1,5 +1,5 @@
 /**
- * Service discovery, config resolution, and registry cache.
+ * Service discovery and config resolution.
  *
  * @packageDocumentation
  */
@@ -14,4 +14,3 @@ export {
 export { getBindAddress } from './getBindAddress.js';
 export { getServiceState, type ServiceState } from './getServiceState.js';
 export { getServiceUrl } from './getServiceUrl.js';
-export { checkRegistryVersion } from './registry.js';

@@ -1,6 +1,56 @@
 import { describe, expect, it } from 'vitest';
 
-import { getErrorMessage, isTransientError } from './utils.js';
+import {
+  getErrorCode,
+  getErrorMessage,
+  isRecord,
+  isTransientError,
+  parseJson,
+} from './utils.js';
+
+describe('parseJson', () => {
+  it('parses JSON', () => {
+    expect(parseJson('{"a":1}', 'bad')).toEqual({ a: 1 });
+  });
+
+  it('throws the given message with the parse error as cause', () => {
+    let error: unknown;
+    try {
+      parseJson('nope', 'Unexpected output');
+    } catch (e) {
+      error = e;
+    }
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).toBe('Unexpected output');
+    expect((error as Error).cause).toBeInstanceOf(SyntaxError);
+  });
+});
+
+describe('isRecord', () => {
+  it.each([
+    [{}, true],
+    [{ a: 1 }, true],
+    [[], false],
+    [null, false],
+    [undefined, false],
+    ['x', false],
+  ])('%j → %s', (value, expected) => {
+    expect(isRecord(value)).toBe(expected);
+  });
+});
+
+describe('getErrorCode', () => {
+  it('returns the code of a Node-style error', () => {
+    expect(getErrorCode(Object.assign(new Error('x'), { code: 'EPERM' }))).toBe(
+      'EPERM',
+    );
+  });
+
+  it('returns undefined without a code', () => {
+    expect(getErrorCode(new Error('x'))).toBeUndefined();
+    expect(getErrorCode('EPERM')).toBeUndefined();
+  });
+});
 
 describe('getErrorMessage', () => {
   it('extracts message from Error instances', () => {

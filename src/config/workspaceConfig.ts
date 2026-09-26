@@ -2,11 +2,13 @@
  * Workspace-level shared configuration: `jeeves.config.json`.
  *
  * @remarks
- * Lives at the OpenClaw workspace root alongside TOOLS.md and SOUL.md.
+ * Lives at the OpenClaw workspace root alongside SOUL.md and AGENTS.md.
  * Provides namespaced shared defaults consumed by the root Jeeves CLI.
  * Resolution precedence: CLI flags → env vars → jeeves.config.json → defaults.
  *
  * This does not replace component-owned config schemas (Decision 41).
+ *
+ * @module
  */
 
 import { existsSync, readFileSync } from 'node:fs';

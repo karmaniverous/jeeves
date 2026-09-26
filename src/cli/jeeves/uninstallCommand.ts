@@ -1,30 +1,49 @@
 /**
- * CLI uninstall command: remove managed sections and platform artifacts.
+ * CLI uninstall command: remove managed blocks, platform artifacts and the
+ * Jeeves plugins.
  *
  * @remarks
- * Removes managed sections from SOUL.md, AGENTS.md, TOOLS.md.
- * Removes templates and config dir artifacts. Warns if services
- * still responding on known ports.
+ * Removes the managed blocks from SOUL.md and AGENTS.md (and any legacy v0.x
+ * TOOLS.md block; nothing writes TOOLS.md any more) and the config schema
+ * file. Leaves `skills/` and `jeeves-core/templates/` alone (core writes
+ * neither; they ship with jeeves-tools). Then runs
+ * `openclaw plugins uninstall <id> --force` for every configured Jeeves
+ * plugin (they are useless without the rest of the platform) and repairs the
+ * leftovers (see `plugins/workflows.ts`). If OpenClaw is not installed the
+ * plugin step is skipped. `--dry-run` prints all of it and changes nothing.
+ * Warns if platform services still respond.
+ *
+ * @module
  */
-
-import { existsSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
 
 import type { Command } from '@commander-js/extra-typings';
 
-import { readComponentVersions } from '../../component/componentVersions.js';
-import {
-  AGENTS_MARKERS,
-  SOUL_MARKERS,
-  TEMPLATES_DIR,
-  TOOLS_MARKERS,
-  WORKSPACE_FILES,
-} from '../../constants/index.js';
-import { getServiceUrl } from '../../discovery/getServiceUrl.js';
+import { PLATFORM_COMPONENTS } from '../../constants/index.js';
 import { getCoreConfigDir, getWorkspacePath } from '../../init.js';
-import { fetchWithTimeout } from '../../plugin/http.js';
 import { initFromOptions } from './cliDefaults.js';
-import { removeManagedBlockFromFile } from './uninstallHelpers.js';
+import {
+  DRY_RUN_COMPLETE,
+  printLines,
+  RESTART_NOTICE,
+  runHeaderLines,
+} from './cliOutput.js';
+import { createPluginWorkflowDeps } from './plugins/pluginDeps.js';
+import { uninstallPlugins } from './plugins/workflows.js';
+import { probeStatus } from './serviceProbe.js';
+import { removePlatformArtifacts } from './uninstallHelpers.js';
+
+/**
+ * Names of platform services that still answer `/status`.
+ *
+ * @returns Component names, in component order.
+ */
+async function respondingServices(): Promise<string[]> {
+  const running: string[] = [];
+  for (const name of PLATFORM_COMPONENTS) {
+    if ((await probeStatus(name, 2000))?.ok) running.push(name);
+  }
+  return running;
+}
 
 /**
  * Register the uninstall subcommand on the parent CLI program.
@@ -34,81 +53,48 @@ import { removeManagedBlockFromFile } from './uninstallHelpers.js';
 export function registerUninstallCommand(program: Command): void {
   program
     .command('uninstall')
-    .description('Remove Jeeves managed sections and platform artifacts')
+    .description(
+      'Remove Jeeves managed sections, platform artifacts and the Jeeves plugins',
+    )
     .option('-w, --workspace <path>', 'Workspace root path')
     .option('-c, --config-root <path>', 'Platform config root path')
+    .option(
+      '--dry-run',
+      'Print what would be removed, including the exact openclaw commands; change nothing',
+    )
     .action(async (opts) => {
+      const dryRun = opts.dryRun === true;
       const resolved = initFromOptions(opts);
+      const mark = dryRun ? '[dry-run] would remove' : '✓ removed';
 
-      console.log('Jeeves platform uninstall');
-      console.log(`  Workspace: ${resolved.core.workspace.value}`);
-      console.log(`  Config root: ${resolved.core.configRoot.value}`);
+      printLines(
+        runHeaderLines('Jeeves platform uninstall', resolved.core, dryRun),
+      );
+
+      const removed = removePlatformArtifacts(
+        getWorkspacePath(),
+        getCoreConfigDir(),
+        dryRun,
+      );
+      printLines(removed.map((label) => `  ${mark} ${label}`));
       console.log();
 
-      const wsPath = getWorkspacePath();
-      const coreConfigDir = getCoreConfigDir();
-
-      // Remove managed sections from workspace files
-      const toolsPath = join(wsPath, WORKSPACE_FILES.tools);
-      removeManagedBlockFromFile(toolsPath, TOOLS_MARKERS);
-      console.log('  ✓ TOOLS.md managed section removed');
-
-      const soulPath = join(wsPath, WORKSPACE_FILES.soul);
-      removeManagedBlockFromFile(soulPath, SOUL_MARKERS);
-      console.log('  ✓ SOUL.md managed section removed');
-
-      const agentsPath = join(wsPath, WORKSPACE_FILES.agents);
-      removeManagedBlockFromFile(agentsPath, AGENTS_MARKERS);
-      console.log('  ✓ AGENTS.md managed section removed');
-
-      // Remove templates directory
-      const templatesDir = join(coreConfigDir, TEMPLATES_DIR);
-      if (existsSync(templatesDir)) {
-        rmSync(templatesDir, { recursive: true, force: true });
-        console.log('  ✓ Templates removed');
-      }
-
-      // Remove config schema file
-      const schemaPath = join(coreConfigDir, 'config.schema.json');
-      if (existsSync(schemaPath)) {
-        rmSync(schemaPath);
-        console.log('  ✓ Config schema removed');
-      }
-
+      const plugins = await uninstallPlugins(createPluginWorkflowDeps(dryRun));
       console.log();
+      if (!dryRun && plugins.length > 0) console.log(RESTART_NOTICE);
 
-      // Warn if services still responding
-      try {
-        const componentVersions = readComponentVersions(coreConfigDir);
-        const componentNames = Object.keys(componentVersions);
-        const running: string[] = [];
-
-        for (const name of componentNames) {
-          try {
-            const url = getServiceUrl(name);
-            const response = await fetchWithTimeout(`${url}/status`, 2000);
-            if (response.ok) {
-              running.push(name);
-            }
-          } catch {
-            // Not running — expected during uninstall
-          }
-        }
-
-        if (running.length > 0) {
-          console.log('⚠️  The following services are still responding:');
-          for (const name of running) {
-            console.log(`    - ${name}`);
-          }
-          console.log(
-            '   Consider stopping them before fully removing Jeeves.',
-          );
-          console.log();
-        }
-      } catch {
-        // Probe failure is non-fatal during uninstall
+      const running = await respondingServices();
+      if (running.length > 0) {
+        console.log('⚠️  The following services are still responding:');
+        for (const name of running) console.log(`    - ${name}`);
+        console.log('   Consider stopping them before fully removing Jeeves.');
+        console.log();
       }
 
-      console.log('✅ Jeeves platform artifacts removed.');
+      console.log(
+        dryRun
+          ? DRY_RUN_COMPLETE
+          : '✅ Jeeves platform artifacts and plugins removed.',
+      );
     });
 }

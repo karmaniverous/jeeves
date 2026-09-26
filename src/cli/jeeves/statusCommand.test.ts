@@ -2,13 +2,12 @@
  * Tests for the status command logic.
  *
  * @remarks
- * Tests the status command by mocking service discovery and HTTP probes
- * to verify all display paths: healthy, HTTP errors, unreachable, and
- * no registered components.
+ * Mocks service discovery and HTTP probes to verify all display paths:
+ * healthy, HTTP errors, unreachable, and non-JSON bodies. Every platform
+ * component is always probed.
  */
 
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
@@ -21,32 +20,49 @@ import {
   vi,
 } from 'vitest';
 
-import { COMPONENT_VERSIONS_FILE } from '../../constants/paths.js';
 import { init, resetInit } from '../../init.js';
+import { useTempDir } from '../../test/tempDir.js';
 
 vi.mock('../../plugin/http.js', () => ({
   fetchWithTimeout: vi.fn(),
 }));
 
 vi.mock('../../discovery/getServiceUrl.js', () => ({
-  getServiceUrl: vi.fn(),
+  getServiceUrl: vi.fn((name: string) => `http://svc/${name}`),
 }));
 
-import { getServiceUrl } from '../../discovery/getServiceUrl.js';
 import { fetchWithTimeout } from '../../plugin/http.js';
+
+type Probe = Partial<Response> | Error;
+
+/** Route probes by component name; unlisted components are down. */
+function mockProbes(probes: Record<string, Probe>): void {
+  vi.mocked(fetchWithTimeout).mockImplementation((url: string) => {
+    const name = /http:\/\/svc\/(\w+)\/status/.exec(url)?.[1] ?? '';
+    const probe = probes[name] ?? new Error('ECONNREFUSED');
+    return probe instanceof Error
+      ? Promise.reject(probe)
+      : Promise.resolve(probe as Response);
+  });
+}
+
+const healthy = (version: string): Probe => ({
+  ok: true,
+  status: 200,
+  json: () => Promise.resolve({ version }),
+});
 
 describe('registerStatusCommand', () => {
   let testDir: string;
   let configDir: string;
-  let coreConfigDir: string;
   let consoleSpy: MockInstance;
   let originalExitCode: typeof process.exitCode;
 
+  const tempDir = useTempDir('jeeves-status-test-');
   beforeEach(() => {
-    testDir = join(tmpdir(), `jeeves-status-test-${String(Date.now())}`);
+    testDir = tempDir();
     configDir = join(testDir, 'config');
-    coreConfigDir = join(configDir, 'jeeves-core');
-    mkdirSync(coreConfigDir, { recursive: true });
+    mkdirSync(join(configDir, 'jeeves-core'), { recursive: true });
     init({ workspacePath: join(testDir, 'workspace'), configRoot: configDir });
     consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     originalExitCode = process.exitCode;
@@ -55,21 +71,16 @@ describe('registerStatusCommand', () => {
 
   afterEach(() => {
     resetInit();
-    rmSync(testDir, { recursive: true, force: true });
     consoleSpy.mockRestore();
     process.exitCode = originalExitCode;
-    vi.restoreAllMocks();
+    vi.mocked(fetchWithTimeout).mockReset();
   });
 
-  async function runStatusAction(timeoutMs = 3000): Promise<void> {
-    // Dynamically import to pick up vi.mock
+  async function runStatus(): Promise<string> {
     const { registerStatusCommand } = await import('./statusCommand.js');
     const { Command } = await import('@commander-js/extra-typings');
-
     const program = new Command();
     registerStatusCommand(program);
-
-    // Parse with explicit args to trigger the status action
     await program.parseAsync([
       'node',
       'jeeves',
@@ -79,132 +90,107 @@ describe('registerStatusCommand', () => {
       '-c',
       configDir,
       '-t',
-      String(timeoutMs),
+      '3000',
     ]);
+    return consoleSpy.mock.calls.map((c) => String(c[0])).join('\n');
   }
 
-  function writeVersions(versions: Record<string, unknown>): void {
-    writeFileSync(
-      join(coreConfigDir, COMPONENT_VERSIONS_FILE),
-      JSON.stringify(versions, null, 2),
-      'utf-8',
-    );
-  }
-
-  it('prints "No components registered" and memory hygiene when versions file is empty', async () => {
-    writeVersions({});
-
-    await runStatusAction();
-
-    const output = consoleSpy.mock.calls.map((c) => String(c[0])).join('\n');
-    expect(output).toContain('No components registered');
-    expect(output).toContain('Memory hygiene');
-    expect(process.exitCode).toBeUndefined();
-  });
-
-  it('shows healthy status when service responds OK with version', async () => {
-    writeVersions({
-      watcher: { pluginVersion: '0.2.0', updatedAt: new Date().toISOString() },
+  it('reports all components healthy with versions and memory hygiene', async () => {
+    mockProbes({
+      runner: healthy('1.0.0'),
+      watcher: healthy('1.2.3'),
+      server: healthy('3.0.0'),
+      meta: healthy('0.9.0'),
     });
 
-    vi.mocked(getServiceUrl).mockReturnValue('http://127.0.0.1:1936');
-    vi.mocked(fetchWithTimeout).mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: () => Promise.resolve({ version: '1.2.3' }),
-    } as unknown as Response);
-
-    await runStatusAction();
-
-    const output = consoleSpy.mock.calls.map((c) => String(c[0])).join('\n');
-    expect(output).toContain('watcher');
-    expect(output).toContain('Running');
-    expect(output).toContain('1.2.3');
+    const output = await runStatus();
+    for (const [name, version] of [
+      ['runner', '1.0.0'],
+      ['watcher', '1.2.3'],
+      ['server', '3.0.0'],
+      ['meta', '0.9.0'],
+    ]) {
+      expect(output).toMatch(
+        new RegExp(
+          `^${name} +✅ Running +${version.replace(/\./g, '\\.')}`,
+          'm',
+        ),
+      );
+    }
+    expect(output).toContain('MEMORY.md not found.');
     expect(process.exitCode).toBeUndefined();
   });
+
+  it.each([
+    [500, 'Chars: 500 / 1000 (50%) — ✅ OK'],
+    [850, 'Chars: 850 / 1000 (85%) — ⚠ Warning'],
+    [1200, 'Chars: 1200 / 1000 (120%) — ❌ Over budget'],
+  ])(
+    'reports MEMORY.md with %i chars against the budget',
+    async (chars, line) => {
+      const saved = process.env['JEEVES_MEMORY_BUDGET'];
+      process.env['JEEVES_MEMORY_BUDGET'] = '1000';
+      try {
+        mkdirSync(join(testDir, 'workspace'), { recursive: true });
+        writeFileSync(
+          join(testDir, 'workspace', 'MEMORY.md'),
+          'x'.repeat(chars),
+        );
+        mockProbes({
+          runner: healthy('1'),
+          watcher: healthy('1'),
+          server: healthy('1'),
+          meta: healthy('1'),
+        });
+        const output = await runStatus();
+        expect(output).toContain(line);
+        // Memory hygiene never affects the exit code.
+        expect(process.exitCode).toBeUndefined();
+      } finally {
+        if (saved === undefined)
+          Reflect.deleteProperty(process.env, 'JEEVES_MEMORY_BUDGET');
+        else process.env['JEEVES_MEMORY_BUDGET'] = saved;
+      }
+    },
+  );
 
   it('shows HTTP error status on non-OK response', async () => {
-    writeVersions({
-      runner: { pluginVersion: '0.1.0', updatedAt: new Date().toISOString() },
+    mockProbes({
+      runner: { ok: false, status: 503 },
+      watcher: healthy('1'),
+      server: healthy('1'),
+      meta: healthy('1'),
     });
-
-    vi.mocked(getServiceUrl).mockReturnValue('http://127.0.0.1:1937');
-    vi.mocked(fetchWithTimeout).mockResolvedValue({
-      ok: false,
-      status: 503,
-    } as Response);
-
-    await runStatusAction();
-
-    const output = consoleSpy.mock.calls.map((c) => String(c[0])).join('\n');
-    expect(output).toContain('runner');
-    expect(output).toContain('503');
+    const output = await runStatus();
+    expect(output).toMatch(/^runner +❌ HTTP 503 +—/m);
     expect(process.exitCode).toBe(1);
   });
 
-  it('shows Down status when fetch throws', async () => {
-    writeVersions({
-      watcher: { pluginVersion: '0.2.0', updatedAt: new Date().toISOString() },
-    });
-
-    vi.mocked(getServiceUrl).mockReturnValue('http://127.0.0.1:1936');
-    vi.mocked(fetchWithTimeout).mockRejectedValue(new Error('ECONNREFUSED'));
-
-    await runStatusAction();
-
-    const output = consoleSpy.mock.calls.map((c) => String(c[0])).join('\n');
-    expect(output).toContain('watcher');
-    expect(output).toContain('Down');
+  it('shows Down when a probe throws', async () => {
+    mockProbes({ watcher: healthy('1') });
+    const output = await runStatus();
+    expect(output).toMatch(/^watcher +✅ Running/m);
+    for (const name of ['runner', 'server', 'meta']) {
+      expect(output).toMatch(new RegExp(`^${name} +❌ Down +—`, 'm'));
+    }
     expect(process.exitCode).toBe(1);
   });
 
-  it('handles non-JSON response body gracefully', async () => {
-    writeVersions({
-      meta: { pluginVersion: '0.1.0', updatedAt: new Date().toISOString() },
-    });
-
-    vi.mocked(getServiceUrl).mockReturnValue('http://127.0.0.1:1938');
-    vi.mocked(fetchWithTimeout).mockResolvedValue({
+  it('handles a non-JSON response body gracefully', async () => {
+    const nonJson: Probe = {
       ok: true,
       status: 200,
       json: () => Promise.reject(new SyntaxError('Unexpected token')),
-    } as unknown as Response);
-
-    await runStatusAction();
-
-    const output = consoleSpy.mock.calls.map((c) => String(c[0])).join('\n');
-    expect(output).toContain('meta');
+    };
+    mockProbes({
+      runner: nonJson,
+      watcher: nonJson,
+      server: nonJson,
+      meta: nonJson,
+    });
+    const output = await runStatus();
     expect(output).toContain('Running');
-    // Version should be the default dash
     expect(output).toContain('\u2014');
     expect(process.exitCode).toBeUndefined();
-  });
-
-  it('sets exitCode 1 when at least one component is unhealthy', async () => {
-    writeVersions({
-      watcher: { pluginVersion: '0.2.0', updatedAt: new Date().toISOString() },
-      runner: { pluginVersion: '0.1.0', updatedAt: new Date().toISOString() },
-    });
-
-    vi.mocked(getServiceUrl).mockImplementation((name: string) => {
-      if (name === 'watcher') return 'http://127.0.0.1:1936';
-      return 'http://127.0.0.1:1937';
-    });
-
-    // watcher healthy, runner down
-    vi.mocked(fetchWithTimeout)
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: () => Promise.resolve({ version: '1.0.0' }),
-      } as unknown as Response)
-      .mockRejectedValueOnce(new Error('ECONNREFUSED'));
-
-    await runStatusAction();
-
-    const output = consoleSpy.mock.calls.map((c) => String(c[0])).join('\n');
-    expect(output).toContain('Running');
-    expect(output).toContain('Down');
-    expect(process.exitCode).toBe(1);
   });
 }, 15_000);

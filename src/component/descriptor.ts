@@ -2,31 +2,18 @@
  * Zod schema for the Jeeves component descriptor.
  *
  * @remarks
- * The descriptor replaces the v0.4.0 `JeevesComponent` interface with a
- * Zod-first approach. The TypeScript type is inferred via `z.infer<>`.
- * Validates at parse time: prime interval, callable functions.
+ * Zod-first: the TypeScript type is inferred via `z.infer<>`. The descriptor
+ * drives the service CLI, service manager, config handlers, and standard
+ * plugin toolset. v1 removed the TOOLS.md writer fields (`sectionId`,
+ * `refreshIntervalSeconds`, `generateToolsContent`, `dependencies`).
+ *
+ * @module
  */
 
 import type { Command } from '@commander-js/extra-typings';
 import { z, type ZodType } from 'zod';
 
 import type { PluginApi } from '../plugin/types.js';
-
-/**
- * Check whether a number is prime.
- *
- * @param n - Number to check.
- * @returns `true` if n is prime.
- */
-export function isPrime(n: number): boolean {
-  if (n < 2) return false;
-  if (n === 2) return true;
-  if (n % 2 === 0) return false;
-  for (let i = 3; i * i <= n; i += 2) {
-    if (n % i === 0) return false;
-  }
-  return true;
-}
 
 /**
  * Zod schema for the Jeeves component descriptor.
@@ -117,27 +104,6 @@ export const jeevesComponentDescriptorSchema = z.object({
     input: [z.string()],
     output: z.promise(z.void()),
   }),
-
-  /** TOOLS.md section name (e.g., 'Watcher'). */
-  sectionId: z.string().min(1, 'sectionId must be a non-empty string'),
-
-  /** Refresh interval in seconds (must be a prime number). */
-  refreshIntervalSeconds: z.number().int().positive().refine(isPrime, {
-    message: 'refreshIntervalSeconds must be a prime number',
-  }),
-
-  /** Produce the component's TOOLS.md section content. */
-  generateToolsContent: z.function({ input: [], output: z.string() }),
-
-  /** Component dependencies for HEARTBEAT alert suppression. */
-  dependencies: z
-    .object({
-      /** Components that must be healthy for this component to function. */
-      hard: z.array(z.string()),
-      /** Components that improve behavior but are not strictly required. */
-      soft: z.array(z.string()),
-    })
-    .optional(),
 
   /** Extension point: add custom CLI commands to the service CLI. */
   customCliCommands: z

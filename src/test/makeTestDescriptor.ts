@@ -4,6 +4,8 @@
  * @remarks
  * Centralises the mock descriptor builder used across test files.
  * Provides sensible defaults that can be overridden per-test.
+ *
+ * @module
  */
 
 import { z } from 'zod';
@@ -42,9 +44,6 @@ export function makeTestDescriptor(
     run: async () => {
       /* no-op for tests */
     },
-    sectionId: 'Watcher',
-    refreshIntervalSeconds: 71,
-    generateToolsContent: () => 'content',
     ...overrides,
   };
 }

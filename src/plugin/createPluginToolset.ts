@@ -8,6 +8,10 @@
  * - `{name}_config_apply` - Push config patch to running service
  * - `{name}_service` - Service lifecycle management
  *
+ * The HTTP tools call the plugin's configured `apiUrl` (see
+ * {@link PluginToolsetOptions}); the descriptor's `defaultPort` is only the
+ * fallback when `apiUrl` is unset.
+ *
  * Components add domain-specific tools separately.
  */
 
@@ -15,6 +19,11 @@ import type { JeevesComponentDescriptor } from '../component/descriptor.js';
 import { createServiceManager } from '../service/createServiceManager.js';
 import { getErrorMessage } from '../utils.js';
 import { fetchJson, fetchWithTimeout, postJson } from './http.js';
+import {
+  type PluginToolsetOptions,
+  pluginToolsetOptionsSchema,
+  resolvePluginApiUrl,
+} from './pluginApiUrl.js';
 import { connectionFail, fail, ok } from './results.js';
 import type { ToolDescriptor, ToolResult } from './types.js';
 
@@ -25,13 +34,19 @@ const PROBE_TIMEOUT_MS = 5000;
  * Create the standard plugin tool set from a component descriptor.
  *
  * @param descriptor - The component descriptor.
+ * @param options - Tool options (required, so each plugin consciously
+ *   chooses its service URL). Pass the plugin's `apiUrl` (string or lazy
+ *   resolver); with `apiUrl` unset, the tools call
+ *   `http://127.0.0.1:<defaultPort>`.
  * @returns Array of tool descriptors to register.
  */
 export function createPluginToolset(
   descriptor: JeevesComponentDescriptor,
+  options: PluginToolsetOptions,
 ): ToolDescriptor[] {
   const { name, defaultPort } = descriptor;
-  const baseUrl = `http://127.0.0.1:${String(defaultPort)}`;
+  const { apiUrl } = pluginToolsetOptionsSchema.parse(options);
+  const resolveBaseUrl = (): string => resolvePluginApiUrl(apiUrl, defaultPort);
   const svcManager = createServiceManager(descriptor);
 
   const statusTool: ToolDescriptor = {
@@ -42,6 +57,7 @@ export function createPluginToolset(
       properties: {},
     },
     execute: async (): Promise<ToolResult> => {
+      const baseUrl = resolveBaseUrl();
       try {
         const res = await fetchWithTimeout(
           `${baseUrl}/status`,
@@ -76,6 +92,7 @@ export function createPluginToolset(
     ): Promise<ToolResult> => {
       const path = params.path as string | undefined;
       const qs = path ? `?path=${encodeURIComponent(path)}` : '';
+      const baseUrl = resolveBaseUrl();
       try {
         const result = await fetchJson(`${baseUrl}/config${qs}`);
         return ok(result);
@@ -106,6 +123,7 @@ export function createPluginToolset(
       if (!config) {
         return fail('Missing required parameter: config');
       }
+      const baseUrl = resolveBaseUrl();
       try {
         const result = await postJson(`${baseUrl}/config/apply`, {
           patch: config,

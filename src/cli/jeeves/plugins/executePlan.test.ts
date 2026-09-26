@@ -1,0 +1,321 @@
+import { describe, expect, it } from 'vitest';
+
+import { executePlan } from './executePlan.js';
+import { failed, fakeRunner, fakeTempFiles, ok } from './fakePorts.js';
+import type { LegacyFs } from './legacyExtensions.js';
+import type { ServerKeyWrite } from './serverKeySync.js';
+
+type Context = Parameters<typeof executePlan>[1];
+
+const noServerWrite = (): Promise<string> =>
+  Promise.reject(new Error('must not write the server config'));
+
+const noFs: LegacyFs = {
+  isDirectory: () => false,
+  readPackageName: () => undefined,
+  removeDir: () => {
+    throw new Error('must not remove');
+  },
+};
+
+/**
+ * Execution context with inert defaults and a captured log.
+ *
+ * @param over - Overrides.
+ * @returns The context and its log lines.
+ */
+function setup(over: Partial<Context> = {}): { ctx: Context; log: string[] } {
+  const log: string[] = [];
+  return {
+    log,
+    ctx: {
+      runner: fakeRunner().runner,
+      fs: noFs,
+      tempFiles: fakeTempFiles().files,
+      serverConfig: noServerWrite,
+      log: (l) => log.push(l),
+      dryRun: false,
+      ...over,
+    },
+  };
+}
+
+describe('executePlan', () => {
+  it('logs a legacy dir that is already gone', async () => {
+    const { ctx, log } = setup();
+    await executePlan([{ kind: 'removeDir', path: '/gone' }], ctx);
+    expect(log).toEqual(['legacy plugin copy already gone: /gone']);
+  });
+
+  it('logs and runs an exec step', async () => {
+    const fake = fakeRunner();
+    const { ctx, log } = setup({ runner: fake.runner });
+    await executePlan(
+      [
+        {
+          kind: 'exec',
+          command: 'openclaw',
+          args: ['plugins', 'uninstall', 'a-openclaw', '--force'],
+        },
+      ],
+      ctx,
+    );
+    expect(log).toEqual(['$ openclaw plugins uninstall a-openclaw --force']);
+    expect(fake.lines()).toEqual([
+      'openclaw plugins uninstall a-openclaw --force',
+    ]);
+  });
+
+  it('skips repair commands when the uninstall left a clean config', async () => {
+    const fake = fakeRunner({
+      'openclaw config get plugins': ok('{"load":{"paths":[]}}'),
+    });
+    const { ctx } = setup({ runner: fake.runner, log: () => undefined });
+    await executePlan(
+      [
+        {
+          kind: 'repairAfterUninstall',
+          before: { load: { paths: [] } },
+          pluginIds: ['a-openclaw'],
+        },
+      ],
+      ctx,
+    );
+    expect(fake.lines()).toEqual(['openclaw config get plugins --json']);
+  });
+
+  it('passes a config batch as an owner-only temp file and deletes it', async () => {
+    const fake = fakeRunner();
+    const temp = fakeTempFiles('icacls exited 5');
+    const { ctx, log } = setup({ runner: fake.runner, tempFiles: temp.files });
+    await executePlan(
+      [
+        {
+          kind: 'configSetBatch',
+          ops: [{ path: 'plugins.entries.a.config.k', value: 's3cr3t' }],
+          redact: ['s3cr3t'],
+        },
+      ],
+      ctx,
+    );
+    expect(fake.calls).toHaveLength(1);
+    expect(fake.calls[0].args.slice(0, 3)).toEqual([
+      'config',
+      'set',
+      '--batch-file',
+    ]);
+    expect(fake.calls[0].args[3].replace(/\\/g, '/')).toBe(
+      '/tmp/jeeves-1/config-set.batch.json',
+    );
+    expect(temp.batch()).toEqual([
+      { path: 'plugins.entries.a.config.k', value: 's3cr3t' },
+    ]);
+    expect(temp.removed).toEqual(['/tmp/jeeves-1']);
+    expect(log.slice(0, 2)).toEqual([
+      '$ openclaw config set --batch-file <private temp file>',
+      '  batch file content: [{"path":"plugins.entries.a.config.k","value":"<redacted>"}]',
+    ]);
+    expect(log.join('\n')).not.toContain('s3cr3t');
+    expect(log.some((l) => l.startsWith('warning: could not restrict'))).toBe(
+      true,
+    );
+  });
+
+  it('retries a batch while a plugin converges, reusing one temp file', async () => {
+    const refusal = failed(
+      'Cannot edit retained config at "plugins.entries.a.config". Plugin "a" data/settings upgrade is unfinished: The configured plugin package is missing or has not converged.',
+    );
+    const fake = fakeRunner({
+      'openclaw config set --batch-file': [refusal, refusal, ok()],
+    });
+    const temp = fakeTempFiles();
+    const slept: number[] = [];
+    const { ctx, log } = setup({
+      runner: fake.runner,
+      tempFiles: temp.files,
+      sleep: (ms) => {
+        slept.push(ms);
+        return Promise.resolve();
+      },
+    });
+    await executePlan(
+      [{ kind: 'configSetBatch', ops: [{ path: 'x.y', value: 1 }] }],
+      ctx,
+    );
+    const write = 'openclaw config set --batch-file';
+    const sweep = 'openclaw plugins inspect --all --json';
+    expect(fake.lines().map((l) => (l.startsWith(write) ? write : l))).toEqual([
+      write,
+      sweep,
+      write,
+      sweep,
+      write,
+    ]);
+    const writes = fake.calls.filter((c) => c.args[0] === 'config');
+    expect(new Set(writes.map((c) => c.args[3])).size).toBe(1);
+    expect(temp.written).toHaveLength(1);
+    expect(temp.removed).toEqual(['/tmp/jeeves-1']);
+    expect(slept).toEqual([2_000, 4_000]);
+    expect(log.filter((l) => l.includes('retrying'))).toHaveLength(2);
+  });
+
+  it('sweeps before each wait, keeping the budget as a backstop', async () => {
+    const order: string[] = [];
+    const fake = fakeRunner({
+      'openclaw config set --batch-file': failed(
+        'Plugin "meta" data/settings upgrade is unfinished: x',
+      ),
+      'openclaw plugins inspect': failed('sweep broke'),
+    });
+    const { ctx, log } = setup({
+      runner: (command, args, options) => {
+        order.push(args[0] === 'plugins' ? 'sweep' : 'write');
+        return fake.runner(command, args, options);
+      },
+      sleep: () => {
+        order.push('sleep');
+        return Promise.resolve();
+      },
+    });
+    await expect(
+      executePlan(
+        [{ kind: 'configSetBatch', ops: [{ path: 'x.y', value: 1 }] }],
+        ctx,
+      ),
+    ).rejects.toThrow(/after 120s: plugin\(s\) meta/);
+    const retries = order.filter((o) => o === 'sleep').length;
+    expect(retries).toBeGreaterThan(0);
+    expect(order.join(',')).toBe(
+      [...Array<string>(retries).fill('write,sweep,sleep'), 'write'].join(','),
+    );
+    expect(log).toContain(
+      'plugin migration sweep failed (continuing): openclaw plugins inspect --all --json exited 1',
+    );
+  });
+
+  it('runs a migration sweep step without echo and never fails on it', async () => {
+    const fake = fakeRunner({ 'openclaw plugins inspect': failed('x', 3) });
+    const { ctx, log } = setup({ runner: fake.runner });
+    await executePlan([{ kind: 'migrationSweep' }], ctx);
+    expect(fake.lines()).toEqual(['openclaw plugins inspect --all --json']);
+    expect(log).toEqual([
+      '$ openclaw plugins inspect --all --json (lets OpenClaw clear pending plugin migrations)',
+      'plugin migration sweep failed (continuing): openclaw plugins inspect --all --json exited 3',
+    ]);
+  });
+
+  it('fails a batch immediately on any other error', async () => {
+    const fake = fakeRunner({
+      'openclaw config set --batch-file': failed('Config validation failed'),
+    });
+    const temp = fakeTempFiles();
+    const sleep = (): Promise<void> =>
+      Promise.reject(new Error('must not sleep'));
+    const { ctx } = setup({
+      runner: fake.runner,
+      tempFiles: temp.files,
+      sleep,
+    });
+    await expect(
+      executePlan(
+        [{ kind: 'configSetBatch', ops: [{ path: 'x.y', value: 1 }] }],
+        ctx,
+      ),
+    ).rejects.toThrow(/Config validation failed/);
+    expect(fake.calls).toHaveLength(1);
+    expect(temp.removed).toEqual(['/tmp/jeeves-1']);
+  });
+
+  it('retries a repair unset while a plugin converges', async () => {
+    const fake = fakeRunner({
+      'openclaw config get plugins': ok(
+        '{"entries":{"a-openclaw":{"enabled":false}}}',
+      ),
+      'openclaw config unset': [
+        failed('Plugin "b" data/settings upgrade is unfinished: x'),
+        ok(),
+      ],
+    });
+    const slept: number[] = [];
+    const { ctx } = setup({
+      runner: fake.runner,
+      log: () => undefined,
+      sleep: (ms) => {
+        slept.push(ms);
+        return Promise.resolve();
+      },
+    });
+    await executePlan(
+      [
+        {
+          kind: 'repairAfterUninstall',
+          before: {},
+          pluginIds: ['a-openclaw'],
+        },
+      ],
+      ctx,
+    );
+    expect(fake.lines().filter((l) => l.includes('unset'))).toHaveLength(2);
+    expect(slept).toEqual([2_000]);
+  });
+
+  it('writes the server key through the writer and logs no secret', async () => {
+    const writes: ServerKeyWrite[] = [];
+    const write: ServerKeyWrite = {
+      path: '/cfg/jeeves-server/config.json',
+      value: 's3cr3t',
+      expect: { kind: 'absent' },
+    };
+    const { ctx, log } = setup({
+      serverConfig: (w) => {
+        writes.push(w);
+        return Promise.resolve('/cfg/jeeves-server/config.json.bak-1');
+      },
+    });
+    await executePlan([{ kind: 'serverKeyWrite', write }], ctx);
+    expect(writes).toEqual([write]);
+    expect(log).toEqual([
+      'set keys._plugin in /cfg/jeeves-server/config.json (value not shown; backup: /cfg/jeeves-server/config.json.bak-1)',
+    ]);
+  });
+
+  it('dry run never calls the runner', async () => {
+    const fake = fakeRunner();
+    const temp = fakeTempFiles();
+    const { ctx, log } = setup({
+      runner: fake.runner,
+      tempFiles: temp.files,
+      dryRun: true,
+      sleep: () => Promise.reject(new Error('must not sleep')),
+    });
+    await executePlan(
+      [
+        {
+          kind: 'exec',
+          command: 'openclaw',
+          args: ['plugins', 'uninstall', 'a-openclaw', '--force'],
+        },
+        { kind: 'migrationSweep' },
+        { kind: 'configSetBatch', ops: [{ path: 'x.y', value: 1 }] },
+        { kind: 'repairAfterUninstall', before: {}, pluginIds: ['a-openclaw'] },
+        {
+          kind: 'serverKeyWrite',
+          write: { path: '/s.json', value: 'k3y', expect: { kind: 'absent' } },
+        },
+      ],
+      ctx,
+    );
+    expect(fake.calls).toEqual([]);
+    expect(temp.written).toEqual([]);
+    expect(log.slice(0, 4)).toEqual([
+      '[dry-run] openclaw plugins uninstall a-openclaw --force',
+      '[dry-run] openclaw plugins inspect --all --json (lets OpenClaw clear pending plugin migrations)',
+      '[dry-run] openclaw config set --batch-file <private temp file>',
+      '[dry-run]   batch file content: [{"path":"x.y","value":1}]',
+    ]);
+    expect(log.at(-1)).toMatch(
+      /^\[dry-run\] set keys\._plugin = <redacted> in \/s\.json \(currently unset;/,
+    );
+    expect(log.join('\n')).not.toContain('k3y');
+  });
+});

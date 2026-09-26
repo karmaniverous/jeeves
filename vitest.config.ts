@@ -26,7 +26,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.ts', '*.test.ts'],
     exclude: ['node_modules', '.rollup.cache'],
     coverage: {
       provider: 'v8',
