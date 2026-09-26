@@ -3,8 +3,8 @@
  * managed block in workspace file content. No I/O.
  *
  * @remarks
- * Used by jeeves-tools (render at instance creation / deploy) and by
- * `jeeves install` / `jeeves uninstall`. An existing block is replaced in
+ * Used by `jeeves install` / `jeeves uninstall`; exported for any tool that
+ * edits a managed block with its own marker set. An existing block is replaced in
  * place; a new block is inserted at the marker set's configured position.
  * User content outside the markers is preserved verbatim (trimmed).
  *

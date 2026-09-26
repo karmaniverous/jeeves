@@ -40,19 +40,19 @@ v1 retires everything in `@karmaniverous/jeeves` that wrote to a live workspace 
 
 ## Kept (unchanged or compatible)
 
-`init` / `getWorkspacePath` / `getConfigRoot` / `getComponentConfigDir`, `loadWorkspaceConfig`, `resolveWorkspacePath`, `resolvePluginSetting`, `resolveOptionalPluginSetting`, `getPackageVersion`, `getPackageRoot`, `createPluginToolset`, `ok` / `fail` / `connectionFail`, `fetchJson` / `postJson` / `fetchWithTimeout`, `JeevesComponentDescriptor` / `jeevesComponentDescriptorSchema`, the service-side handlers and CLI (`createServiceCli`, `createServiceManager`, `createConfigQueryHandler`, `createConfigApplyHandler`, `createStatusHandler`), discovery (`getServiceUrl`, `getBindAddress`, ports), `atomicWrite`, `withFileLock`, `analyzeMemory`, script utilities, and the `jeeves` CLI (`install`, `uninstall`, `status`, `config`; `install` now also installs plugins, and `update` is new).
+`init` / `getWorkspacePath` / `getConfigRoot` / `getComponentConfigDir`, `loadWorkspaceConfig`, `formatBeginMarker` (gains an optional `now` argument) / `formatEndMarker`, `resolveWorkspacePath`, `resolvePluginSetting`, `resolveOptionalPluginSetting`, `getPackageVersion`, `getPackageRoot`, `createPluginToolset`, `ok` / `fail` / `connectionFail`, `fetchJson` / `postJson` / `fetchWithTimeout`, `JeevesComponentDescriptor` / `jeevesComponentDescriptorSchema`, the service-side handlers and CLI (`createServiceCli`, `createServiceManager`, `createConfigQueryHandler`, `createConfigApplyHandler`, `createStatusHandler`), discovery (`getServiceUrl`, `getBindAddress`, ports), `atomicWrite`, `withFileLock`, `analyzeMemory`, script utilities, and the `jeeves` CLI (`install`, `uninstall`, `status`, `config`; `install` now also installs plugins, and `update` is new).
 
 ## Added
 
 | Export | Purpose |
 | --- | --- |
-| `renderManagedBlock`, `upsertManagedBlock`, `removeManagedBlock`, `formatBeginMarker`, `formatEndMarker` | Pure managed-block transforms |
+| `renderManagedBlock`, `upsertManagedBlock`, `removeManagedBlock`, `ManagedBlockStampOptions` | Pure managed-block transforms |
 | `validateSkillFrontmatter`, `SkillFrontmatter` | `name`/`description` check for skill build steps |
 | `validateConversationHooks`, `recordRegisteredHooks`, `CONVERSATION_HOOK_NAMES` | Build/test check that `package.json` `jeeves.conversationHooks` matches the conversation hooks the plugin registers |
 | `atomicWrite(path, content, { mode })` | Optional file mode for the written file (backward compatible) |
 | `jeeves update [packages...]`, `jeeves install [plugins...]`, plugin removal in `jeeves uninstall`, `--dry-run` on all three, `--force-reinstall` on install/update | Plugin install/update/removal through the OpenClaw CLI; an exact version that is already installed is not reinstalled (see README, CLI) |
 | `jeeves install` / `jeeves update` plugin config options: `--config-root` (shared), `--runner-api-url`, `--watcher-api-url`, `--server-api-url`, `--server-plugin-key`, `--meta-api-url`, `--plugin-config <file.json>` | Writes missing (or explicitly passed) `plugins.entries.<id>.config` values through an owner-only `--batch-file` (replaces the per-plugin `npx <plugin> install` config step) |
-| `registerPromptContext`, `promptContextOptionsSchema`, `PromptBuild*` types | `before_prompt_build` → `{ appendSystemContext }` |
+| `registerPromptContext`, `promptContextOptionsSchema`, `PromptContextOptions`, `PromptContextProvider`, `HookRegistrationOptions`, `PromptBuild*` types | `before_prompt_build` → `{ appendSystemContext }` |
 | `onPluginDispose`, `PluginLifecycleApi` | Tie resources to the plugin lifecycle |
 | `PluginApi.on`, `.lifecycle`, `.logger`, `.pluginConfig` | Typed subset of the OpenClaw 2026.9.x plugin API |
 
@@ -83,7 +83,7 @@ Re-running either command is cheap: a plugin already installed at the resolved v
 
 `jeeves install` and `jeeves update` write each plugin's `plugins.entries.<id>.config`:
 
-- `configRoot` is required. It comes from `--config-root`, then the existing value, then `JEEVES_CONFIG_ROOT` or `jeeves.config.json`. With none of them, the command fails before writing anything and lists the missing options.
+- `configRoot` is required. It comes from `--config-root`, then `--plugin-config`, then the existing value, then `JEEVES_CONFIG_ROOT` or `jeeves.config.json`. With none of them, the command fails before writing anything and lists the missing options.
 - `apiUrl` defaults to the service's local port.
 - The server `pluginKey` is kept equal to the server's `keys._plugin` in `{configRoot}/jeeves-server/config.json`: the plugin takes the server's key; a server without one gets the plugin's key, or a newly generated one written to both ends; different keys on the two ends fail before any change unless you pass `--server-plugin-key`, which writes both. A server config write is backed up (`config.json.bak-<timestamp>`) and atomic, changes only `keys._plugin`, and needs a jeeves-server restart. Keys are shown only as `<redacted>`. See README, _Server plugin key_.
 

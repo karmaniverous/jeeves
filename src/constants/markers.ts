@@ -2,8 +2,8 @@
  * Comment markers delimiting Jeeves managed content blocks in SOUL.md and AGENTS.md.
  *
  * @remarks
- * Managed content is enclosed in HTML comment markers so that re-rendering at
- * deploy time can replace the Jeeves block in place while leaving user content
+ * Managed content is enclosed in HTML comment markers so that re-rendering by
+ * `jeeves install` can replace the Jeeves block in place while leaving user content
  * outside the markers untouched. Marker text is unchanged from v0.x so that
  * blocks written by earlier versions are recognised and replaced.
  *

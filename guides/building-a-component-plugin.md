@@ -69,7 +69,7 @@ init({ workspacePath, configRoot });
 
 This caches the workspace and config root paths. All namespaced paths derive from these values:
 
-- `{configRoot}/jeeves-core/` — core config, templates, component versions state
+- `{configRoot}/jeeves-core/` — core config and reference templates
 - `{configRoot}/jeeves-{name}/` — component-specific config
 
 ## Step 4: Describe the Component
@@ -91,9 +91,7 @@ export const descriptor: JeevesComponentDescriptor =
     defaultPort: 1936,
     configSchema: watcherConfigSchema,
     configFileName: 'config.json',
-    initTemplate: () => ({
-      /* default config */
-    }),
+    initTemplate: () => ({/* default config */}),
     startCommand: (configPath) => ['node', serviceEntry, '-c', configPath],
     run: async (configPath) => startService(configPath),
   });
@@ -176,10 +174,13 @@ export default function register(api: PluginApi): void {
 - **Check the declaration in a test.** An undeclared hook installs cleanly and then never runs, so fail the build instead:
 
   ```typescript
+  import { readFileSync } from 'node:fs';
+
   import {
     recordRegisteredHooks,
     validateConversationHooks,
   } from '@karmaniverous/jeeves';
+  import { expect, it } from 'vitest';
 
   import register from './index.js';
 
@@ -273,6 +274,11 @@ The core config lives at `{configRoot}/jeeves-core/`.
 ## Testing Your Plugin
 
 ```typescript
+import type { PluginApi, PromptBuildHandler } from '@karmaniverous/jeeves';
+import { expect, vi } from 'vitest';
+
+import register from './index.js';
+
 const hooks: unknown[][] = [];
 const api: PluginApi = {
   registerTool: vi.fn(),

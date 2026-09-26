@@ -13,12 +13,19 @@ package "OpenClaw Gateway" as gw {
   [jeeves-meta-openclaw] as meta_plugin
 }
 
-package "@karmaniverous/jeeves" as lib {
-  [Static Platform\nContent] as content
-  [Plugin SDK\n(tools, prompt context,\nlifecycle)] as sdk
-  [Service Discovery] as discovery
-  [Config Resolution] as config
+package "@karmaniverous/jeeves" as pkg {
+  package "library" as lib {
+    [Plugin SDK\n(tools, prompt context,\nlifecycle)] as sdk
+    [Service Discovery] as discovery
+    [Config Resolution] as config
+  }
+  package "jeeves CLI" as cli {
+    [Static Platform\nContent] as content
+    [Plugin install\n(openclaw CLI)] as installer
+  }
 }
+
+installer ..> gw : openclaw plugins install
 
 runner_plugin -down-> lib : bundles
 watcher_plugin -down-> lib : bundles

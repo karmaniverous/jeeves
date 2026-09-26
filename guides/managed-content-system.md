@@ -56,8 +56,8 @@ The content bodies, the skills and the templates are private to the `jeeves` CLI
 - Replacing an existing block keeps content before and after it where it was.
 - Inserting a new block uses the marker set's `position`; an orphaned BEGIN marker (BEGIN without END) is stripped first.
 - For a fixed version the output is deterministic apart from the render time in the stamp.
-- `jeeves install --dry-run` lists every file it would write and writes nothing.
-- `jeeves uninstall` removes the blocks, plus any legacy TOOLS.md block. Nothing writes TOOLS.md any more.
+- `jeeves install --dry-run` lists what it would write (each managed block, the number of skills and templates, and the core config if it is new) and writes nothing.
+- `jeeves uninstall` removes the blocks (plus any legacy TOOLS.md block), the reference templates and the core `config.schema.json`. It leaves the platform skills and the core `config.json` in place. Nothing writes TOOLS.md any more.
 
 The generic, pure transforms stay in the library for any marker set: `renderManagedBlock`, `upsertManagedBlock`, `removeManagedBlock`, `parseManaged`, `formatBeginMarker`, `formatEndMarker`.
 
@@ -85,5 +85,5 @@ Each budget measures the full rendered block (markers, stamp, and title included
 
 ## File Helpers
 
-- **`atomicWrite(filePath, content)`**: temp file + rename, retrying EPERM on Windows.
+- **`atomicWrite(filePath, content, { mode? })`**: temp file + rename, retrying EPERM on Windows. With `mode`, the temp file gets exactly that mode before the rename.
 - **`withFileLock(filePath, fn, staleMs?)`**: cross-process advisory lock by atomic `mkdir` of `{file}.lock` (the same convention proper-lockfile used, so mixed-version holders exclude each other). Fails fast with `code: 'ELOCKED'`; takes over locks older than `STALE_LOCK_MS` (2 minutes). Registers no signal handlers and starts no timers.

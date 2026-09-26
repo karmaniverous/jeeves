@@ -26,7 +26,7 @@ Your OpenClaw workspace already has SOUL.md and AGENTS.md. `jeeves install` adds
 
 **[AGENTS.md](content/agents-section.md)** is how I work. Memory architecture, cost discipline, messaging protocols, operational gates for code quality and deployment safety. The procedural knowledge that keeps me effective across sessions.
 
-**[Platform skills](content/skills/)** are what I know about the platform itself: architecture, engineering standards, operations, playbooks. Live state (index size, job status, versions) is one tool call away, so none of it is baked into the prompt.
+**[Platform skills](https://github.com/karmaniverous/jeeves/tree/main/content/skills)** are what I know about the platform itself: architecture, engineering standards, operations, playbooks. Live state (index size, job status, versions) is one tool call away, so none of it is baked into the prompt.
 
 After that, I take over and start building out the rest of the platform with you.
 
@@ -195,7 +195,7 @@ Pre-defined marker sets: `SOUL_MARKERS`, `AGENTS_MARKERS`, and `LEGACY_TOOLS_MAR
 ### File Helpers
 
 - **`atomicWrite(filePath, content, { mode? })`**: temp file + rename, with EPERM retry on Windows. With `mode`, the temp file gets exactly that mode before the rename.
-- **`withFileLock(filePath, fn)`**: cross-process advisory lock via an atomic `mkdir` of `{file}.lock` (2-minute stale threshold, fails fast with `ELOCKED`). No signal handlers, no timers.
+- **`withFileLock(filePath, fn, staleMs?)`**: cross-process advisory lock via an atomic `mkdir` of `{file}.lock` (stale threshold `STALE_LOCK_MS`, 2 minutes; fails fast with `ELOCKED`). No signal handlers, no timers.
 
 ## Service Discovery
 
@@ -213,9 +213,12 @@ jeeves update [packages...]    # Update Jeeves plugins, fill in missing plugin c
 jeeves uninstall               # Remove managed blocks (incl. legacy TOOLS.md), artifacts and the Jeeves plugins
 jeeves status                  # Probe all service ports, report health + memory hygiene
 jeeves config [jsonpath]       # Print effective config with provenance
+jeeves <component> [args...]   # Proxy to jeeves-<component> (only for installed service CLIs)
 ```
 
-`install`, `update`, `uninstall` and `status` accept `--workspace <path>` and `--config-root <path>`.
+`install`, `update`, `uninstall`, `status` and `config` accept `-w, --workspace <path>` and `-c, --config-root <path>`. `status` also takes `-t, --timeout <ms>` (default 3000).
+
+At startup the CLI runs `npm ls -g --json --depth=0` and adds a proxy subcommand for each globally installed `@karmaniverous/jeeves-<name>` package that is not a `-openclaw` plugin (for example `jeeves runner ...` runs `jeeves-runner ...`).
 
 ### Install and update
 
@@ -230,7 +233,7 @@ Plugin specs can be short (`watcher`, `watcher@1.2.3`, `runner@^1`) or full (`@k
 
 `jeeves update` runs steps 2 to 4 for the named packages, or for every Jeeves plugin that has a `plugins.entries` record, at `latest`. It takes the same plugin options as `jeeves install` (including `--plugin-config` and `--force-reinstall`) and fills in missing plugin config with the same precedence: existing values are kept unless you pass them, and a missing required value fails the command before anything changes.
 
-`jeeves uninstall` removes the managed blocks and platform artifacts, then runs `openclaw plugins uninstall <id> --force` for every Jeeves plugin that has a `plugins.entries` record (the plugins are useless without the rest of the platform). If OpenClaw is not installed, the plugin step is skipped. OpenClaw leaves `plugins.entries.<id> = { enabled: false }` behind and can delete `plugins.load`, so the CLI then unsets the leftover entry and restores `plugins.load` from its value before the uninstall.
+`jeeves uninstall` removes the SOUL.md/AGENTS.md managed blocks (and any legacy TOOLS.md block), the reference templates and the core `config.schema.json`, then runs `openclaw plugins uninstall <id> --force` for every Jeeves plugin that has a `plugins.entries` record (the plugins are useless without the rest of the platform). If OpenClaw is not installed, the plugin step is skipped. OpenClaw leaves `plugins.entries.<id> = { enabled: false }` behind and can delete `plugins.load`, so the CLI then unsets the leftover entry and restores `plugins.load` from its value before the uninstall. The platform skills under `skills/` and the core `config.json` are left in place.
 
 Plugin changes take effect when the gateway next starts. The CLI tells you to restart it; it never restarts the gateway itself, because it can't know how you run it (console, service, container). There is no `--restart` option.
 
@@ -291,7 +294,7 @@ A server config write is planned first and runs before any `openclaw` command. U
 
 ### Dry run and failures
 
-Every mutating command takes `--dry-run`. A dry run prints the files it would write, the exact `openclaw` commands, and the content of each batch file, and runs only read-only queries (`openclaw --version`, `openclaw config get plugins --json`, `openclaw plugins inspect --all --json`, `npm view`):
+Every mutating command takes `--dry-run`. A dry run prints what it would write (each managed block, the number of skills and templates, and the core config if it is new), the plugin config, the exact `openclaw` commands, and the content of each batch file. It runs only read-only queries (`openclaw --version`, `openclaw config get plugins --json`, `openclaw plugins inspect --all --json`, `npm view`, plus the startup `npm ls -g` above):
 
 ```text
 $ jeeves install watcher --dry-run

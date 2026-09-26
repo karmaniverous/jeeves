@@ -2,11 +2,12 @@
  * `@karmaniverous/jeeves` — Shared library and CLI for the Jeeves platform.
  *
  * @remarks
- * Provides the static platform content (SOUL/AGENTS managed sections,
- * platform skills, templates) as pure data and render functions, service
- * discovery, config resolution, the `JeevesComponentDescriptor` schema, and
- * OpenClaw plugin helpers (tool toolset, `before_prompt_build` prompt context,
- * lifecycle disposal). Importing it registers no process handlers or timers.
+ * Provides service discovery, config resolution, the
+ * `JeevesComponentDescriptor` schema, pure managed-block primitives, service
+ * handlers, and OpenClaw plugin helpers (tool toolset, `before_prompt_build`
+ * prompt context, conversation-hook checks, lifecycle disposal). The static
+ * platform content is internal to the `jeeves` CLI and not exported.
+ * Importing it registers no process handlers or timers.
  *
  * @packageDocumentation
  */

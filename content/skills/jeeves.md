@@ -50,7 +50,7 @@ Scripts use utilities from `@karmaniverous/jeeves` (general) and `@karmaniverous
 
 ## Platform Content
 
-Core ships **static** platform content, rendered once into the workspace at instance creation (by jeeves-tools or `npx @karmaniverous/jeeves install`) and re-rendered on deploy:
+Core ships **static** platform content, rendered into the workspace by `jeeves install` (on managed instances jeeves-tools runs it over SSH) and re-rendered only on upgrade:
 
 - **SOUL.md** and **AGENTS.md**: a managed block between `<!-- BEGIN JEEVES … -->` / `<!-- END JEEVES … -->` markers. Never edit inside the markers; put local content outside them.
 - **Platform skills** under `skills/` (this skill, `coding`, `operations`, `playbooks`, `slack-bot-provisioner`).
@@ -63,10 +63,12 @@ Nothing rewrites these files at runtime. Live state (index size, job status, ver
 Component plugins are standard OpenClaw plugins:
 
 ```bash
-openclaw plugins install npm:@karmaniverous/jeeves-{component}-openclaw@<version> --pin --accept-capabilities --force
-openclaw plugins update
-openclaw plugins inspect --json
+jeeves install [plugins...]   # content, then per plugin: openclaw plugins install npm:@karmaniverous/jeeves-{component}-openclaw@<version> --pin --accept-capabilities --force
+jeeves update [packages...]   # the same plugin path, no content changes
+openclaw plugins inspect --all --json
 ```
+
+Prefer `jeeves install` / `jeeves update` over raw `openclaw plugins` commands: they also write the plugin config and the hook grant. Add `--dry-run` to see the exact commands first.
 
 Plugins that inject prompt rules need `plugins.entries.<id>.hooks.allowConversationAccess: true`; `jeeves install` / `jeeves update` grant it to plugins whose `package.json` declares `jeeves.conversationHooks`. Never hand-edit `~/.openclaw/extensions/` or `plugins.installs`.
 

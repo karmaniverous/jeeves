@@ -34,11 +34,11 @@ Knowledge synthesis engine that discovers `.meta/` directories in the filesystem
 
 Shared library and CLI that provides the substrate all components build on:
 
-- **Static platform content** — SOUL.md/AGENTS.md managed sections, platform skills, and reference templates as pure data, with pure render functions and test-enforced character budgets
 - **Plugin SDK** — canonical types (`PluginApi`, `ToolResult`, `ToolDescriptor`), result formatters (`ok`/`fail`/`connectionFail`), HTTP helpers (`fetchJson`/`postJson`), resolution utilities (`resolveWorkspacePath`/`resolvePluginSetting`), the `before_prompt_build` prompt-context helper (`registerPromptContext`), and lifecycle disposal (`onPluginDispose`)
 - **Service SDK** — service CLI, service manager, and transport-agnostic config query/apply and status handlers
 - **Service discovery** — URL and bind-address resolution
-- **CLI** — `jeeves install` renders the static content once; `status`, `config`, `uninstall`
+- **Managed-block primitives** — pure `renderManagedBlock` / `upsertManagedBlock` / `removeManagedBlock` / `parseManaged`, `atomicWrite` and `withFileLock`
+- **CLI** — `jeeves install` renders the static platform content (SOUL.md/AGENTS.md managed blocks, platform skills, reference templates; CLI-internal, with test-enforced character budgets) and installs the component plugins; `jeeves update` updates the plugins; `uninstall`, `status`, `config`
 
 ## How Components Interact
 
@@ -88,7 +88,7 @@ Jeeves isn't just software — he works with people. On any given day, Jeeves mi
 
 ![Component Architecture](../diagrams/out/component-architecture.png)
 
-Each component plugin bundles its own copy of `@karmaniverous/jeeves` as a regular dependency. No shared singleton, no install-order constraints. Version skew is managed via semver and version-stamp convergence.
+Each component plugin bundles its own copy of `@karmaniverous/jeeves` as a regular dependency. No shared singleton, no install-order constraints. Version skew is managed via semver. The static platform content is not part of that bundle: only the `jeeves` CLI renders it.
 
 ## Port Assignments
 
@@ -128,7 +128,7 @@ An optional `jeeves.config.json` at the workspace root provides shared defaults 
 
 Resolution precedence: **CLI flags → environment variables → `jeeves.config.json` → defaults**. The `jeeves config [jsonpath]` command prints the effective resolved values with per-key provenance tracking.
 
-A JSON Schema file (`jeeves.config.schema.json`) is generated alongside `jeeves.config.json` during install, providing IDE autocomplete and validation.
+`generateWorkspaceJsonSchema()` returns a JSON Schema for the file; save it as `jeeves.config.schema.json` next to `jeeves.config.json` and point `$schema` at it for IDE autocomplete and validation. `jeeves install` does not write it.
 
 ## Memory Hygiene
 
