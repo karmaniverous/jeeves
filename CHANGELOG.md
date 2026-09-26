@@ -6,10 +6,16 @@ All notable changes to this project will be documented in this file.
 
 ### 💼 Other
 
+- [108] feat!: createPluginToolset options argument is required
+## [0.6.0-4] - 2026-09-26
+
+### 💼 Other
+
 - [108] fix: createPluginToolset calls the plugin's apiUrl, defaultPort only as fallback
 
 createPluginToolset(descriptor, { apiUrl }) accepts a string or a per-call
 resolver; unset falls back to http://127.0.0.1:<defaultPort>.
+- [108] chore: release v0.6.0-4
 ## [0.6.0-3] - 2026-09-26
 
 ### 💼 Other
