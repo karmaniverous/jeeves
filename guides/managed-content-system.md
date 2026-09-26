@@ -4,7 +4,7 @@ title: Managed Content System
 
 # Managed Content System
 
-Jeeves contributes a small amount of **static** content to each OpenClaw workspace: a managed block in SOUL.md, a managed block in AGENTS.md, and two reference templates. Core ships no skills. This guide covers what that content is, how it is rendered, and how it coexists with the owner's own content.
+Jeeves contributes a small amount of **static** content to each OpenClaw workspace: a managed block in SOUL.md and a managed block in AGENTS.md. Core ships no skills and no templates: the spec templates (`spec.md`, `spec-to-code-guide.md`) ship with the jeeves-coding skill in jeeves-tools. This guide covers what that content is, how it is rendered, and how it coexists with the owner's own content.
 
 Since v1 nothing rewrites workspace files at runtime. There is no timer, no TOOLS.md, no HEARTBEAT.md, and no cross-writer convergence. See [Migrating to v1](migrating-to-v1.md).
 
@@ -41,7 +41,7 @@ Marker sets: `SOUL_MARKERS`, `AGENTS_MARKERS` (both `position: 'bottom'`), and `
 
 ## Content Lives in the CLI
 
-The content bodies and the templates are private to the `jeeves` CLI. Markdown sources live in `content/` and are inlined into the CLI bundle at build time. The library does not export them, and nothing but `jeeves install` renders them. That keeps one writer for platform content (spec v1 §2.2, decision log #5).
+The content bodies are private to the `jeeves` CLI. Markdown sources live in `content/` and are inlined into the CLI bundle at build time. The library does not export them, and nothing but `jeeves install` renders them. That keeps one writer for platform content (spec v1 §2.2, decision log #5).
 
 `jeeves install` renders:
 
@@ -49,15 +49,14 @@ The content bodies and the templates are private to the `jeeves` CLI. Markdown s
 | --- | --- |
 | SOUL managed block | `{workspace}/SOUL.md` (inserted or replaced in place) |
 | AGENTS managed block | `{workspace}/AGENTS.md` (inserted or replaced in place) |
-| Reference templates | `{configRoot}/jeeves-core/templates/` |
 | Core config (only if missing) | `{configRoot}/jeeves-core/config.json` |
 
 - Replacing an existing block keeps content before and after it where it was.
 - Inserting a new block uses the marker set's `position`; an orphaned BEGIN marker (BEGIN without END) is stripped first.
 - For a fixed version the output is deterministic apart from the render time in the stamp.
-- `jeeves install --dry-run` lists what it would write (each managed block, the number of templates, and the core config if it is new) and writes nothing.
-- `jeeves uninstall` removes the blocks (plus any legacy TOOLS.md block), the reference templates and the core `config.schema.json`. It leaves the core `config.json` in place. Nothing writes TOOLS.md any more.
-- Neither `jeeves install` nor `jeeves uninstall` touches `{workspace}/skills/`: install writes no skills, and skill folders written by v0.x are never deleted.
+- `jeeves install --dry-run` lists what it would write (each managed block and the core config if it is new) and writes nothing.
+- `jeeves uninstall` removes the blocks (plus any legacy TOOLS.md block) and the core `config.schema.json`. It leaves the core `config.json` in place. Nothing writes TOOLS.md any more.
+- Neither `jeeves install` nor `jeeves uninstall` touches `{workspace}/skills/` or `{configRoot}/jeeves-core/templates/`: install writes no skills or templates, and skill folders and templates written by v0.x are never deleted.
 
 The generic, pure transforms stay in the library for any marker set: `renderManagedBlock`, `upsertManagedBlock`, `removeManagedBlock`, `parseManaged`, `formatBeginMarker`, `formatEndMarker`.
 

@@ -38,7 +38,7 @@ Shared library and CLI that provides the substrate all components build on:
 - **Service SDK** — service CLI, service manager, and transport-agnostic config query/apply and status handlers
 - **Service discovery** — URL and bind-address resolution
 - **Managed-block primitives** — pure `renderManagedBlock` / `upsertManagedBlock` / `removeManagedBlock` / `parseManaged`, `atomicWrite` and `withFileLock`
-- **CLI** — `jeeves install` renders the static platform content (SOUL.md/AGENTS.md managed blocks, reference templates; CLI-internal, with test-enforced character budgets) and installs the component plugins; `jeeves update` updates the plugins; `uninstall`, `status`, `config`
+- **CLI** — `jeeves install` renders the static platform content (SOUL.md/AGENTS.md managed blocks; CLI-internal, with test-enforced character budgets) and installs the component plugins; `jeeves update` updates the plugins; `uninstall`, `status`, `config`
 
 ## How Components Interact
 
@@ -103,10 +103,9 @@ Each component plugin bundles its own copy of `@karmaniverous/jeeves` as a regul
 
 ```
 {configRoot}/
-  jeeves-core/                ← Core config + templates
+  jeeves-core/                ← Core config
     config.json               ← Service URLs, owners
     config.schema.json        ← JSON Schema for IDE autocomplete
-    templates/                ← Spec skeleton, dev practice guide
   jeeves-watcher/             ← Watcher-specific config
   jeeves-runner/              ← Runner-specific config
   jeeves-server/              ← Server-specific config
