@@ -195,7 +195,7 @@ Pre-defined marker sets: `SOUL_MARKERS`, `AGENTS_MARKERS`, and `LEGACY_TOOLS_MAR
 ### File Helpers
 
 - **`atomicWrite(filePath, content, { mode? })`**: temp file + rename, with EPERM retry on Windows. With `mode`, the temp file gets exactly that mode before the rename.
-- **`withFileLock(filePath, fn, staleMs?)`**: cross-process advisory lock via an atomic `mkdir` of `{file}.lock` (stale threshold `STALE_LOCK_MS`, 2 minutes; fails fast with `ELOCKED`). No signal handlers, no timers.
+- **`withFileLock(filePath, fn, staleMs?)`**: cross-process advisory lock via an atomic `mkdir` of `{file}.lock` (stale threshold `STALE_LOCK_MS`, 2 minutes; stale takeovers are serialised through a `{file}.lock.takeover` guard; fails fast with `ELOCKED`). No signal handlers, no timers, so the lock is not refreshed while held: keep `fn` a short read-modify-write.
 
 ## Service Discovery
 

@@ -118,7 +118,7 @@ Each component plugin bundles its own copy of `@karmaniverous/jeeves` as a regul
 
 ## Lifecycle Hygiene
 
-Core registers no process signal handlers and starts no timers, so any process that loads a Jeeves plugin (the gateway, or a one-shot `openclaw plugins inspect`) can exit on its own. Plugins tie any background work to `api.lifecycle` via `onPluginDispose`. `withFileLock` (used by service-side config persistence) is an atomic-`mkdir` lock with a 2-minute stale threshold and no process hooks.
+Core registers no process signal handlers and starts no timers, so any process that loads a Jeeves plugin (the gateway, or a one-shot `openclaw plugins inspect`) can exit on its own. Plugins tie any background work to `api.lifecycle` via `onPluginDispose`. `withFileLock` (used by service-side config persistence) is an atomic-`mkdir` lock with a 2-minute stale threshold, a guarded stale takeover and no process hooks or timers; callbacks are short read-modify-writes.
 
 ## Workspace Configuration
 

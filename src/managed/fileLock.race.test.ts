@@ -1,7 +1,7 @@
 /**
  * Lock acquisition races that cannot be staged with real files: the holder
  * releasing between our `mkdir` and `stat`, another process re-taking a
- * stale lock, and unexpected `stat` errors.
+ * stale lock during a takeover, and unexpected `mkdir`/`stat` errors.
  */
 
 import * as fs from 'node:fs';
@@ -28,6 +28,8 @@ const eexist = () => {
   throw errno('EEXIST');
 };
 const oldStat = () => ({ mtimeMs: Date.now() - 10_000 }) as fs.Stats;
+const freshStat = () => ({ mtimeMs: Date.now() }) as fs.Stats;
+const real = await vi.importActual<typeof fs>('node:fs');
 
 describe('withFileLock races', () => {
   let target: string;
@@ -67,19 +69,90 @@ describe('withFileLock races', () => {
     expect(fn).not.toHaveBeenCalled();
   });
 
-  it('takes over a stale lock only once', async () => {
+  it('never removes a lock another process re-took before the takeover', async () => {
+    vi.mocked(fs.mkdirSync).mockImplementationOnce(eexist);
+    vi.mocked(fs.statSync)
+      .mockImplementationOnce(oldStat)
+      .mockImplementationOnce(freshStat);
+    const fn = vi.fn();
+    await expect(withFileLock(target, fn, 1_000)).rejects.toMatchObject({
+      code: 'ELOCKED',
+    });
+    // Only the takeover guard is removed, never the lock itself.
+    expect(vi.mocked(fs.rmSync).mock.calls).toEqual([
+      [`${target}.lock.takeover`, { recursive: true, force: true }],
+    ]);
+    expect(fn).not.toHaveBeenCalled();
+  });
+
+  it('takes the lock when the stale holder released during the takeover', async () => {
+    vi.mocked(fs.mkdirSync).mockImplementationOnce(eexist);
+    vi.mocked(fs.statSync)
+      .mockImplementationOnce(oldStat)
+      .mockImplementationOnce(() => {
+        throw errno('ENOENT');
+      });
+    const fn = vi.fn();
+    await withFileLock(target, fn, 1_000);
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(real.existsSync(`${target}.lock`)).toBe(false);
+    expect(real.existsSync(`${target}.lock.takeover`)).toBe(false);
+  });
+
+  it('reports ELOCKED when another process wins the re-create', async () => {
     vi.mocked(fs.mkdirSync)
       .mockImplementationOnce(eexist)
+      .mockImplementationOnce(real.mkdirSync)
       .mockImplementationOnce(eexist);
     vi.mocked(fs.statSync).mockImplementation(oldStat);
     const fn = vi.fn();
     await expect(withFileLock(target, fn, 1_000)).rejects.toMatchObject({
       code: 'ELOCKED',
     });
-    expect(fs.mkdirSync).toHaveBeenCalledTimes(2);
-    // The second holder's (now fresh-looking) lock is never removed.
-    expect(fs.rmSync).toHaveBeenCalledTimes(1);
+    expect(real.existsSync(`${target}.lock.takeover`)).toBe(false);
     expect(fn).not.toHaveBeenCalled();
+  });
+
+  it('propagates an unexpected re-create error and drops the guard', async () => {
+    vi.mocked(fs.mkdirSync)
+      .mockImplementationOnce(eexist)
+      .mockImplementationOnce(real.mkdirSync)
+      .mockImplementationOnce(() => {
+        throw errno('EACCES');
+      });
+    vi.mocked(fs.statSync).mockImplementation(oldStat);
+    await expect(withFileLock(target, vi.fn(), 1_000)).rejects.toMatchObject({
+      code: 'EACCES',
+    });
+    expect(real.existsSync(`${target}.lock.takeover`)).toBe(false);
+  });
+
+  it('propagates an unexpected guard error', async () => {
+    vi.mocked(fs.mkdirSync)
+      .mockImplementationOnce(eexist)
+      .mockImplementationOnce(() => {
+        throw errno('EACCES');
+      });
+    vi.mocked(fs.statSync).mockImplementation(oldStat);
+    await expect(withFileLock(target, vi.fn(), 1_000)).rejects.toMatchObject({
+      code: 'EACCES',
+    });
+    expect(fs.rmSync).not.toHaveBeenCalled();
+  });
+
+  it('reports ELOCKED when the guard is released before it can be checked', async () => {
+    vi.mocked(fs.mkdirSync)
+      .mockImplementationOnce(eexist)
+      .mockImplementationOnce(eexist);
+    vi.mocked(fs.statSync)
+      .mockImplementationOnce(oldStat)
+      .mockImplementationOnce(() => {
+        throw errno('ENOENT');
+      });
+    await expect(withFileLock(target, vi.fn(), 1_000)).rejects.toMatchObject({
+      code: 'ELOCKED',
+    });
+    expect(fs.rmSync).not.toHaveBeenCalled();
   });
 
   it('propagates an unexpected stat error', async () => {

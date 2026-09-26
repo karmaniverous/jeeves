@@ -73,6 +73,42 @@ describe('withFileLock', () => {
     await withFileLock(target, fn, 1_000);
     expect(fn).toHaveBeenCalledTimes(1);
     expect(existsSync(lockPath)).toBe(false);
+    expect(existsSync(`${lockPath}.takeover`)).toBe(false);
+  });
+
+  it('backs off while another process holds the takeover guard', async () => {
+    const lockPath = `${target}.lock`;
+    mkdirSync(lockPath);
+    mkdirSync(`${lockPath}.takeover`);
+    const old = new Date(Date.now() - 10_000);
+    utimesSync(lockPath, old, old);
+
+    await expect(withFileLock(target, vi.fn(), 1_000)).rejects.toMatchObject({
+      code: 'ELOCKED',
+    });
+    expect(existsSync(lockPath)).toBe(true);
+    expect(existsSync(`${lockPath}.takeover`)).toBe(true);
+  });
+
+  it('clears a takeover guard abandoned by a crash', async () => {
+    const lockPath = `${target}.lock`;
+    const guardPath = `${lockPath}.takeover`;
+    mkdirSync(lockPath);
+    mkdirSync(guardPath);
+    const old = new Date(Date.now() - 10_000);
+    utimesSync(lockPath, old, old);
+    utimesSync(guardPath, old, old);
+
+    const fn = vi.fn();
+    await expect(withFileLock(target, fn, 1_000)).rejects.toMatchObject({
+      code: 'ELOCKED',
+    });
+    expect(existsSync(guardPath)).toBe(false);
+    expect(existsSync(lockPath)).toBe(true);
+
+    await withFileLock(target, fn, 1_000);
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(existsSync(lockPath)).toBe(false);
   });
 
   it('propagates an unexpected lock error without running fn', async () => {

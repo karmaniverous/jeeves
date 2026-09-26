@@ -11,7 +11,11 @@
  * The lock directory name (`{file}.lock`) matches proper-lockfile's
  * convention, so v0.x holders and this implementation exclude each other
  * during a mixed-version rollout. A lock whose mtime is older than
- * {@link STALE_LOCK_MS} is considered abandoned and is taken over.
+ * {@link STALE_LOCK_MS} is considered abandoned and is taken over; takeovers
+ * are serialised through a `{file}.lock.takeover` guard so a freshly
+ * re-taken lock is never deleted. The lock's mtime is not refreshed while it
+ * is held (that would need a timer), so callbacks must finish well within
+ * the stale threshold: they are meant to be a short read-modify-write.
  *
  * @module
  */
@@ -35,6 +39,64 @@ class FileLockedError extends Error {
 }
 
 /**
+ * Age of a lock directory in ms, or `undefined` when it does not exist.
+ *
+ * @param lockPath - Lock directory path.
+ * @returns Milliseconds since the directory's mtime.
+ */
+function lockAgeMs(lockPath: string): number | undefined {
+  try {
+    return Date.now() - statSync(lockPath).mtimeMs;
+  } catch (err: unknown) {
+    if (getErrorCode(err) === 'ENOENT') return undefined;
+    throw err;
+  }
+}
+
+/**
+ * Take over a stale lock, serialised through the `{lock}.takeover` guard.
+ *
+ * @remarks
+ * Holding the guard, the lock's age is re-checked before it is removed and
+ * re-created, so a lock that another process freshly took (after our first
+ * `stat`) is never deleted. A guard left behind by a crash is removed once
+ * it is itself stale; that attempt still reports the lock as held.
+ *
+ * @param lockPath - Lock directory path.
+ * @param staleMs - Stale threshold in ms.
+ * @returns `true` when the lock is now ours.
+ */
+function takeOver(lockPath: string, staleMs: number): boolean {
+  const guardPath = `${lockPath}.takeover`;
+  try {
+    mkdirSync(guardPath);
+  } catch (err: unknown) {
+    if (getErrorCode(err) !== 'EEXIST') throw err;
+    const guardAge = lockAgeMs(guardPath);
+    if (guardAge !== undefined && guardAge >= staleMs) {
+      rmSync(guardPath, { recursive: true, force: true });
+    }
+    return false;
+  }
+  try {
+    const ageMs = lockAgeMs(lockPath);
+    if (ageMs !== undefined) {
+      if (ageMs < staleMs) return false;
+      rmSync(lockPath, { recursive: true, force: true });
+    }
+    try {
+      mkdirSync(lockPath);
+      return true;
+    } catch (err: unknown) {
+      if (getErrorCode(err) !== 'EEXIST') throw err;
+      return false;
+    }
+  } finally {
+    rmSync(guardPath, { recursive: true, force: true });
+  }
+}
+
+/**
  * Try to create the lock directory, taking over a stale lock once.
  *
  * @param lockPath - Lock directory path.
@@ -48,16 +110,11 @@ function acquire(lockPath: string, filePath: string, staleMs: number): void {
       return;
     } catch (err: unknown) {
       if (getErrorCode(err) !== 'EEXIST') throw err;
-      let ageMs: number;
-      try {
-        ageMs = Date.now() - statSync(lockPath).mtimeMs;
-      } catch (statErr: unknown) {
-        // Released between mkdir and stat — retry.
-        if (getErrorCode(statErr) === 'ENOENT') continue;
-        throw statErr;
-      }
-      if (ageMs < staleMs || attempt > 0) throw new FileLockedError(filePath);
-      rmSync(lockPath, { recursive: true, force: true });
+      const ageMs = lockAgeMs(lockPath);
+      // Released between mkdir and stat — retry.
+      if (ageMs === undefined) continue;
+      if (ageMs >= staleMs && takeOver(lockPath, staleMs)) return;
+      throw new FileLockedError(filePath);
     }
   }
   throw new FileLockedError(filePath);
@@ -69,7 +126,9 @@ function acquire(lockPath: string, filePath: string, staleMs: number): void {
  * @remarks
  * Fails fast (no retries) with an `ELOCKED` error when the lock is held,
  * matching the v0.x behaviour. The lock is always released in a `finally`
- * block. The target file need not exist.
+ * block. The target file need not exist. `fn` must complete well within
+ * `staleMs`: the lock is not refreshed while held, so a longer callback can
+ * be taken over by another process.
  *
  * @param filePath - Absolute path to the file to lock.
  * @param fn - Callback to execute while holding the lock.
