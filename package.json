@@ -133,7 +133,7 @@
   },
   "type": "module",
   "types": "dist/index.d.ts",
-  "version": "0.6.0-2",
+  "version": "0.6.0-3",
   "allowScripts": {
     "lefthook": true
   }
