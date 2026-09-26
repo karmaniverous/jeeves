@@ -6,7 +6,13 @@ All notable changes to this project will be documented in this file.
 
 ### 💼 Other
 
+- [108] fix: declare @commander-js/extra-typings as a runtime dependency and guard .d.ts imports
+## [0.6.0-5] - 2026-09-26
+
+### 💼 Other
+
 - [108] feat!: createPluginToolset options argument is required
+- [108] chore: release v0.6.0-5
 ## [0.6.0-4] - 2026-09-26
 
 ### 💼 Other
