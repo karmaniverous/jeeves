@@ -10,6 +10,7 @@ import fs from 'fs-extra';
 import type { InputOptions, RollupOptions } from 'rollup';
 import dtsPlugin from 'rollup-plugin-dts';
 
+import { dtsDependencyGuardPlugin } from './rollup-plugin-dts-deps.js';
 import { mdPlugin } from './rollup-plugin-md.js';
 
 const require = createRequire(import.meta.url);
@@ -89,7 +90,7 @@ export const buildLibrary = (dest: string): RollupOptions => ({
 export const buildTypes = (dest: string): RollupOptions => ({
   input: 'src/index.ts',
   output: [{ file: `${dest}/index.d.ts`, format: 'esm' }],
-  plugins: [dtsPlugin()],
+  plugins: [dtsPlugin(), dtsDependencyGuardPlugin(pkg)],
 });
 
 /** Assemble complete config: library, types, and CLI outputs. */

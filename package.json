@@ -7,6 +7,7 @@
     "url": "https://github.com/karmaniverous/jeeves/issues"
   },
   "dependencies": {
+    "@commander-js/extra-typings": "^15.0.0",
     "commander": "^15.0.0",
     "cross-spawn": "^7.0.6",
     "jsonpath-plus": "^11.0.0",
@@ -16,7 +17,6 @@
   },
   "description": "Shared library and CLI for the Jeeves AI assistant platform.",
   "devDependencies": {
-    "@commander-js/extra-typings": "^15.0.0",
     "@dotenvx/dotenvx": "^2.30.0",
     "@eslint/js": "^10.0.1",
     "@rollup/plugin-alias": "^6.0.0",
