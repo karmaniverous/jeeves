@@ -10,8 +10,9 @@
  * temp file, passed with `--batch-file`, and deleted afterwards. Config
  * writes (batches and unsets) are retried with bounded backoff only while
  * OpenClaw reports that a freshly installed plugin has not converged yet
- * (see {@link withConvergenceRetry}); the batch file is kept for the retries
- * and deleted once.
+ * (see {@link withConvergenceRetry}); before each wait the migration sweep
+ * runs again (see {@link runMigrationSweep}), and the batch file is kept for
+ * the retries and deleted once.
  *
  * @module
  */
@@ -26,6 +27,7 @@ import {
 } from './convergenceRetry.js';
 import { describeConfigBatchLines, describeStep } from './describeStep.js';
 import type { LegacyFs } from './legacyExtensions.js';
+import { runMigrationSweep } from './migrationSweep.js';
 import {
   BATCH_FILE_NAME,
   configBatchPayload,
@@ -68,6 +70,7 @@ const retryingConfigWrite = (
   withConvergenceRetry(action, {
     sleep: ctx.sleep ?? timerSleep,
     log: ctx.log,
+    beforeRetry: () => runMigrationSweep(ctx.runner, ctx.log),
   });
 
 /** Run one command (echoing its output), logging its command line first. */
@@ -123,6 +126,9 @@ async function executeStep(
       return;
     case 'configSetBatch':
       await runConfigBatch(ctx, step.ops, step.redact);
+      return;
+    case 'migrationSweep':
+      await runMigrationSweep(ctx.runner, ctx.log);
       return;
     case 'removeDir':
       if (ctx.fs.isDirectory(step.path)) {

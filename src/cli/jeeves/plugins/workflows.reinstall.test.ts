@@ -55,8 +55,16 @@ describe('installPlugins: already installed', () => {
     await installPlugins(deps, parsePluginSpecs(['watcher']), {
       forceReinstall: true,
     });
-    expect(fake.lines().some((l) => l.includes('plugins inspect'))).toBe(false);
-    expect(installs(fake.lines())).toHaveLength(1);
+    const lines = fake.lines();
+    const firstInstall = lines.findIndex((l) =>
+      / plugins install /.test(` ${l} `),
+    );
+    expect(firstInstall).toBeGreaterThanOrEqual(0);
+    // Only the post-install migration sweep may inspect; no install-record read.
+    expect(
+      lines.slice(0, firstInstall).some((l) => l.includes('plugins inspect')),
+    ).toBe(false);
+    expect(installs(lines)).toHaveLength(1);
   });
 
   it.each([

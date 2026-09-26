@@ -289,7 +289,13 @@ describe('jeeves install (plugin config)', () => {
     writeServer(join(dir, 'cfg'), { keys: {} });
     await run('-c', join(dir, 'cfg'), '--force-reinstall');
     const lines = state.fake?.lines() ?? [];
-    expect(lines.some((l) => l.includes('plugins inspect'))).toBe(false);
-    expect(lines.some((l) => / plugins install /.test(` ${l} `))).toBe(true);
+    const firstInstall = lines.findIndex((l) =>
+      / plugins install /.test(` ${l} `),
+    );
+    expect(firstInstall).toBeGreaterThanOrEqual(0);
+    // Only the post-install migration sweep may inspect; no install-record read.
+    expect(
+      lines.slice(0, firstInstall).some((l) => l.includes('plugins inspect')),
+    ).toBe(false);
   });
 });

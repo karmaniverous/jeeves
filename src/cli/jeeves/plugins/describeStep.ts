@@ -8,6 +8,7 @@
 
 import { formatCommand } from './commandLine.js';
 import { entryPath, restoreLoadOp } from './configPatch.js';
+import { MIGRATION_SWEEP_LINE } from './migrationSweep.js';
 import {
   BATCH_FILE_PLACEHOLDER,
   CONFIG_SET_BATCH_FILE,
@@ -64,6 +65,8 @@ export function describeStep(step: PlanStep): string[] {
       return [formatCommand(step.command, step.args)];
     case 'configSetBatch':
       return describeConfigBatchLines(step.ops, step.redact);
+    case 'migrationSweep':
+      return [MIGRATION_SWEEP_LINE];
     case 'removeDir':
       return [`remove legacy plugin copy: ${step.path}`];
     case 'serverKeyWrite':

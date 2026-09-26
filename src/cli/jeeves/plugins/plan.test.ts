@@ -34,9 +34,13 @@ describe('buildInstallPlan', () => {
       'exec',
       'exec',
       'removeDir',
+      'migrationSweep',
       'configSetBatch',
     ]);
     expect(describeStep(steps[3])).toEqual([
+      'openclaw plugins inspect --all --json (lets OpenClaw clear pending plugin migrations)',
+    ]);
+    expect(describeStep(steps[4])).toEqual([
       'openclaw config set --batch-file <private temp file>',
       expect.stringMatching(/^ {2}batch file content: \[/) as string,
     ]);
@@ -78,6 +82,14 @@ describe('buildInstallPlan', () => {
     expect(buildInstallPlan([], {})).toEqual([]);
   });
 
+  it('plans no migration sweep when there is no config to write', () => {
+    const steps = buildInstallPlan(
+      [target('runner', '1.0.0', { conversationHooks: [] })],
+      {},
+    );
+    expect(steps.map((s) => s.kind)).toEqual(['exec']);
+  });
+
   it('appends plugin config to the hook batch and redacts secrets', () => {
     const steps = buildInstallPlan(
       [target('server', '1.0.0')],
@@ -94,7 +106,8 @@ describe('buildInstallPlan', () => {
         unknownPluginIds: [],
       },
     );
-    const batch = steps[1];
+    expect(steps[1]).toEqual({ kind: 'migrationSweep' });
+    const batch = steps[2];
     expect(batch).toMatchObject({
       kind: 'configSetBatch',
       redact: ['topsecret'],
@@ -134,6 +147,7 @@ describe('buildInstallPlan', () => {
     expect(steps.map((s) => s.kind)).toEqual([
       'serverKeyWrite',
       'exec',
+      'migrationSweep',
       'configSetBatch',
     ]);
     const shown = describeStep(steps[0]).join('\n');

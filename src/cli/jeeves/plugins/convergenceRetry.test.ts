@@ -115,6 +115,41 @@ describe('withConvergenceRetry', () => {
     ]);
   });
 
+  it('runs beforeRetry after each refusal, before the wait', async () => {
+    const h = harness();
+    const order: string[] = [];
+    let calls = 0;
+    await withConvergenceRetry(
+      () => {
+        order.push('write');
+        calls++;
+        return calls <= 2
+          ? Promise.reject(failure(OPENCLAW_REFUSAL))
+          : Promise.resolve();
+      },
+      {
+        log: h.options.log,
+        sleep: (ms) => {
+          order.push(`sleep ${String(ms)}`);
+          return Promise.resolve();
+        },
+        beforeRetry: () => {
+          order.push('sweep');
+          return Promise.resolve();
+        },
+      },
+    );
+    expect(order).toEqual([
+      'write',
+      'sweep',
+      'sleep 2000',
+      'write',
+      'sweep',
+      'sleep 4000',
+      'write',
+    ]);
+  });
+
   it('rethrows any other error immediately', async () => {
     const h = harness();
     const error = failure('Config validation failed');

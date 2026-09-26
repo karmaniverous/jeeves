@@ -11,7 +11,9 @@
  * `Cannot edit retained config at "<path>". Plugin "<id>" data/settings upgrade is unfinished: <reason> ...`
  *
  * Only that signal is retried, with exponential backoff inside a fixed wait
- * budget; any other failure is rethrown at once. Config writes are idempotent
+ * budget; before each wait the optional `beforeRetry` hook runs (the plan
+ * executor uses it to let OpenClaw clear pending migration records, see
+ * `migrationSweep.ts`, since a refused `config set` never clears them); any other failure is rethrown at once. Config writes are idempotent
  * leaf sets/unsets, so repeating one is safe.
  *
  * @module
@@ -92,6 +94,8 @@ export interface ConvergenceRetryOptions {
   log: (line: string) => void;
   /** Backoff policy (default {@link DEFAULT_CONVERGENCE_RETRY}). */
   policy?: ConvergenceRetryPolicy;
+  /** Runs after each refusal, before the wait (not after the last one). */
+  beforeRetry?: () => Promise<void>;
 }
 
 /**
@@ -99,7 +103,7 @@ export interface ConvergenceRetryOptions {
  * still converging.
  *
  * @param action - The write.
- * @param options - Sleep, logger, policy.
+ * @param options - Sleep, logger, policy, pre-retry hook.
  * @throws The original error for any other failure; an `Error` naming the
  *   plugins still converging once the budget is spent.
  */
@@ -126,6 +130,7 @@ export async function withConvergenceRetry(
       options.log(
         `OpenClaw has not finished converging plugin(s) ${plugins.join(', ')}; retrying in ${String(delay / 1000)}s (retry ${String(attempt + 1)}/${String(delays.length)})`,
       );
+      await options.beforeRetry?.();
       await options.sleep(delay);
       waited += delay;
     }

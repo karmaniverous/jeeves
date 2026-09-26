@@ -38,6 +38,10 @@ export type PlanStep =
       /** Secret values to redact from logs and errors. */
       redact?: string[];
     }
+  | {
+      /** Let OpenClaw clear pending plugin migrations (best effort). */
+      kind: 'migrationSweep';
+    }
   | { kind: 'removeDir'; path: string }
   | { kind: 'serverKeyWrite'; write: ServerKeyWrite }
   | {
@@ -81,6 +85,8 @@ const openclaw = (args: string[]): PlanStep => ({
  * @returns The server `keys._plugin` write (if planned; first, so a failure
  *   there, e.g. a held lock, leaves OpenClaw untouched), then install steps
  *   (targets not yet installed at their version), then legacy removals, then
+ *   (when there is config to write) a migration sweep so OpenClaw clears the
+ *   pending migration records it keeps for freshly installed plugins, then
  *   one config batch with hook access (only for targets that declare
  *   conversation hooks) and plugin config. Re-running after a later failure
  *   converges: the server then has the key and the plugin side copies it.
@@ -112,6 +118,7 @@ export function buildInstallPlan(
   ];
   if (ops.length > 0) {
     const secrets = config?.secrets ?? [];
+    steps.push({ kind: 'migrationSweep' });
     steps.push({
       kind: 'configSetBatch',
       ops,
