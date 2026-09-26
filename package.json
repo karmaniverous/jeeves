@@ -135,6 +135,6 @@
   "types": "dist/index.d.ts",
   "version": "0.5.12",
   "allowScripts": {
-    "lefthook@2.1.14": true
+    "lefthook": true
   }
 }
