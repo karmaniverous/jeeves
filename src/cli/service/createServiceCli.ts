@@ -202,8 +202,11 @@ export function createServiceCli(
     .option('-n, --name <name>', 'Service name', defaultServiceName)
     .action((opts) => {
       try {
-        svcManager.install({ name: opts.name, configPath: opts.config });
-        console.log(`Service "${opts.name}" installed.`);
+        const result = svcManager.install({
+          name: opts.name,
+          configPath: opts.config,
+        });
+        console.log(result.message);
       } catch (err: unknown) {
         handleCommandError('Install', err);
       }

@@ -172,11 +172,15 @@ export function createPluginToolset(
           return Promise.resolve(ok({ service: name, state }));
         }
 
+        if (action === 'install') {
+          const { existing, message } = svcManager.install();
+          return Promise.resolve(
+            ok({ service: name, action, success: true, existing, message }),
+          );
+        }
+
         // Call the appropriate method
         const methodMap: Record<string, () => void> = {
-          install: () => {
-            svcManager.install();
-          },
           uninstall: () => {
             svcManager.uninstall();
           },

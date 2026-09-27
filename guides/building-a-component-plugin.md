@@ -114,6 +114,8 @@ const tools = createPluginToolset(descriptor, {
 
 An unset or empty `apiUrl` (or a resolver returning `undefined`) falls back to `http://127.0.0.1:<defaultPort>`; trailing slashes are stripped.
 
+The `{name}_service` tool uses `createServiceManager`. On Linux it manages an existing system unit in place: `install` is a no-op that reports the unit, and start/stop/restart use `sudo -n systemctl`. Without a system unit it uses a user unit and first checks for a user bus. The README's Service Management section has the details.
+
 ### Plugin config
 
 Read settings from `plugins.entries.<id>.config` with `resolvePluginSetting` / `resolveOptionalPluginSetting`. `jeeves install` writes them. It writes only the keys in its registry (`src/cli/jeeves/plugins/pluginConfigSchema.ts`), because every Jeeves manifest `configSchema` sets `additionalProperties: false`. When you add a key, ship it in the manifest and add it to that registry in the same release: say whether it is required, give its default, name its CLI option, and mark it secret if it is one. `configRoot` is shared by every plugin and comes from `--config-root`.

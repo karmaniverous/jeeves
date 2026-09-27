@@ -5,6 +5,8 @@
  * Produces a `ServiceManager` that handles install, uninstall, start,
  * stop, restart, and status for system services. Delegates to NSSM
  * (Windows), systemd (Linux), or launchd (macOS) based on platform.
+ * On Linux an existing system unit is detected and managed in place
+ * (see `createLinuxManager`).
  */
 
 import { execSync } from 'node:child_process';
@@ -13,36 +15,20 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 import type { JeevesComponentDescriptor } from '../component/descriptor.js';
-import { getEffectiveServiceName } from '../component/descriptor.js';
+import { getServiceState } from '../discovery/getServiceState.js';
+import { createLinuxManager } from './linuxManager.js';
 import {
-  getServiceState,
-  type ServiceState,
-} from '../discovery/getServiceState.js';
-import { getComponentConfigDir } from '../init.js';
+  installedResult,
+  resolveConfigFilePath,
+  resolveServiceName,
+  type ServiceManager,
+} from './serviceTypes.js';
 
-/** Options for service manager commands that accept a service name override. */
-export interface ServiceManagerOptions {
-  /** Override the default service name. */
-  name?: string;
-  /** Override config path for install. */
-  configPath?: string;
-}
-
-/** Service lifecycle manager produced by the factory. */
-export interface ServiceManager {
-  /** Install the service with the system service manager. */
-  install(options?: ServiceManagerOptions): void;
-  /** Uninstall the service from the system service manager. */
-  uninstall(options?: ServiceManagerOptions): void;
-  /** Start the service. */
-  start(options?: ServiceManagerOptions): void;
-  /** Stop the service. */
-  stop(options?: ServiceManagerOptions): void;
-  /** Restart the service (stop + start). */
-  restart(options?: ServiceManagerOptions): void;
-  /** Query the service state. */
-  status(options?: ServiceManagerOptions): ServiceState;
-}
+export type {
+  ServiceInstallResult,
+  ServiceManager,
+  ServiceManagerOptions,
+} from './serviceTypes.js';
 
 /** Exec helper that returns stdout. */
 function run(cmd: string): string {
@@ -67,36 +53,6 @@ function runQuiet(cmd: string): boolean {
   }
 }
 
-/**
- * Resolve the effective service name from options and descriptor.
- *
- * @param descriptor - Component descriptor.
- * @param options - Optional overrides.
- * @returns The service name to use.
- */
-function resolveServiceName(
-  descriptor: JeevesComponentDescriptor,
-  options?: ServiceManagerOptions,
-): string {
-  return options?.name ?? getEffectiveServiceName(descriptor);
-}
-
-/**
- * Resolve the config path for install.
- *
- * @param descriptor - Component descriptor.
- * @param options - Optional overrides.
- * @returns Absolute config file path.
- */
-function resolveConfigFilePath(
-  descriptor: JeevesComponentDescriptor,
-  options?: ServiceManagerOptions,
-): string {
-  if (options?.configPath) return options.configPath;
-  const configDir = getComponentConfigDir(descriptor.name);
-  return join(configDir, descriptor.configFileName);
-}
-
 /** Build a Windows NSSM service manager. */
 function createWindowsManager(
   descriptor: JeevesComponentDescriptor,
@@ -117,6 +73,7 @@ function createWindowsManager(
       run(`nssm set ${svcName} AppStderr ${join(homedir(), `${svcName}.log`)}`);
       run(`nssm set ${svcName} AppRotateFiles 1`);
       run(`nssm set ${svcName} AppRotateBytes 1048576`);
+      return installedResult(svcName);
     },
     uninstall(options) {
       const svcName = resolveServiceName(descriptor, options);
@@ -134,79 +91,6 @@ function createWindowsManager(
     restart(options) {
       const svcName = resolveServiceName(descriptor, options);
       run(`nssm restart ${svcName}`);
-    },
-    status(options) {
-      const svcName = resolveServiceName(descriptor, options);
-      return getServiceState(svcName);
-    },
-  };
-}
-
-/**
- * Generate a systemd user unit file.
- *
- * @param svcName - Service name.
- * @param cmdArgs - Command + args array.
- * @returns Unit file content.
- */
-function buildSystemdUnit(svcName: string, cmdArgs: string[]): string {
-  const execStart = cmdArgs.join(' ');
-  return [
-    '[Unit]',
-    `Description=${svcName}`,
-    'After=network.target',
-    '',
-    '[Service]',
-    'Type=simple',
-    `ExecStart=${execStart}`,
-    'Restart=on-failure',
-    'RestartSec=5',
-    '',
-    '[Install]',
-    'WantedBy=default.target',
-  ].join('\n');
-}
-
-/** Build a Linux systemd service manager. */
-function createLinuxManager(
-  descriptor: JeevesComponentDescriptor,
-): ServiceManager {
-  const unitDir = join(homedir(), '.config', 'systemd', 'user');
-
-  function unitPath(svcName: string): string {
-    return join(unitDir, `${svcName}.service`);
-  }
-
-  return {
-    install(options) {
-      const svcName = resolveServiceName(descriptor, options);
-      const cfgPath = resolveConfigFilePath(descriptor, options);
-      const cmdArgs = descriptor.startCommand(cfgPath);
-
-      mkdirSync(unitDir, { recursive: true });
-      writeFileSync(unitPath(svcName), buildSystemdUnit(svcName, cmdArgs));
-      run('systemctl --user daemon-reload');
-      run(`systemctl --user enable ${svcName}.service`);
-    },
-    uninstall(options) {
-      const svcName = resolveServiceName(descriptor, options);
-      runQuiet(`systemctl --user stop ${svcName}.service`);
-      runQuiet(`systemctl --user disable ${svcName}.service`);
-      const path = unitPath(svcName);
-      if (existsSync(path)) unlinkSync(path);
-      runQuiet('systemctl --user daemon-reload');
-    },
-    start(options) {
-      const svcName = resolveServiceName(descriptor, options);
-      run(`systemctl --user start ${svcName}.service`);
-    },
-    stop(options) {
-      const svcName = resolveServiceName(descriptor, options);
-      run(`systemctl --user stop ${svcName}.service`);
-    },
-    restart(options) {
-      const svcName = resolveServiceName(descriptor, options);
-      run(`systemctl --user restart ${svcName}.service`);
     },
     status(options) {
       const svcName = resolveServiceName(descriptor, options);
@@ -267,6 +151,7 @@ function createMacOSManager(
 
       mkdirSync(agentsDir, { recursive: true });
       writeFileSync(plistPath(svcName), buildLaunchdPlist(svcName, cmdArgs));
+      return installedResult(svcName);
     },
     uninstall(options) {
       const svcName = resolveServiceName(descriptor, options);

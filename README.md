@@ -201,6 +201,13 @@ Pre-defined marker sets: `SOUL_MARKERS`, `AGENTS_MARKERS`, and `LEGACY_TOOLS_MAR
 
 - **`getServiceUrl(serviceName, consumerName?)`** — resolves a service URL via: consumer config → core config → default port constants.
 
+## Service Management
+
+`createServiceManager(descriptor)` backs each component's `service` CLI and `{name}_service` tool (install, uninstall, start, stop, restart, status). It uses NSSM on Windows and a launchd agent on macOS. On Linux it first looks for a system unit named `<service>.service` (for example `/etc/systemd/system/jeeves-watcher.service`, the way jeeves-tools provisions managed instances):
+
+- **System unit exists:** `install` changes nothing and reports the unit (`{ existing: true, message }`). `status` reads the system unit (`systemctl is-active`). `start`, `stop` and `restart` run `sudo -n systemctl <verb> <unit>` (no sudo as root), which needs a passwordless sudoers rule for `/usr/bin/systemctl <verb> *`. When sudo refuses, the error names that rule. `uninstall` refuses, because core never removes, reloads or enables a system unit, and never creates a user unit next to one.
+- **No system unit:** core manages a user unit in `~/.config/systemd/user` with `systemctl --user`. First it checks that a user bus exists. When `XDG_RUNTIME_DIR` is unset, or `systemctl --user` cannot connect, the error gives the cause and both fixes: provision a system unit, or run `sudo loginctl enable-linger <user>`. You don't get the raw "Failed to connect to bus" error.
+
 ## Prerequisites
 
 - **Node.js >= 22** — the CLI enforces this at startup.

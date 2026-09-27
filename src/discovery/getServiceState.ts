@@ -4,9 +4,13 @@
  * @remarks
  * Detects whether a system service is installed and running.
  * Delegates to NSSM (Windows), systemd (Linux), or launchd (macOS).
+ * On Linux an existing system unit takes precedence over a user unit
+ * (see `getSystemdServiceState`).
  */
 
 import { execSync } from 'node:child_process';
+
+import { getSystemdServiceState } from './systemdUnit.js';
 
 /** Service states returned by getServiceState. */
 export type ServiceState = 'not_installed' | 'stopped' | 'running';
@@ -24,7 +28,7 @@ export function getServiceState(serviceName: string): ServiceState {
     case 'darwin':
       return getServiceStateMacOS(serviceName);
     default:
-      return getServiceStateLinux(serviceName);
+      return getSystemdServiceState(serviceName);
   }
 }
 
@@ -49,39 +53,6 @@ function getServiceStateWindows(serviceName: string): ServiceState {
     if (isExecError(err) && err.status === 3) return 'not_installed';
     // Any other error (nssm not found, timeout, etc.) — treat as not installed
     return 'not_installed';
-  }
-}
-
-/**
- * Linux: detect via systemd user services.
- * - `systemctl --user is-enabled {name}.service` exits non-zero = not installed
- * - `systemctl --user is-active {name}.service` returns "active" = running
- */
-function getServiceStateLinux(serviceName: string): ServiceState {
-  try {
-    execSync(`systemctl --user is-enabled ${serviceName}.service`, {
-      encoding: 'utf-8',
-      timeout: 5000,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-  } catch {
-    return 'not_installed';
-  }
-
-  try {
-    const output = execSync(
-      `systemctl --user is-active ${serviceName}.service`,
-      {
-        encoding: 'utf-8',
-        timeout: 5000,
-        stdio: ['pipe', 'pipe', 'pipe'],
-      },
-    ).trim();
-
-    if (output === 'active') return 'running';
-    return 'stopped';
-  } catch {
-    return 'stopped';
   }
 }
 

@@ -177,6 +177,7 @@ export {
 } from './scripts/index.js';
 export {
   createServiceManager,
+  type ServiceInstallResult,
   type ServiceManager,
   type ServiceManagerOptions,
 } from './service/index.js';

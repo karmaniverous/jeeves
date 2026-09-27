@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { init, resetInit } from '../init';
 
 const svc = vi.hoisted(() => ({
-  install: vi.fn(),
+  install: vi.fn(() => ({ existing: false, message: 'installed' })),
   uninstall: vi.fn(),
   start: vi.fn(),
   stop: vi.fn(),
@@ -242,6 +242,21 @@ describe('createPluginToolset', () => {
         expect(result.isError).toBeFalsy();
       },
     );
+
+    it('reports an existing system unit on install', async () => {
+      svc.install.mockReturnValueOnce({
+        existing: true,
+        message: 'already installed as system unit jeeves-watcher.service',
+      });
+      const result = await serviceTool().execute('id', { action: 'install' });
+      expect(JSON.parse(result.content[0].text)).toEqual({
+        service: 'watcher',
+        action: 'install',
+        success: true,
+        existing: true,
+        message: 'already installed as system unit jeeves-watcher.service',
+      });
+    });
 
     it('reports a failing action', async () => {
       svc.start.mockImplementationOnce(() => {
