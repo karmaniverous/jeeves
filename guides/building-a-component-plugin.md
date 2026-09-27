@@ -114,7 +114,7 @@ const tools = createPluginToolset(descriptor, {
 
 An unset or empty `apiUrl` (or a resolver returning `undefined`) falls back to `http://127.0.0.1:<defaultPort>`; trailing slashes are stripped.
 
-The `{name}_service` tool uses `createServiceManager`. On Linux it manages an existing system unit in place: `install` is a no-op that reports the unit, and start/stop/restart use `sudo -n systemctl`. Without a system unit it uses a user unit and first checks for a user bus. The README's Service Management section has the details.
+The `{name}_service` tool uses `createServiceManager`. On Linux it manages an existing system unit in place: `install` is a no-op that reports the unit, and start/stop/restart run plain `systemctl`, authorized by the polkit rule jeeves-tools installs (no sudo; the gateway runs with `NoNewPrivileges`). `status` names the unit and scope it read. Without a system unit it uses a user unit and first checks for a user bus. The README's Service Management section has the details.
 
 ### Plugin config
 

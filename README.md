@@ -205,8 +205,26 @@ Pre-defined marker sets: `SOUL_MARKERS`, `AGENTS_MARKERS`, and `LEGACY_TOOLS_MAR
 
 `createServiceManager(descriptor)` backs each component's `service` CLI and `{name}_service` tool (install, uninstall, start, stop, restart, status). It uses NSSM on Windows and a launchd agent on macOS. On Linux it first looks for a system unit named `<service>.service` (for example `/etc/systemd/system/jeeves-watcher.service`, the way jeeves-tools provisions managed instances):
 
-- **System unit exists:** `install` changes nothing and reports the unit (`{ existing: true, message }`). `status` reads the system unit (`systemctl is-active`). `start`, `stop` and `restart` run `sudo -n systemctl <verb> <unit>` (no sudo as root), which needs a passwordless sudoers rule for `/usr/bin/systemctl <verb> *`. When sudo refuses, the error names that rule. `uninstall` refuses, because core never removes, reloads or enables a system unit, and never creates a user unit next to one.
+- **System unit exists:** `install` changes nothing and reports the unit (`{ existing: true, message }`). `status` reads the system unit (`systemctl is-active`). `start`, `stop` and `restart` run plain `systemctl <verb> <unit>`, with no sudo. systemd authorizes the call through polkit, and jeeves-tools installs a polkit rule that lets the `jeeves` user manage `jeeves-*.service` units only. Core never uses sudo: the OpenClaw gateway runs with `NoNewPrivileges`, so sudo always fails inside it (`The "no new privileges" flag is set`). When polkit denies the call (`Interactive authentication required`, `Access denied`), the error names the missing polkit rule. `uninstall` refuses, because core never removes, reloads or enables a system unit, and never creates a user unit next to one.
 - **No system unit:** core manages a user unit in `~/.config/systemd/user` with `systemctl --user`. First it checks that a user bus exists. When `XDG_RUNTIME_DIR` is unset, or `systemctl --user` cannot connect, the error gives the cause and both fixes: provision a system unit, or run `sudo loginctl enable-linger <user>`. You don't get the raw "Failed to connect to bus" error.
+
+`status` returns the state only. `statusDetail` (used by the `{name}_service status` tool and the `service status` CLI) also names the unit and scope it read:
+
+```json
+{
+  "state": "running",
+  "installed": true,
+  "running": true,
+  "scope": "system",
+  "unit": "jeeves-runner.service"
+}
+```
+
+`scope` is `system` or `user` (a Windows service counts as `system`, a launchd agent as `user`) and is omitted when nothing is installed. On Windows `unit` is the NSSM service name; on macOS it is the launchd label.
+
+## Config Apply
+
+`createConfigApplyHandler(descriptor, configPath?)` backs each service's `POST /config/apply` and so the `{name}_config_apply` tool. It deep-merges the patch into the **raw** config file (or replaces it with `replace: true`), validates the merged object against `descriptor.configSchema`, and writes the merged object, not the schema's parsed output. Keys the schema doesn't know (`apiUrl`, `configRoot`, ...) survive, defaults are not written into the file, and existing key order is kept (new keys are appended). An invalid merge returns 400 and leaves the file untouched; so does an existing file that isn't a JSON object (500). The write goes through `atomicWrite` with the file's existing mode, so a 0600 file stays 0600, and a new file is created 0600 (modes aren't applied on Windows). The response `config` and the `onConfigApply` callback get the validated (parsed) config.
 
 ## Prerequisites
 
