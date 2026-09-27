@@ -99,8 +99,7 @@ describe('createConfigApplyHandler', () => {
       string,
       unknown
     >;
-    expect(written.port).toBe(2000);
-    expect(written.watchPaths).toEqual([]); // default from schema
+    expect(written).toEqual({ port: 2000 }); // no schema defaults written
   });
 
   it('should reject invalid config patches', async () => {
