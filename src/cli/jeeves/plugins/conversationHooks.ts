@@ -6,10 +6,10 @@
  * entry has `hooks.allowConversationAccess: true`
  * (v2026.9.6 `src/plugins/registry-registrars-tools-hooks.ts`,
  * `hook-policy-decisions.ts`; documented in `docs/gateway/config-extensions.md`
- * and `docs/plugins/hooks.md`; gateway log when missing: `typed hook
- * "before_prompt_build" blocked because non-bundled plugins must set
- * plugins.entries.<id>.hooks.allowConversationAccess=true`). OpenClaw exposes no static declaration of the
- * typed hooks a plugin registers: the manifest `hooks` field lists legacy
+ * and `docs/plugins/hooks.md`; gateway log when missing:
+ * `typed hook "before_prompt_build" blocked because non-bundled plugins must set plugins.entries.<id>.hooks.allowConversationAccess=true`).
+ * OpenClaw exposes no static declaration of the typed hooks a plugin
+ * registers: the manifest `hooks` field lists legacy
  * hook directories, and `plugins inspect --runtime` has to execute plugin
  * code and omits exactly the hooks that are blocked for lack of the grant.
  *
