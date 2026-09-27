@@ -39,7 +39,7 @@ describe('createLinuxManager', () => {
     const fake = fakeExec(script);
     const svc = createLinuxManager(
       makeTestDescriptor(),
-      { exec: fake.exec, env, isRoot: () => false },
+      { exec: fake.exec, env },
       unitDir,
     );
     return { svc, calls: fake.calls };
@@ -55,18 +55,25 @@ describe('createLinuxManager', () => {
       expect(existsSync(join(unitDir, UNIT))).toBe(false);
     });
 
-    it('status reads the system unit', () => {
+    it('status reads the system unit and names it', () => {
       const { svc } = manager({
         [SHOW]: 'loaded',
         [`systemctl is-active ${UNIT}`]: 'active',
       });
       expect(svc.status()).toBe('running');
+      expect(svc.statusDetail()).toEqual({
+        state: 'running',
+        installed: true,
+        running: true,
+        scope: 'system',
+        unit: UNIT,
+      });
     });
 
     it.each(['start', 'stop', 'restart'] as const)(
-      '%s uses sudo -n systemctl without a user bus',
+      '%s uses plain systemctl without a user bus',
       (verb) => {
-        const cmd = `sudo -n systemctl ${verb} ${UNIT}`;
+        const cmd = `systemctl ${verb} ${UNIT}`;
         const { svc, calls } = manager(
           { [SHOW]: 'loaded', [cmd]: '' },
           { USER: 'jeeves' },
@@ -76,16 +83,16 @@ describe('createLinuxManager', () => {
       },
     );
 
-    it('surfaces a non-interactive sudo failure', () => {
+    it('surfaces a polkit denial naming the missing rule', () => {
       const { svc } = manager({
         [SHOW]: 'loaded',
-        [`sudo -n systemctl stop ${UNIT}`]: execFailure(
-          'sudo: a password is required',
+        [`systemctl stop ${UNIT}`]: execFailure(
+          'Failed to stop jeeves-watcher.service: Interactive authentication required.',
         ),
       });
       expect(() => {
         svc.stop();
-      }).toThrow(/passwordless sudo/);
+      }).toThrow(/polkit rule.*NoNewPrivileges/);
     });
 
     it('uninstall refuses to touch the system unit', () => {
@@ -115,6 +122,12 @@ describe('createLinuxManager', () => {
     it('status reports not_installed', () => {
       const { svc } = manager({ [SHOW]: 'not-found' }, { USER: 'jeeves' });
       expect(svc.status()).toBe('not_installed');
+      expect(svc.statusDetail()).toEqual({
+        state: 'not_installed',
+        installed: false,
+        running: false,
+        unit: UNIT,
+      });
     });
   });
 
@@ -154,6 +167,21 @@ describe('createLinuxManager', () => {
         expect(calls).toEqual([SHOW, BUS, cmd]);
       },
     );
+
+    it('status names the user unit', () => {
+      const { svc } = manager({
+        [SHOW]: 'not-found',
+        [`systemctl --user is-enabled ${UNIT}`]: 'enabled',
+        [`systemctl --user is-active ${UNIT}`]: 'inactive',
+      });
+      expect(svc.statusDetail()).toEqual({
+        state: 'stopped',
+        installed: true,
+        running: false,
+        scope: 'user',
+        unit: UNIT,
+      });
+    });
 
     it('uninstall stops, disables and removes the user unit', () => {
       mkdirSync(unitDir, { recursive: true });

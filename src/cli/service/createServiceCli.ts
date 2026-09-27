@@ -270,8 +270,11 @@ export function createServiceCli(
     .option('-n, --name <name>', 'Service name', defaultServiceName)
     .action((opts) => {
       try {
-        const state = svcManager.status({ name: opts.name });
-        console.log(`Service "${opts.name}": ${state}`);
+        const { state, scope, unit } = svcManager.statusDetail({
+          name: opts.name,
+        });
+        const where = scope ? ` (${scope} unit ${unit})` : '';
+        console.log(`Service "${opts.name}": ${state}${where}`);
       } catch (err: unknown) {
         handleCommandError('Status', err);
       }

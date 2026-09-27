@@ -168,8 +168,8 @@ export function createPluginToolset(
 
       try {
         if (action === 'status') {
-          const state = svcManager.status();
-          return Promise.resolve(ok({ service: name, state }));
+          const status = svcManager.statusDetail();
+          return Promise.resolve(ok({ service: name, ...status }));
         }
 
         if (action === 'install') {

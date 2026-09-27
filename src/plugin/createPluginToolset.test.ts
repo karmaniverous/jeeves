@@ -13,6 +13,13 @@ const svc = vi.hoisted(() => ({
   stop: vi.fn(),
   restart: vi.fn(),
   status: vi.fn(() => 'running'),
+  statusDetail: vi.fn(() => ({
+    state: 'running',
+    installed: true,
+    running: true,
+    scope: 'system',
+    unit: 'jeeves-watcher.service',
+  })),
 }));
 
 vi.mock('../service/createServiceManager', () => ({
@@ -226,11 +233,15 @@ describe('createPluginToolset', () => {
         (t) => t.name === 'watcher_service',
       )!;
 
-    it('reports service status', async () => {
+    it('reports service status naming the unit and scope', async () => {
       const result = await serviceTool().execute('id', { action: 'status' });
       expect(JSON.parse(result.content[0].text)).toEqual({
         service: 'watcher',
         state: 'running',
+        installed: true,
+        running: true,
+        scope: 'system',
+        unit: 'jeeves-watcher.service',
       });
     });
 

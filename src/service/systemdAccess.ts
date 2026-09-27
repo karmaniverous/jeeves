@@ -5,10 +5,13 @@
  * - User scope: fail early with an actionable message when there is no user
  *   bus (typical for `useradd --system` accounts without linger), instead of
  *   surfacing systemctl's raw "Failed to connect to bus" error.
- * - System scope: run only `systemctl start|stop|restart <unit>` through
- *   non-interactive sudo, which is exactly what the jeeves-tools sudoers rule
- *   for the `jeeves` user allows (`/usr/bin/systemctl stop|start|restart|status *`).
- *   Core never writes system units, reloads or enables them.
+ * - System scope: run only plain `systemctl start|stop|restart <unit>`
+ *   (no sudo). systemd authorizes the call through polkit over D-Bus, which
+ *   also works inside the OpenClaw gateway, whose unit sets
+ *   `NoNewPrivileges=yes` (setuid sudo can never elevate there). jeeves-tools
+ *   installs the polkit rule that lets the `jeeves` user manage
+ *   `jeeves-*.service` units. Core never writes system units, reloads or
+ *   enables them.
  */
 
 import { type CommandExec, execErrorDetail } from '../discovery/systemdUnit.js';
@@ -19,16 +22,14 @@ export interface SystemdDeps {
   exec: CommandExec;
   /** Process environment (reads `XDG_RUNTIME_DIR`, `DBUS_SESSION_BUS_ADDRESS`, `USER`). */
   env: NodeJS.ProcessEnv;
-  /** Whether the process runs as root (then sudo is unnecessary). */
-  isRoot: () => boolean;
 }
 
 /** Lifecycle verbs core may run against a system unit. */
 export type SystemVerb = 'start' | 'stop' | 'restart';
 
-/** Output patterns sudo prints when a non-interactive command is refused. */
-const SUDO_REFUSED =
-  /password is required|not allowed to execute|may not run sudo|not in the sudoers/i;
+/** Output patterns systemctl prints when polkit denies a unit operation. */
+const POLKIT_DENIED =
+  /authentication required|access denied|not authori[sz]ed|permission denied/i;
 
 function userLabel(env: NodeJS.ProcessEnv): string {
   return env.USER ?? env.LOGNAME ?? 'this user';
@@ -49,7 +50,7 @@ export function assertUserBus(unit: string, deps: SystemdDeps): void {
         `Cannot manage ${unit} as a systemd user unit: ${reason}.`,
         `No system unit named ${unit} exists either.`,
         'Fix one of:',
-        `(1) have an administrator provision ${unit} as a system unit in /etc/systemd/system; it is then detected and managed with "sudo -n systemctl";`,
+        `(1) have an administrator provision ${unit} as a system unit in /etc/systemd/system; it is then detected and managed with plain "systemctl" (authorized by the jeeves-tools polkit rule);`,
         `(2) enable a user manager with "sudo loginctl enable-linger ${user}" and retry from a session where XDG_RUNTIME_DIR is set.`,
       ].join(' '),
       { cause },
@@ -74,30 +75,34 @@ export function assertUserBus(unit: string, deps: SystemdDeps): void {
  * Run a lifecycle verb against an existing system unit.
  *
  * @remarks
- * Uses `sudo -n systemctl <verb> <unit>` (plain `systemctl` when root).
- * `-n` makes sudo fail instead of prompting for a password.
+ * Runs plain `systemctl <verb> <unit>`; systemd asks polkit whether the
+ * caller may manage the unit. There is deliberately no sudo path: the
+ * gateway runs with `NoNewPrivileges=yes`, where sudo always fails, and a
+ * second privilege mechanism would only hide a missing polkit rule.
  *
  * @param verb - `start`, `stop` or `restart`.
  * @param unit - System unit name.
  * @param deps - Host dependencies.
- * @throws Error naming the missing sudoers rule when sudo refuses.
+ * @throws Error naming the missing polkit rule when authorization is denied.
  */
 export function runSystemVerb(
   verb: SystemVerb,
   unit: string,
   deps: SystemdDeps,
 ): void {
-  const root = deps.isRoot();
-  const cmd = root
-    ? `systemctl ${verb} ${unit}`
-    : `sudo -n systemctl ${verb} ${unit}`;
+  const cmd = `systemctl ${verb} ${unit}`;
   try {
     deps.exec(cmd);
   } catch (err: unknown) {
     const detail = execErrorDetail(err);
-    if (!root && SUDO_REFUSED.test(detail)) {
+    if (POLKIT_DENIED.test(detail)) {
       throw new Error(
-        `${unit} is a system unit and "${cmd}" was refused: passwordless sudo for "/usr/bin/systemctl ${verb} *" is not granted to "${userLabel(deps.env)}" (${detail}). Ask an administrator to run "sudo systemctl ${verb} ${unit}" or to grant that sudoers rule.`,
+        [
+          `${unit} is a system unit and "${cmd}" was not authorized (${detail}).`,
+          `It needs the polkit rule jeeves-tools installs, which lets user "${userLabel(deps.env)}" manage jeeves-*.service units (org.freedesktop.systemd1.manage-units).`,
+          'sudo cannot be used instead: the OpenClaw gateway runs with NoNewPrivileges, so sudo can never elevate.',
+          `Ask an administrator to install that rule, or to run "sudo systemctl ${verb} ${unit}" from a login shell.`,
+        ].join(' '),
         { cause: err },
       );
     }

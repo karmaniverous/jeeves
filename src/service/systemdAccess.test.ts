@@ -12,10 +12,9 @@ const UNIT = 'jeeves-watcher.service';
 function deps(
   script: Record<string, string | Error>,
   env: NodeJS.ProcessEnv = { USER: 'jeeves', XDG_RUNTIME_DIR: '/run/user/999' },
-  root = false,
 ): SystemdDeps & { calls: string[] } {
   const { exec, calls } = fakeExec(script);
-  return { exec, env, isRoot: () => root, calls };
+  return { exec, env, calls };
 }
 
 describe('assertUserBus', () => {
@@ -69,44 +68,49 @@ describe('assertUserBus', () => {
 
 describe('runSystemVerb', () => {
   it.each(['start', 'stop', 'restart'] as const)(
-    'runs sudo -n systemctl %s <unit>',
+    'runs plain systemctl %s <unit> (no sudo)',
     (verb) => {
-      const cmd = `sudo -n systemctl ${verb} ${UNIT}`;
+      const cmd = `systemctl ${verb} ${UNIT}`;
       const d = deps({ [cmd]: '' });
       runSystemVerb(verb, UNIT, d);
       expect(d.calls).toEqual([cmd]);
+      expect(d.calls.some((c) => c.includes('sudo'))).toBe(false);
     },
   );
 
-  it('skips sudo when running as root', () => {
-    const d = deps({ [`systemctl restart ${UNIT}`]: '' }, {}, true);
-    runSystemVerb('restart', UNIT, d);
-    expect(d.calls).toEqual([`systemctl restart ${UNIT}`]);
-  });
-
-  it('explains a non-interactive sudo refusal', () => {
-    const d = deps({
-      [`sudo -n systemctl restart ${UNIT}`]: execFailure(
-        'sudo: a password is required',
-      ),
-    });
-    expect(() => {
+  it.each([
+    'Failed to restart jeeves-watcher.service: Interactive authentication required.',
+    'Failed to restart jeeves-watcher.service: Access denied',
+    'Failed to restart jeeves-watcher.service: Permission denied',
+  ])('names the missing polkit rule when denied: %s', (stderr) => {
+    const d = deps({ [`systemctl restart ${UNIT}`]: execFailure(stderr) });
+    let message = '';
+    try {
       runSystemVerb('restart', UNIT, d);
-    }).toThrow(
-      /refused: passwordless sudo for "\/usr\/bin\/systemctl restart \*" is not granted to "jeeves" \(sudo: a password is required\)/,
+    } catch (err: unknown) {
+      message = (err as Error).message;
+    }
+    expect(message).toContain(
+      `"systemctl restart ${UNIT}" was not authorized (${stderr})`,
+    );
+    expect(message).toContain(
+      'polkit rule jeeves-tools installs, which lets user "jeeves" manage jeeves-*.service units',
+    );
+    expect(message).toContain(
+      'sudo cannot be used instead: the OpenClaw gateway runs with NoNewPrivileges',
     );
   });
 
   it('passes other failures through with the command', () => {
     const d = deps({
-      [`sudo -n systemctl start ${UNIT}`]: execFailure(
+      [`systemctl start ${UNIT}`]: execFailure(
         'Job for jeeves-watcher.service failed.',
       ),
     });
     expect(() => {
       runSystemVerb('start', UNIT, d);
     }).toThrow(
-      `"sudo -n systemctl start ${UNIT}" failed: Job for jeeves-watcher.service failed.`,
+      `"systemctl start ${UNIT}" failed: Job for jeeves-watcher.service failed.`,
     );
   });
 });

@@ -16,6 +16,7 @@ import { join } from 'node:path';
 
 import type { JeevesComponentDescriptor } from '../component/descriptor.js';
 import { getServiceState } from '../discovery/getServiceState.js';
+import { serviceStatus } from '../discovery/serviceStatus.js';
 import { createLinuxManager } from './linuxManager.js';
 import {
   installedResult,
@@ -96,6 +97,10 @@ function createWindowsManager(
       const svcName = resolveServiceName(descriptor, options);
       return getServiceState(svcName);
     },
+    statusDetail(options) {
+      const svcName = resolveServiceName(descriptor, options);
+      return serviceStatus(getServiceState(svcName), svcName, 'system');
+    },
   };
 }
 
@@ -175,6 +180,10 @@ function createMacOSManager(
     status(options) {
       const svcName = resolveServiceName(descriptor, options);
       return getServiceState(svcName);
+    },
+    statusDetail(options) {
+      const svcName = resolveServiceName(descriptor, options);
+      return serviceStatus(getServiceState(svcName), svcName, 'user');
     },
   };
 }

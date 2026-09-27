@@ -77,7 +77,9 @@ export {
   getBindAddress,
   getServiceState,
   getServiceUrl,
+  type ServiceScope,
   type ServiceState,
+  type ServiceStatus,
 } from './discovery/index.js';
 export {
   getComponentConfigDir,

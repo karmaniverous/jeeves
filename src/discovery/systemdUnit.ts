@@ -15,6 +15,7 @@
 import { execSync } from 'node:child_process';
 
 import type { ServiceState } from './getServiceState.js';
+import { type ServiceStatus, serviceStatus } from './serviceStatus.js';
 
 /**
  * Runs a shell command and returns its trimmed stdout.
@@ -116,27 +117,44 @@ function activeState(
 }
 
 /**
- * Detect the state of a Linux systemd service.
+ * Detect the status of a Linux systemd service, naming the unit it read.
  *
  * @remarks
  * System unit first (`systemctl is-active <unit>`), then the user unit
- * (`systemctl --user is-enabled` / `is-active`).
+ * (`systemctl --user is-enabled` / `is-active`). `scope` is set only when a
+ * unit was found.
  *
  * @param serviceName - Service name.
  * @param exec - Command runner.
- * @returns The detected service state.
+ * @returns The detected status with the unit and scope it came from.
+ */
+export function getSystemdServiceStatus(
+  serviceName: string,
+  exec: CommandExec = defaultExec,
+): ServiceStatus {
+  const unit = systemdUnitName(serviceName);
+  if (hasSystemUnit(serviceName, exec)) {
+    return serviceStatus(activeState('', unit, exec), unit, 'system');
+  }
+
+  try {
+    exec(`systemctl --user is-enabled ${unit}`);
+  } catch {
+    return serviceStatus('not_installed', unit);
+  }
+  return serviceStatus(activeState('--user ', unit, exec), unit, 'user');
+}
+
+/**
+ * Detect the state of a Linux systemd service.
+ *
+ * @param serviceName - Service name.
+ * @param exec - Command runner.
+ * @returns The detected service state (see {@link getSystemdServiceStatus}).
  */
 export function getSystemdServiceState(
   serviceName: string,
   exec: CommandExec = defaultExec,
 ): ServiceState {
-  const unit = systemdUnitName(serviceName);
-  if (hasSystemUnit(serviceName, exec)) return activeState('', unit, exec);
-
-  try {
-    exec(`systemctl --user is-enabled ${unit}`);
-  } catch {
-    return 'not_installed';
-  }
-  return activeState('--user ', unit, exec);
+  return getSystemdServiceStatus(serviceName, exec).state;
 }

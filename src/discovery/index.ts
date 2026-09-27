@@ -14,3 +14,4 @@ export {
 export { getBindAddress } from './getBindAddress.js';
 export { getServiceState, type ServiceState } from './getServiceState.js';
 export { getServiceUrl } from './getServiceUrl.js';
+export { type ServiceScope, type ServiceStatus } from './serviceStatus.js';

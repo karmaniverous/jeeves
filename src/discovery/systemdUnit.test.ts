@@ -4,6 +4,7 @@ import { execFailure, fakeExec } from '../test/fakeExec';
 import {
   execErrorDetail,
   getSystemdServiceState,
+  getSystemdServiceStatus,
   hasSystemUnit,
   systemdUnitName,
 } from './systemdUnit';
@@ -78,6 +79,47 @@ describe('getSystemdServiceState', () => {
     expect(getSystemdServiceState('jeeves-watcher', exec)).toBe(
       'not_installed',
     );
+  });
+});
+
+describe('getSystemdServiceStatus', () => {
+  it('names the system unit it read', () => {
+    const { exec } = fakeExec({
+      [SHOW]: 'loaded',
+      'systemctl is-active jeeves-watcher.service': 'active',
+    });
+    expect(getSystemdServiceStatus('jeeves-watcher', exec)).toEqual({
+      state: 'running',
+      installed: true,
+      running: true,
+      scope: 'system',
+      unit: 'jeeves-watcher.service',
+    });
+  });
+
+  it('names the user unit it read', () => {
+    const { exec } = fakeExec({
+      [SHOW]: 'not-found',
+      'systemctl --user is-enabled jeeves-watcher.service': 'enabled',
+      'systemctl --user is-active jeeves-watcher.service': 'active',
+    });
+    expect(getSystemdServiceStatus('jeeves-watcher', exec)).toEqual({
+      state: 'running',
+      installed: true,
+      running: true,
+      scope: 'user',
+      unit: 'jeeves-watcher.service',
+    });
+  });
+
+  it('omits the scope when nothing is installed', () => {
+    const { exec } = fakeExec({ [SHOW]: 'not-found' });
+    expect(getSystemdServiceStatus('jeeves-watcher', exec)).toEqual({
+      state: 'not_installed',
+      installed: false,
+      running: false,
+      unit: 'jeeves-watcher.service',
+    });
   });
 });
 

@@ -6,8 +6,9 @@
  * - **System unit present** (e.g. `/etc/systemd/system/jeeves-watcher.service`
  *   provisioned by jeeves-tools): install is a no-op that reports the unit,
  *   uninstall refuses, status reads the system unit, and start/stop/restart
- *   run `sudo -n systemctl <verb> <unit>`. Core never creates a competing
- *   user unit.
+ *   run plain `systemctl <verb> <unit>`, authorized by the polkit rule
+ *   jeeves-tools installs (sudo is unusable under the gateway's
+ *   `NoNewPrivileges`). Core never creates a competing user unit.
  * - **Otherwise**: a user unit in `~/.config/systemd/user` managed with
  *   `systemctl --user`, after checking that a user bus exists.
  */
@@ -20,7 +21,7 @@ import type { JeevesComponentDescriptor } from '../component/descriptor.js';
 import {
   type CommandExec,
   defaultExec,
-  getSystemdServiceState,
+  getSystemdServiceStatus,
   hasSystemUnit,
   systemdUnitName,
 } from '../discovery/systemdUnit.js';
@@ -67,7 +68,6 @@ function defaultDeps(): SystemdDeps {
   return {
     exec: defaultExec,
     env: process.env,
-    isRoot: () => process.getuid?.() === 0,
   };
 }
 
@@ -109,7 +109,7 @@ export function createLinuxManager(
       if (hasSystemUnit(svcName, exec)) {
         return {
           existing: true,
-          message: `Service "${svcName}" is already installed as system unit ${unit}; nothing to do. Manage it with start/stop/restart (sudo -n systemctl).`,
+          message: `Service "${svcName}" is already installed as system unit ${unit}; nothing to do. Manage it with start/stop/restart (systemctl, authorized by polkit).`,
         };
       }
       assertUserBus(unit, deps);
@@ -155,7 +155,13 @@ export function createLinuxManager(
       lifecycle('restart', options);
     },
     status(options) {
-      return getSystemdServiceState(
+      return getSystemdServiceStatus(
+        resolveServiceName(descriptor, options),
+        exec,
+      ).state;
+    },
+    statusDetail(options) {
+      return getSystemdServiceStatus(
         resolveServiceName(descriptor, options),
         exec,
       );

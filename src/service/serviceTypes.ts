@@ -11,6 +11,7 @@ import { join } from 'node:path';
 import type { JeevesComponentDescriptor } from '../component/descriptor.js';
 import { getEffectiveServiceName } from '../component/descriptor.js';
 import type { ServiceState } from '../discovery/getServiceState.js';
+import type { ServiceStatus } from '../discovery/serviceStatus.js';
 import { getComponentConfigDir } from '../init.js';
 
 /** Options for service manager commands that accept a service name override. */
@@ -46,6 +47,8 @@ export interface ServiceManager {
   restart(options?: ServiceManagerOptions): void;
   /** Query the service state. */
   status(options?: ServiceManagerOptions): ServiceState;
+  /** Query the service status, naming the unit and scope it was read from. */
+  statusDetail(options?: ServiceManagerOptions): ServiceStatus;
 }
 
 /**
