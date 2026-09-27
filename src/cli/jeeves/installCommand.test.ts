@@ -102,16 +102,16 @@ describe('jeeves install (plugin config)', () => {
     writeServer(cfg, { port: 1934, keys: { alice: 'a' } });
     await run('-c', cfg);
     expect(existsSync(join(ws, 'SOUL.md'))).toBe(true);
-    // Plugin config before the install (the plugin reads it on activation).
-    expect(state.temp?.batch(0)).toEqual([
+    // Plugin config and hook access in one batch before the install (the
+    // plugin reads both on activation).
+    expect(state.temp?.written).toHaveLength(1);
+    expect(batch()).toEqual([
       { path: `plugins.entries.${S}.config.configRoot`, value: resolve(cfg) },
       {
         path: `plugins.entries.${S}.config.apiUrl`,
         value: 'http://127.0.0.1:1934',
       },
       { path: `plugins.entries.${S}.config.pluginKey`, value: SEED },
-    ]);
-    expect(batch()).toEqual([
       {
         path: `plugins.entries.${S}.hooks.allowConversationAccess`,
         value: true,

@@ -16,6 +16,7 @@ import {
   type ConfigSetOperation,
   configUnsetArgs,
   OPENCLAW_BIN,
+  pluginInstallArgs,
 } from './openclawCommands.js';
 import type { PlanStep } from './plan.js';
 import { REDACTED, redactSecrets } from './secrets.js';
@@ -63,6 +64,13 @@ export function describeStep(step: PlanStep): string[] {
   switch (step.kind) {
     case 'exec':
       return [formatCommand(step.command, step.args)];
+    case 'pluginInstall':
+      return [
+        formatCommand(
+          OPENCLAW_BIN,
+          pluginInstallArgs(step.packageName, step.version),
+        ),
+      ];
     case 'configSetBatch':
       return describeConfigBatchLines(step.ops, step.redact);
     case 'migrationSweep':

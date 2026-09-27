@@ -25,7 +25,7 @@ const PLUGINS = JSON.stringify({
 describe('installPlugins', () => {
   const targets = parsePluginSpecs(['watcher', 'runner@^0.9']);
 
-  it('installs, removes legacy copies after install, then grants hook access via a batch file', async () => {
+  it('grants hook access via a batch file, installs, then removes legacy copies', async () => {
     const { fake, temp, removed, deps } = setupWorkflow(
       { 'openclaw config get plugins': ok(PLUGINS) },
       { [legacy(W)]: WPKG },
@@ -45,13 +45,13 @@ describe('installPlugins', () => {
 
     expect(resolved.map((t) => t.version)).toEqual(['0.16.0', '0.9.0']);
     const lines = mutating(fake.lines());
-    expect(lines.slice(0, 2)).toEqual([
+    expect(lines).toHaveLength(3);
+    expect(lines[0].startsWith(BATCH_PREFIX)).toBe(true);
+    expect(lines[0]).toContain('config-set.batch.json');
+    expect(lines.slice(1)).toEqual([
       `openclaw plugins install npm:${WPKG}@0.16.0 --pin --accept-capabilities --force`,
       `openclaw plugins install npm:${RPKG}@0.9.0 --pin --accept-capabilities --force`,
     ]);
-    expect(lines).toHaveLength(3);
-    expect(lines[2].startsWith(BATCH_PREFIX)).toBe(true);
-    expect(lines[2]).toContain('config-set.batch.json');
     // Only the watcher declares a conversation hook.
     expect(temp.batch()).toEqual([
       {
@@ -117,7 +117,8 @@ describe('installPlugins', () => {
     await expect(installPlugins(deps, targets)).rejects.toBeInstanceOf(
       CommandFailedError,
     );
-    expect(mutating(fake.lines())).toHaveLength(1);
+    // The pre-install batch, then the failing install; nothing after it.
+    expect(mutating(fake.lines())).toHaveLength(2);
     expect(removed).toEqual([]);
   });
 

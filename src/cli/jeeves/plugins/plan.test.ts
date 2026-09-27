@@ -29,7 +29,7 @@ const SERVER = 'plugins.entries.jeeves-server-openclaw';
 const META = 'plugins.entries.jeeves-meta-openclaw';
 
 describe('buildInstallPlan', () => {
-  it('per plugin: config batch, install, sweep; then legacy removal and the final batch', () => {
+  it('one config batch first, then per plugin install + sweep, then legacy removal', () => {
     const steps = buildInstallPlan(
       [
         target('watcher', '1.0.0', {
@@ -46,42 +46,59 @@ describe('buildInstallPlan', () => {
     );
     expect(steps.map((s) => s.kind)).toEqual([
       'configSetBatch',
-      'exec',
+      'pluginInstall',
       'migrationSweep',
-      'configSetBatch',
-      'exec',
+      'pluginInstall',
       'migrationSweep',
       'removeDir',
-      'configSetBatch',
     ]);
-    const ops = (i: number) => {
-      const step = steps[i];
-      return step.kind === 'configSetBatch' ? step.ops : undefined;
-    };
-    expect(ops(0)).toEqual([
+    const first = steps[0];
+    expect(first.kind === 'configSetBatch' && first.ops).toEqual([
       { path: `${WATCHER}.config.configRoot`, value: '/srv/cfg' },
+      { path: `${META}.config.configRoot`, value: '/srv/cfg' },
+      { path: `${META}.config.apiUrl`, value: 'http://127.0.0.1:1938' },
+      { path: `${WATCHER}.hooks.allowConversationAccess`, value: true },
+      { path: `${META}.hooks.allowConversationAccess`, value: true },
     ]);
-    expect(steps[1]).toMatchObject({
-      args: expect.arrayContaining([
-        'install',
-        'npm:@karmaniverous/jeeves-watcher-openclaw@1.0.0',
-      ]) as string[],
+    expect(steps[1]).toEqual({
+      kind: 'pluginInstall',
+      pluginId: 'jeeves-watcher-openclaw',
+      packageName: '@karmaniverous/jeeves-watcher-openclaw',
+      version: '1.0.0',
     });
-    expect(ops(3)?.map((o) => o.path)).toEqual([
-      `${META}.config.configRoot`,
-      `${META}.config.apiUrl`,
-    ]);
-    expect(ops(7)?.map((o) => o.path)).toEqual([
-      `${WATCHER}.hooks.allowConversationAccess`,
-      `${META}.hooks.allowConversationAccess`,
+    expect(describeStep(steps[1])).toEqual([
+      'openclaw plugins install npm:@karmaniverous/jeeves-watcher-openclaw@1.0.0 --pin --accept-capabilities --force',
     ]);
     expect(describeStep(steps[2])).toEqual([
       'openclaw plugins inspect --all --json (lets OpenClaw clear pending plugin migrations)',
     ]);
-    expect(describeStep(steps[7])).toEqual([
+    expect(describeStep(steps[0])).toEqual([
       'openclaw config set --batch-file <private temp file>',
       expect.stringMatching(/^ {2}batch file content: \[/) as string,
     ]);
+  });
+
+  it('writes exactly one config batch however many plugins are installed', () => {
+    const steps = buildInstallPlan(
+      [
+        target('runner', '1.0.0'),
+        target('watcher', '1.0.0'),
+        target('server', '1.0.0'),
+        target('meta', '1.0.0'),
+      ],
+      {},
+      resolution([
+        { path: `${WATCHER}.config.configRoot`, value: '/srv/cfg' },
+        { path: `${META}.config.configRoot`, value: '/srv/cfg' },
+        { path: `${SERVER}.config.pluginKey`, value: 'k' },
+      ]),
+    );
+    const kinds = steps.map((s) => s.kind);
+    expect(kinds.filter((k) => k === 'configSetBatch')).toHaveLength(1);
+    expect(kinds.filter((k) => k === 'pluginInstall')).toHaveLength(4);
+    expect(kinds.indexOf('configSetBatch')).toBeLessThan(
+      kinds.indexOf('pluginInstall'),
+    );
   });
 
   it('writes the watcher configRoot before its install (overriding the manifest default)', () => {
@@ -95,7 +112,21 @@ describe('buildInstallPlan', () => {
         kind: 'configSetBatch',
         ops: [{ path: `${WATCHER}.config.configRoot`, value: '/srv/cfg' }],
       },
-      expect.objectContaining({ kind: 'exec' }),
+      expect.objectContaining({ kind: 'pluginInstall' }),
+      { kind: 'migrationSweep' },
+    ]);
+  });
+
+  it('grants hook access before the install, so the first registration has it', () => {
+    const steps = buildInstallPlan([target('watcher', '1.0.0')], {});
+    expect(steps).toEqual([
+      {
+        kind: 'configSetBatch',
+        ops: [
+          { path: `${WATCHER}.hooks.allowConversationAccess`, value: true },
+        ],
+      },
+      expect.objectContaining({ kind: 'pluginInstall' }),
       { kind: 'migrationSweep' },
     ]);
   });
@@ -110,22 +141,22 @@ describe('buildInstallPlan', () => {
       resolution([{ path: `${WATCHER}.config.configRoot`, value: '/srv/cfg' }]),
     );
     expect(
-      steps.flatMap((s) => (s.kind === 'exec' ? [s.args[2]] : [])),
-    ).toEqual(['npm:@karmaniverous/jeeves-meta-openclaw@2.0.0']);
+      steps.flatMap((s) => (s.kind === 'pluginInstall' ? [s.pluginId] : [])),
+    ).toEqual(['jeeves-meta-openclaw']);
     expect(steps.map((s) => s.kind)).toEqual([
-      'exec',
-      'migrationSweep',
       'configSetBatch',
+      'pluginInstall',
+      'migrationSweep',
     ]);
-    const batch = steps.at(-1);
-    expect(batch?.kind === 'configSetBatch' && batch.ops).toEqual([
+    const batch = steps[0];
+    expect(batch.kind === 'configSetBatch' && batch.ops).toEqual([
+      { path: `${WATCHER}.config.configRoot`, value: '/srv/cfg' },
       { path: `${WATCHER}.hooks.allowConversationAccess`, value: true },
       { path: `${META}.hooks.allowConversationAccess`, value: true },
-      { path: `${WATCHER}.config.configRoot`, value: '/srv/cfg' },
     ]);
   });
 
-  it('sweeps before the final batch when nothing is installed', () => {
+  it('sweeps before the batch when nothing is installed', () => {
     const steps = buildInstallPlan(
       [target('watcher', '1.0.0', { installed: true })],
       {},
@@ -144,8 +175,8 @@ describe('buildInstallPlan', () => {
       ],
       {},
     );
-    const batch = steps.at(-1);
-    expect(batch?.kind === 'configSetBatch' && batch.ops).toEqual([
+    const batch = steps[0];
+    expect(batch.kind === 'configSetBatch' && batch.ops).toEqual([
       { path: `${WATCHER}.hooks.allowConversationAccess`, value: true },
     ]);
   });
@@ -159,7 +190,10 @@ describe('buildInstallPlan', () => {
       [target('runner', '1.0.0', { conversationHooks: [] })],
       {},
     );
-    expect(steps.map((s) => s.kind)).toEqual(['exec', 'migrationSweep']);
+    expect(steps.map((s) => s.kind)).toEqual([
+      'pluginInstall',
+      'migrationSweep',
+    ]);
   });
 
   it('writes secrets before the install, redacted in output', () => {
@@ -173,23 +207,21 @@ describe('buildInstallPlan', () => {
     );
     expect(steps.map((s) => s.kind)).toEqual([
       'configSetBatch',
-      'exec',
+      'pluginInstall',
       'migrationSweep',
-      'configSetBatch',
     ]);
     const batch = steps[0];
     expect(batch).toEqual({
       kind: 'configSetBatch',
-      ops: [{ path: `${SERVER}.config.pluginKey`, value: 'topsecret' }],
+      ops: [
+        { path: `${SERVER}.config.pluginKey`, value: 'topsecret' },
+        { path: `${SERVER}.hooks.allowConversationAccess`, value: true },
+      ],
       redact: ['topsecret'],
     });
     const shown = describeStep(batch).join('\n');
     expect(shown).not.toContain('topsecret');
     expect(shown).toContain('"value":"<redacted>"');
-    expect(steps[3]).toMatchObject({
-      ops: [{ path: `${SERVER}.hooks.allowConversationAccess`, value: true }],
-      redact: ['topsecret'],
-    });
   });
 
   it('puts a planned server keys._plugin write first, redacted in output', () => {
@@ -208,9 +240,9 @@ describe('buildInstallPlan', () => {
     );
     expect(steps.map((s) => s.kind)).toEqual([
       'serverKeyWrite',
-      'exec',
-      'migrationSweep',
       'configSetBatch',
+      'pluginInstall',
+      'migrationSweep',
     ]);
     const shown = describeStep(steps[0]).join('\n');
     expect(shown).toContain(

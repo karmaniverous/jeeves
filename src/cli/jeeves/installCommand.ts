@@ -6,12 +6,14 @@
  * @remarks
  * Content: SOUL.md/AGENTS.md managed blocks (user content preserved),
  * core config if missing. Never TOOLS.md, HEARTBEAT.md, anything under
- * `skills/` or the spec templates (jeeves-tools ships those). Plugins: one standard
+ * `skills/` or the spec templates (jeeves-tools ships those). Plugins: one
+ * `config set --batch-file` with plugin config and hook access (plugins that
+ * declare conversation hooks), then one standard
  * `openclaw plugins install npm:<pkg>\@<ver> --pin --accept-capabilities --force`
  * per plugin that is not already installed at that exact version (unless
- * `--force-reinstall`), then legacy cleanup and one
- * `config set --batch-file` with hook access (plugins that declare
- * conversation hooks) and plugin config (see `plugins/workflows.ts`). Plugin
+ * `--force-reinstall`), each after a running gateway has settled and
+ * verified when it loses its gateway connection, then legacy cleanup (see
+ * `plugins/workflows.ts`, `plugins/pluginInstallStep.ts`). Plugin
  * config precedence: option \> `--plugin-config` \> existing \> default \>
  * error; required values are checked before anything is written.
  * `--dry-run` prints everything (secrets redacted) and changes nothing. Never

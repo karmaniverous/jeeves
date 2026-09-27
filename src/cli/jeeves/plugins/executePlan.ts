@@ -12,7 +12,9 @@
  * OpenClaw reports that a freshly installed plugin has not converged yet
  * (see {@link withConvergenceRetry}); before each wait the migration sweep
  * runs again (see {@link runMigrationSweep}), and the batch file is kept for
- * the retries and deleted once.
+ * the retries and deleted once. Plugin installs wait for a running gateway
+ * to settle first and survive a lost gateway connection when the plugin is
+ * verified installed afterwards (see `pluginInstallStep.ts`).
  *
  * @module
  */
@@ -26,6 +28,11 @@ import {
   withConvergenceRetry,
 } from './convergenceRetry.js';
 import { describeConfigBatchLines, describeStep } from './describeStep.js';
+import {
+  DEFAULT_GATEWAY_WAIT,
+  type GatewayWaitPolicy,
+  type GatewayWaitPorts,
+} from './gatewayWait.js';
 import type { LegacyFs } from './legacyExtensions.js';
 import { runMigrationSweep } from './migrationSweep.js';
 import {
@@ -38,6 +45,11 @@ import {
 } from './openclawCommands.js';
 import { readPluginsConfig } from './openclawState.js';
 import type { PlanStep } from './plan.js';
+import {
+  detectGateway,
+  type GatewayTracker,
+  runPluginInstall,
+} from './pluginInstallStep.js';
 import {
   type PrivateTempFiles,
   withPrivateTempFile,
@@ -58,9 +70,22 @@ export interface ExecutePlanContext {
   log: (line: string) => void;
   /** Print only; mutate nothing. */
   dryRun: boolean;
-  /** Sleep port for convergence retries (default: real timer). */
+  /** Sleep port for convergence retries and gateway waits (default: real timer). */
   sleep?: Sleep;
+  /** Clock port for gateway waits (default: `Date.now`). */
+  clock?: () => number;
+  /** Gateway wait policy (default {@link DEFAULT_GATEWAY_WAIT}). */
+  gatewayWait?: GatewayWaitPolicy;
 }
+
+/** Gateway wait ports from the execution context. */
+const waitPorts = (ctx: ExecutePlanContext): GatewayWaitPorts => ({
+  runner: ctx.runner,
+  sleep: ctx.sleep ?? timerSleep,
+  clock: ctx.clock ?? Date.now,
+  log: ctx.log,
+  policy: ctx.gatewayWait ?? DEFAULT_GATEWAY_WAIT,
+});
 
 /** Retry an idempotent config write while plugins converge. */
 const retryingConfigWrite = (
@@ -119,13 +144,18 @@ async function runConfigBatch(
 async function executeStep(
   step: PlanStep,
   ctx: ExecutePlanContext,
+  gateway: GatewayTracker,
 ): Promise<void> {
   switch (step.kind) {
     case 'exec':
       await runLogged(ctx, step.command, step.args);
       return;
+    case 'pluginInstall':
+      await runPluginInstall(waitPorts(ctx), gateway, step);
+      return;
     case 'configSetBatch':
       await runConfigBatch(ctx, step.ops, step.redact);
+      gateway.reloadPending = true;
       return;
     case 'migrationSweep':
       await runMigrationSweep(ctx.runner, ctx.log);
@@ -179,5 +209,8 @@ export async function executePlan(
     }
     return;
   }
-  for (const step of steps) await executeStep(step, ctx);
+  const gateway: GatewayTracker = steps.some((s) => s.kind === 'pluginInstall')
+    ? await detectGateway(waitPorts(ctx))
+    : { present: false, reloadPending: false };
+  for (const step of steps) await executeStep(step, ctx, gateway);
 }

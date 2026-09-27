@@ -52,6 +52,38 @@ export function assertWritablePath(path: string): void {
   }
 }
 
+/** Timeout of one gateway probe (ms). */
+export const GATEWAY_PROBE_TIMEOUT_MS = 10_000;
+
+/**
+ * `openclaw gateway status --require-rpc --timeout <ms>` (read-only).
+ *
+ * @remarks
+ * Documented for scripts that need read-scope RPC to be healthy, not just a
+ * listening port (`docs/cli/gateway/query.md`); exits non-zero when the probe
+ * fails, e.g. while a config hot reload stalls the gateway's event loop.
+ *
+ * @param timeoutMs - Probe timeout.
+ * @returns Argument vector.
+ */
+export const gatewayProbeArgs = (
+  timeoutMs: number = GATEWAY_PROBE_TIMEOUT_MS,
+): string[] => [
+  'gateway',
+  'status',
+  '--require-rpc',
+  '--timeout',
+  String(timeoutMs),
+];
+
+/**
+ * `openclaw plugins list --json` (read-only; reads the persisted plugin
+ * registry, skips the config guard).
+ *
+ * @returns Argument vector.
+ */
+export const pluginsListArgs = (): string[] => ['plugins', 'list', '--json'];
+
 /** `openclaw --version` (prerequisite probe). */
 export const openclawVersionArgs = (): string[] => ['--version'];
 

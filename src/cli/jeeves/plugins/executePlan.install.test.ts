@@ -32,8 +32,9 @@ const plan = () =>
 
 /** Short form of a runner call line. */
 const short = (line: string): string =>
-  /^openclaw (config set|plugins install|plugins inspect)/.exec(line)?.[1] ??
-  line;
+  /^openclaw (config set|plugins install|plugins inspect|gateway status)/.exec(
+    line,
+  )?.[1] ?? line;
 
 const noServerWrite = (): Promise<string> =>
   Promise.reject(new Error('must not write the server config'));
@@ -42,6 +43,7 @@ const setup = (runner = fakeRunner(), dryRun = false) => {
   const temp = fakeTempFiles();
   const log: string[] = [];
   const slept: number[] = [];
+  let now = 0;
   const ctx = {
     runner: runner.runner,
     fs: {
@@ -53,34 +55,88 @@ const setup = (runner = fakeRunner(), dryRun = false) => {
     serverConfig: noServerWrite,
     log: (l: string) => log.push(l),
     dryRun,
+    clock: () => now,
     sleep: (ms: number) => {
       slept.push(ms);
+      now += ms;
       return Promise.resolve();
     },
   };
   return { ctx, temp, log, slept };
 };
 
+const HOOKS = [
+  { path: `${WATCHER}.hooks.allowConversationAccess`, value: true },
+  { path: `${META}.hooks.allowConversationAccess`, value: true },
+];
+
 describe('executePlan (install plan order)', () => {
-  it('writes each plugin config, installs it, then sweeps, before the next plugin', async () => {
+  it('writes all config once, then waits for the gateway before each install', async () => {
     const fake = fakeRunner();
-    const { ctx, temp } = setup(fake);
+    const { ctx, temp, slept } = setup(fake);
     await executePlan(plan(), ctx);
     expect(fake.lines().map(short)).toEqual([
+      'gateway status', // detect a running gateway
       'config set',
+      'gateway status', // settle after the config reload
       'plugins install',
       'plugins inspect',
-      'config set',
+      'gateway status', // settle after the first install's reload
       'plugins install',
       'plugins inspect',
-      'config set',
     ]);
+    expect(temp.written).toHaveLength(1);
     expect(temp.batch(0)).toEqual([
       { path: `${WATCHER}.config.configRoot`, value: '/srv/cfg' },
-    ]);
-    expect(temp.batch(1)).toEqual([
       { path: `${META}.config.configRoot`, value: '/srv/cfg' },
+      ...HOOKS,
     ]);
+    // Grace pause only after the config write, so its reload has started.
+    expect(slept).toEqual([3_000]);
+  });
+
+  it('causes one reload-triggering config write in total, none between installs', async () => {
+    const fake = fakeRunner();
+    const { ctx } = setup(fake);
+    await executePlan(plan(), ctx);
+    const kinds = fake
+      .lines()
+      .map(short)
+      .filter((k) => k === 'config set' || k === 'plugins install');
+    expect(kinds).toEqual(['config set', 'plugins install', 'plugins install']);
+  });
+
+  it('waits for a busy gateway between installs', async () => {
+    const down = failed('gateway timeout after 10000ms', 1);
+    const fake = fakeRunner({
+      'openclaw gateway status': [ok(), ok(), down, down, ok()],
+    });
+    const { ctx, slept, log } = setup(fake);
+    await executePlan(plan(), ctx);
+    const lines = fake.lines().map(short);
+    expect(lines.slice(5, 9)).toEqual([
+      'gateway status',
+      'gateway status',
+      'gateway status',
+      'plugins install',
+    ]);
+    expect(slept).toEqual([3_000, 2_000, 4_000]);
+    expect(
+      log.filter((l) => l.startsWith('OpenClaw gateway is busy')),
+    ).toHaveLength(1);
+  });
+
+  it('skips settle waits when no gateway is running', async () => {
+    const fake = fakeRunner({
+      'openclaw gateway status': failed('gateway not running', 1),
+    });
+    const { ctx, slept, log } = setup(fake);
+    await executePlan(plan(), ctx);
+    expect(
+      fake.lines().filter((l) => l.startsWith('openclaw gateway status')),
+    ).toHaveLength(1);
+    expect(slept).toEqual([]);
+    expect(log[0]).toMatch(/^no running OpenClaw gateway answered/);
   });
 
   it('retries a refused pre-install write with a sweep before each wait', async () => {
@@ -88,12 +144,14 @@ describe('executePlan (install plan order)', () => {
       'Cannot edit retained config at "plugins.entries.jeeves-watcher-openclaw.config". Plugin "jeeves-watcher-openclaw" data/settings upgrade is unfinished: x',
     );
     const fake = fakeRunner({
-      'openclaw config set --batch-file': [refusal, ok(), ok(), ok()],
+      'openclaw gateway status': failed('not running'),
+      'openclaw config set --batch-file': [refusal, ok()],
       'openclaw plugins install': ok(),
     });
     const { ctx, slept } = setup(fake);
     await executePlan(plan(), ctx);
-    expect(fake.lines().map(short).slice(0, 5)).toEqual([
+    expect(fake.lines().map(short).slice(0, 6)).toEqual([
+      'gateway status',
       'config set',
       'plugins inspect',
       'config set',
@@ -103,16 +161,16 @@ describe('executePlan (install plan order)', () => {
     expect(slept).toEqual([2_000]);
   });
 
-  it('stops before the install when the pre-install write fails otherwise', async () => {
+  it('stops before any install when the pre-install write fails otherwise', async () => {
     const fake = fakeRunner({
       'openclaw config set --batch-file': failed('invalid config', 1),
     });
     const { ctx } = setup(fake);
     await expect(executePlan(plan(), ctx)).rejects.toThrow(/exit 1/);
-    expect(fake.lines().map(short)).toEqual(['config set']);
+    expect(fake.lines().map(short)).toEqual(['gateway status', 'config set']);
   });
 
-  it('dry run prints the per-plugin order and executes nothing', async () => {
+  it('dry run prints the order and executes nothing', async () => {
     const fake = fakeRunner();
     const { ctx, temp, log } = setup(fake, true);
     await executePlan(plan(), ctx);
@@ -125,13 +183,15 @@ describe('executePlan (install plan order)', () => {
       'config set',
       'plugins install',
       'plugins inspect',
-      'config set',
       'plugins install',
       'plugins inspect',
-      'config set',
     ]);
     expect(log[1]).toBe(
-      `[dry-run]   batch file content: [{"path":"${WATCHER}.config.configRoot","value":"/srv/cfg"}]`,
+      `[dry-run]   batch file content: ${JSON.stringify([
+        { path: `${WATCHER}.config.configRoot`, value: '/srv/cfg' },
+        { path: `${META}.config.configRoot`, value: '/srv/cfg' },
+        ...HOOKS,
+      ])}`,
     );
   });
 });

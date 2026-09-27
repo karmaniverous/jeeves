@@ -134,6 +134,7 @@ export function setupWorkflow(
     configDir: CONFIG_DIR,
     log: (l) => log.push(l),
     dryRun,
+    sleep: () => Promise.resolve(),
   };
   return { fake, temp, removed, log, serverWrites, deps };
 }
@@ -179,6 +180,7 @@ export function commandWorkflowDeps(
       console.log(line);
     },
     dryRun,
+    sleep: () => Promise.resolve(),
   };
 }
 

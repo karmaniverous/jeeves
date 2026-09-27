@@ -5,10 +5,10 @@
  *
  * @remarks
  * Same code path as `jeeves install` (resolve exact version → skip if already
- * installed at it, unless `--force-reinstall` →
- * `openclaw plugins install … --pin --accept-capabilities --force` → legacy
- * cleanup → one `config set --batch-file` with hook access and plugin
- * config). Plugin config uses the same options and precedence as
+ * installed at it, unless `--force-reinstall` → one `config set --batch-file`
+ * with plugin config and hook access →
+ * `openclaw plugins install … --pin --accept-capabilities --force` per plugin
+ * (gateway settle wait and disconnect recovery) → legacy cleanup). Plugin config uses the same options and precedence as
  * `jeeves install`: missing required/defaultable values are filled in,
  * existing values are kept unless passed explicitly, and missing required
  * values fail before anything changes. Does not touch workspace content.
