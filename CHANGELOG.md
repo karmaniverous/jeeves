@@ -6,6 +6,20 @@ All notable changes to this project will be documented in this file.
 
 ### 💼 Other
 
+- [108] fix(install): survive gateway reload stalls during plugin installs (#112)
+
+- Write all plugin config and hook grants in one batch before the installs
+  (one hot reload per plugin instead of two).
+- Wait for a running gateway to answer 'openclaw gateway status --require-rpc'
+  before each install.
+- When an install loses its gateway connection (1006 / gateway closed /
+  upgrade is unfinished), wait for the gateway and verify the plugin via
+  'openclaw plugins list --json'; genuine failures still fail fast.
+- [108] docs(install): reference openclaw/openclaw#159698; test hook grant rides the single config write (#112)
+## [0.6.0-7] - 2026-09-27
+
+### 💼 Other
+
 - [108] fix(release): build after the version bump so dist inlines the published CORE_VERSION (#110)
 - [108] feat(service): manage existing Linux system units in place; fail fast without a user bus (#111)
 
@@ -19,6 +33,7 @@ systemctl --user show-environment) and fail early with the cause and
 remedies instead of the raw 'Failed to connect to bus' error.
 
 ServiceManager.install now returns ServiceInstallResult.
+- [108] chore: release v0.6.0-7
 ## [0.6.0-6] - 2026-09-26
 
 ### 💼 Other
