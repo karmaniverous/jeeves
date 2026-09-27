@@ -5,7 +5,9 @@
  * @remarks
  * Every plugin install (and every config write) makes a running gateway hot
  * reload, and OpenClaw v2026.9.6 stalls its event loop for 20-33 s per reload
- * while it re-captures every non-bundled plugin. Reloads stack, so:
+ * while it re-captures every non-bundled plugin (upstream bug
+ * https://github.com/openclaw/openclaw/issues/159698; this module is the
+ * workaround). Reloads stack, so:
  *
  * - Before the plan runs, one probe detects whether a gateway is running
  *   ({@link detectGateway}). Only then does each install first wait until the

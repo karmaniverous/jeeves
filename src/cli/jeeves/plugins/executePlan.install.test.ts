@@ -106,6 +106,38 @@ describe('executePlan (install plan order)', () => {
     expect(kinds).toEqual(['config set', 'plugins install', 'plugins install']);
   });
 
+  it('grants hook access only to hook-declaring plugins, in the same single config write', async () => {
+    const steps = buildInstallPlan(
+      [
+        { ...target('runner', '1.0.0'), conversationHooks: [] },
+        target('watcher', '1.0.0'),
+      ],
+      {},
+      {
+        ops: [{ path: `${WATCHER}.config.configRoot`, value: '/srv/cfg' }],
+        values: [],
+        secrets: [],
+        unknownPluginIds: [],
+      },
+    );
+    const fake = fakeRunner();
+    const { ctx, temp } = setup(fake);
+    await executePlan(steps, ctx);
+    expect(
+      fake
+        .lines()
+        .map(short)
+        .filter((k) => k === 'config set'),
+    ).toHaveLength(1);
+    expect(temp.batch(0)).toEqual([
+      { path: `${WATCHER}.config.configRoot`, value: '/srv/cfg' },
+      {
+        path: 'plugins.entries.jeeves-watcher-openclaw.hooks.allowConversationAccess',
+        value: true,
+      },
+    ]);
+  });
+
   it('waits for a busy gateway between installs', async () => {
     const down = failed('gateway timeout after 10000ms', 1);
     const fake = fakeRunner({

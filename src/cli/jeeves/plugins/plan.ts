@@ -113,8 +113,13 @@ const configBatch = (
  *   each plugin as soon as it is installed and plugins read their config
  *   (e.g. `configRoot`) and hook policy at registration, so both must
  *   already be there (the config also overrides manifest defaults, e.g. the
- *   watcher's `configRoot`). One batch for all plugins means one gateway hot
- *   reload for the config plus one per install, instead of two per plugin.
+ *   watcher's `configRoot`). Hook access is the documented per-plugin
+ *   opt-in `plugins.entries.<id>.hooks.allowConversationAccess` (OpenClaw
+ *   `docs/gateway/config-extensions.md`, `docs/plugins/hooks.md`): without
+ *   it OpenClaw blocks a non-bundled plugin's conversation hooks such as
+ *   `before_prompt_build`. One batch for all plugins means one gateway hot
+ *   reload for the config plus one per install, instead of two per plugin
+ *   (each reload stalls the gateway: https://github.com/openclaw/openclaw/issues/159698).
  *   Re-running after a later failure converges: the server then has the key
  *   and the plugin side copies it.
  */

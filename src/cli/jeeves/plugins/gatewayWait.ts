@@ -5,7 +5,9 @@
  * OpenClaw v2026.9.6 re-captures every non-bundled plugin synchronously on
  * each config hot reload, stalling the gateway's event loop for tens of
  * seconds; a CLI call that needs the gateway meanwhile can lose its
- * WebSocket (close code 1006). The probe is
+ * WebSocket (close code 1006). Upstream bug:
+ * https://github.com/openclaw/openclaw/issues/159698 (remove these waits once it is
+ * fixed in the minimum supported OpenClaw). The probe is
  * `openclaw gateway status --require-rpc` (see {@link gatewayProbeArgs}).
  * Time is read from a clock port and waits go through a sleep port, so the
  * policy is testable without real time.
