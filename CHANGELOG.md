@@ -6,7 +6,25 @@ All notable changes to this project will be documented in this file.
 
 ### 💼 Other
 
+- [108] fix(release): build after the version bump so dist inlines the published CORE_VERSION (#110)
+- [108] feat(service): manage existing Linux system units in place; fail fast without a user bus (#111)
+
+A: when a system unit <service>.service exists (as jeeves-tools provisions
+in /etc/systemd/system), install is a no-op reporting it, status reads it,
+start/stop/restart run 'sudo -n systemctl <verb> <unit>', and uninstall
+refuses. No competing --user unit is created.
+
+D: without a system unit, check for a systemd user bus (XDG_RUNTIME_DIR /
+systemctl --user show-environment) and fail early with the cause and
+remedies instead of the raw 'Failed to connect to bus' error.
+
+ServiceManager.install now returns ServiceInstallResult.
+## [0.6.0-6] - 2026-09-26
+
+### 💼 Other
+
 - [108] fix: declare @commander-js/extra-typings as a runtime dependency and guard .d.ts imports
+- [108] chore: release v0.6.0-6
 ## [0.6.0-5] - 2026-09-26
 
 ### 💼 Other
