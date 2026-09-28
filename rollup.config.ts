@@ -22,6 +22,8 @@ const outputPath = `dist`;
 // Rollup writes bundle outputs; the TS plugin should only transpile.
 // - outputToFilesystem=false avoids outDir/dir validation errors for multi-output builds.
 // - incremental=false avoids TS build-info state referencing transient Rollup config artifacts.
+// The --configPlugin instance that loads this file (rollup-config-plugin.mjs)
+// sets outputToFilesystem explicitly too.
 const typescript = typescriptPlugin({
   tsconfig: './tsconfig.json',
   outputToFilesystem: false,

@@ -119,7 +119,7 @@
     "url": "git+https://github.com/karmaniverous/jeeves.git"
   },
   "scripts": {
-    "build": "rimraf dist && cross-env NO_COLOR=1 rollup --config rollup.config.ts --configPlugin @rollup/plugin-typescript",
+    "build": "rimraf dist && cross-env NO_COLOR=1 rollup --config rollup.config.ts --configPlugin ./rollup-config-plugin.mjs",
     "changelog": "git-cliff -o CHANGELOG.md",
     "diagrams": "cd diagrams/src && plantuml -tpng -o ../out -r .",
     "docs": "typedoc",
