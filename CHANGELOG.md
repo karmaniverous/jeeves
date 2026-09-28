@@ -6,6 +6,14 @@ All notable changes to this project will be documented in this file.
 
 ### 💼 Other
 
+- [108] fix(config-apply): write the merged raw config and keep the file mode (#113, #114)
+- [108] fix(service): system units via plain systemctl + polkit (no sudo under NoNewPrivileges); status names the unit (#115, #116)
+- [108] style(tsdoc): keep a code span on one line (lint 0 warnings)
+- [108] docs: config apply semantics; polkit-based service management and status detail (#113-#116)
+## [0.6.0-8] - 2026-09-27
+
+### 💼 Other
+
 - [108] fix(install): survive gateway reload stalls during plugin installs (#112)
 
 - Write all plugin config and hook grants in one batch before the installs
@@ -16,6 +24,7 @@ All notable changes to this project will be documented in this file.
   upgrade is unfinished), wait for the gateway and verify the plugin via
   'openclaw plugins list --json'; genuine failures still fail fast.
 - [108] docs(install): reference openclaw/openclaw#159698; test hook grant rides the single config write (#112)
+- [108] chore: release v0.6.0-8
 ## [0.6.0-7] - 2026-09-27
 
 ### 💼 Other
