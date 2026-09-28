@@ -30,9 +30,9 @@ import { getCoreConfigDir, getWorkspacePath } from '../../init.js';
 import { initFromOptions } from './cliDefaults.js';
 import {
   DRY_RUN_COMPLETE,
+  gatewayNotice,
   installNotices,
   printLines,
-  RESTART_NOTICE,
   runHeaderLines,
 } from './cliOutput.js';
 import { installPlatformContent } from './installPlatformContent.js';
@@ -107,10 +107,10 @@ export function registerInstallCommand(program: Command): void {
       console.log();
 
       if (targets.length > 0) {
-        await executePlan(prepared.plan, deps);
+        const applied = await executePlan(prepared.plan, deps);
         console.log();
         printLines(installNotices(prepared, dryRun));
-        if (!dryRun && prepared.plan.length > 0) console.log(RESTART_NOTICE);
+        printLines(gatewayNotice(applied));
       }
 
       console.log(dryRun ? DRY_RUN_COMPLETE : '✅ Jeeves installed.');

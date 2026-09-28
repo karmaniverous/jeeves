@@ -27,7 +27,11 @@
  */
 
 import { formatCommand } from './commandLine.js';
-import { CommandFailedError, runChecked } from './commandRunner.js';
+import {
+  CommandFailedError,
+  type CommandResult,
+  runChecked,
+} from './commandRunner.js';
 import {
   type GatewayWaitPorts,
   pollUntil,
@@ -180,21 +184,31 @@ async function recoverDisconnectedInstall(
  * @param ports - Wait ports.
  * @param gateway - Tracker (updated).
  * @param target - The plugin.
+ * @param echoFilter - Rewrites the echoed install output (see
+ *   `transientNoise.ts`).
+ * @returns The install's result, or `undefined` when it lost the gateway
+ *   connection and was verified afterwards (outcome output unknown).
  */
 export async function runPluginInstall(
   ports: GatewayWaitPorts,
   gateway: GatewayTracker,
   target: PluginInstallTarget,
-): Promise<void> {
+  echoFilter?: (text: string) => string,
+): Promise<CommandResult | undefined> {
   if (gateway.present) await settleGateway(ports, gateway, target);
   const args = pluginInstallArgs(target.packageName, target.version);
   ports.log(`$ ${formatCommand(OPENCLAW_BIN, args)}`);
+  let result: CommandResult | undefined;
   try {
-    await runChecked(ports.runner, OPENCLAW_BIN, args, { echo: true });
+    result = await runChecked(ports.runner, OPENCLAW_BIN, args, {
+      echo: true,
+      ...(echoFilter ? { echoFilter } : {}),
+    });
   } catch (error) {
     if (!isGatewayDisconnect(error)) throw error;
     await recoverDisconnectedInstall(ports, target, error);
     gateway.present = true;
   }
   gateway.reloadPending = false;
+  return result;
 }

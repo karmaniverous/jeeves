@@ -362,6 +362,8 @@ Plugin config:
 
 A live run stops at the first failing step. A non-zero exit from any `openclaw` or `npm` command makes `jeeves` exit 1 and print the command and its error output. Commands are spawned with an argument vector and no shell, so the same invocation works on Linux, macOS and Windows.
 
+Plugin config is written in one batch before the installs, so until each plugin is installed OpenClaw warns about it ("stale config entry", "data/settings upgrade is unfinished"). `jeeves` hides exactly those expected warnings, for plugins the run has not installed yet, and prints one note instead. Every other warning is shown, and a failed command's error includes its full output.
+
 The OpenClaw directory follows OpenClaw's own resolution: `OPENCLAW_STATE_DIR`, else the directory of `OPENCLAW_CONFIG_PATH`, else `~/.openclaw`.
 
 ### New box
@@ -371,7 +373,7 @@ The OpenClaw directory follows OpenClaw's own resolution: `OPENCLAW_STATE_DIR`, 
 3. `npm install -g @karmaniverous/jeeves`
 4. `jeeves install --config-root /srv/jeeves/config --dry-run`. Review the files, the plugin config and the exact `openclaw` commands. Add `--<component>-api-url` options if a service is not on its default port.
 5. `jeeves install --config-root /srv/jeeves/config`
-6. Restart the gateway yourself, and jeeves-server too if `jeeves` reports it updated `keys._plugin`. `jeeves` never restarts either.
+6. Restart the gateway if `jeeves` asks you to. It does so only when OpenClaw did not report every plugin change as applied live by the running gateway (`Applied in Gateway generation <n>`). Restart jeeves-server if `jeeves` reports it updated `keys._plugin`. `jeeves` never restarts either.
 
 ### Remote use (jeeves-tools)
 

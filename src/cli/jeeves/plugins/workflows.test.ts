@@ -151,6 +151,7 @@ describe('installPlugins', () => {
     await expect(installPlugins(deps, [])).resolves.toEqual({
       resolved: [],
       plan: [],
+      applied: { changes: 0, live: 0, generations: [] },
     });
     expect(fake.calls).toHaveLength(0);
   });

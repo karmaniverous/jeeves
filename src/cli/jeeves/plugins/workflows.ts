@@ -12,6 +12,7 @@
  */
 
 import { dryRunSuffix } from '../cliOutput.js';
+import type { ApplyReport } from './applyReport.js';
 import { configuredPluginIds } from './configPatch.js';
 import { executePlan, type ExecutePlanContext } from './executePlan.js';
 import { findLegacyExtension } from './legacyExtensions.js';
@@ -107,22 +108,29 @@ export async function prepareInstall(
   };
 }
 
+/** An executed (or printed) install/update. */
+export interface InstallResult extends PreparedInstall {
+  /** Which changes OpenClaw applied live (empty for a dry run). */
+  applied: ApplyReport;
+}
+
 /**
  * Install or update Jeeves plugins (prepare, then print or execute).
  *
  * @param deps - Workflow dependencies.
  * @param targets - Plugins to install (range resolved via npm).
  * @param options - Plugin config request and reinstall policy.
- * @returns The prepared install (already executed unless dry run).
+ * @returns The prepared install (already executed unless dry run) and its
+ *   live-apply report.
  */
 export async function installPlugins(
   deps: PluginWorkflowDeps,
   targets: readonly PluginTarget[],
   options: InstallOptions = {},
-): Promise<PreparedInstall> {
+): Promise<InstallResult> {
   const prepared = await prepareInstall(deps, targets, options);
-  await executePlan(prepared.plan, deps);
-  return prepared;
+  const applied = await executePlan(prepared.plan, deps);
+  return { ...prepared, applied };
 }
 
 /**

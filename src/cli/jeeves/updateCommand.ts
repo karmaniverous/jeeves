@@ -22,9 +22,9 @@ import type { Command } from '@commander-js/extra-typings';
 import { resolveCliConfig } from './cliDefaults.js';
 import {
   DRY_RUN_COMPLETE,
+  gatewayNotice,
   installNotices,
   printLines,
-  RESTART_NOTICE,
 } from './cliOutput.js';
 import {
   addPluginOptions,
@@ -69,11 +69,12 @@ export function registerUpdateCommand(program: Command): void {
       const prepared = await installPlugins(deps, targets, installOptions);
       console.log();
       printLines(installNotices(prepared, dryRun));
+      printLines(gatewayNotice(prepared.applied));
       console.log(
         dryRun
           ? DRY_RUN_COMPLETE
           : prepared.plan.length > 0
-            ? `✅ Plugins updated. ${RESTART_NOTICE}`
+            ? '✅ Plugins updated.'
             : '✅ Plugins already up to date.',
       );
     });

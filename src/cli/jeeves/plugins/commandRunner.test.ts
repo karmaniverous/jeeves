@@ -167,6 +167,25 @@ describe('spawnCommandRunner', () => {
     expect(result.stdout).toBe('set s3cr3t ok');
   });
 
+  it('buffers and filters echoed output with an echo filter, capturing it unfiltered', async () => {
+    const child = new FakeChild();
+    spawnMock.mockReturnValue(child);
+    const write = vi.spyOn(process.stdout, 'write').mockReturnValue(true);
+    const errWrite = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+    const pending = spawnCommandRunner('openclaw', ['x'], {
+      echo: true,
+      echoFilter: (text) => text.replace(/noise\n?/g, ''),
+    });
+    child.stdout.write('noise\nkeep');
+    child.stderr.write('noise\n');
+    expect(write).not.toHaveBeenCalled();
+    child.emit('close', 0);
+    const result = await pending;
+    expect(write).toHaveBeenCalledWith('keep');
+    expect(errWrite).toHaveBeenCalledWith('');
+    expect(result).toMatchObject({ stdout: 'noise\nkeep', stderr: 'noise\n' });
+  });
+
   it('treats a signal kill as failure', async () => {
     const child = new FakeChild();
     spawnMock.mockReturnValue(child);

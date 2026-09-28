@@ -1,17 +1,39 @@
 /**
  * Console output shared by the mutating jeeves commands (install, update,
  * uninstall): dry-run markers, the run header, end-of-run plugin notices and
- * the gateway restart reminder. Pure strings plus a line printer.
+ * the gateway restart reminder (only when a change was not applied live).
+ * Pure strings plus a line printer.
  *
  * @module
  */
 
+import { allAppliedLive, type ApplyReport } from './plugins/applyReport.js';
 import { pluginConfigNotices } from './plugins/pluginConfigReport.js';
 import type { PreparedInstall } from './plugins/workflows.js';
 
-/** Reminder printed after live plugin changes. */
+/** Reminder printed after plugin changes that were not applied live. */
 export const RESTART_NOTICE =
   'Plugin changes take effect on the next OpenClaw gateway start. Restart the gateway when convenient.';
+
+/**
+ * What to say about the gateway after plugin changes: nothing when nothing
+ * changed, a live-apply line when OpenClaw reported every change applied
+ * live, else {@link RESTART_NOTICE}.
+ *
+ * @param report - Live-apply report of the run.
+ * @returns Zero or one line.
+ */
+export function gatewayNotice(report: ApplyReport): string[] {
+  if (report.changes === 0) return [];
+  if (!allAppliedLive(report)) return [RESTART_NOTICE];
+  const generation =
+    report.generations.length > 0
+      ? ` (gateway generation ${String(Math.max(...report.generations))})`
+      : '';
+  return [
+    `Plugin changes were applied live by the running OpenClaw gateway${generation}; no restart needed.`,
+  ];
+}
 
 /** Last line of every dry run. */
 export const DRY_RUN_COMPLETE = 'Dry run complete. Nothing was changed.';

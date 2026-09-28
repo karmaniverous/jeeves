@@ -75,7 +75,7 @@ jeeves install --config-root /srv/jeeves/config --dry-run   # files, plugin conf
 jeeves install --config-root /srv/jeeves/config             # content + runner/watcher/server/meta plugins at latest
 ```
 
-4. Restart the gateway yourself (and jeeves-server if the CLI updated its `keys._plugin`). The CLI only prints a reminder, because it can't know whether they run in a console, as a service or in a container.
+4. Restart the gateway if the CLI asks you to: it prints a reminder only when OpenClaw did not report every change as applied live by the running gateway. Restart jeeves-server if the CLI updated its `keys._plugin`. The CLI never restarts either, because it can't know whether they run in a console, as a service or in a container.
 
 Later:
 

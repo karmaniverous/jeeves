@@ -7,7 +7,11 @@
  * @module
  */
 
-import type { CommandResult, CommandRunner } from './commandRunner.js';
+import type {
+  CommandResult,
+  CommandRunner,
+  CommandRunOptions,
+} from './commandRunner.js';
 import type { PrivateTempFiles } from './privateTempFile.js';
 
 /** A recorded call. */
@@ -16,6 +20,8 @@ export interface RecordedCall {
   command: string;
   /** Argument vector. */
   args: string[];
+  /** Run options, when given. */
+  options?: CommandRunOptions;
 }
 
 /** Scripted runner plus its call log. */
@@ -54,8 +60,8 @@ export function fakeRunner(
 ): FakeRunner {
   const calls: RecordedCall[] = [];
   const counters = new Map<string, number>();
-  const runner: CommandRunner = (command, args) => {
-    calls.push({ command, args: [...args] });
+  const runner: CommandRunner = (command, args, options) => {
+    calls.push({ command, args: [...args], ...(options ? { options } : {}) });
     const line = [command, ...args].join(' ');
     const key: string | undefined = Object.keys(script)
       .filter((k) => line.startsWith(k))

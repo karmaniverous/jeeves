@@ -35,6 +35,12 @@ export interface CommandRunOptions {
    * error messages; echo is buffered until exit so no secret is split.
    */
   redact?: readonly string[];
+  /**
+   * Rewrites echoed output (e.g. to hide known transient warnings); echo is
+   * buffered until exit so multi-line blocks are seen whole. The captured
+   * result is not filtered.
+   */
+  echoFilter?: (text: string) => string;
 }
 
 /** Port: run a command with an argument vector (never a shell string). */
@@ -106,7 +112,9 @@ export const spawnCommandRunner: CommandRunner = (command, args, options) =>
     let stdout = '';
     let stderr = '';
     const secrets = options?.redact ?? [];
-    const stream = options?.echo === true && secrets.length === 0;
+    const filter = options?.echoFilter;
+    const stream =
+      options?.echo === true && secrets.length === 0 && filter === undefined;
     child.stdout?.setEncoding('utf8');
     child.stderr?.setEncoding('utf8');
     child.stdout?.on('data', (chunk: string) => {
@@ -120,8 +128,12 @@ export const spawnCommandRunner: CommandRunner = (command, args, options) =>
     child.on('error', reject);
     child.on('close', (code) => {
       if (options?.echo === true && !stream) {
-        process.stdout.write(redactSecrets(stdout, secrets));
-        process.stderr.write(redactSecrets(stderr, secrets));
+        const shown = (text: string): string => {
+          const redacted = redactSecrets(text, secrets);
+          return filter ? filter(redacted) : redacted;
+        };
+        process.stdout.write(shown(stdout));
+        process.stderr.write(shown(stderr));
       }
       resolve({ exitCode: code ?? 1, stdout, stderr });
     });

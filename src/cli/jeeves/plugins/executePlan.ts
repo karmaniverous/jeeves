@@ -14,13 +14,26 @@
  * runs again (see {@link runMigrationSweep}), and the batch file is kept for
  * the retries and deleted once. Plugin installs wait for a running gateway
  * to settle first and survive a lost gateway connection when the plugin is
- * verified installed afterwards (see `pluginInstallStep.ts`).
+ * verified installed afterwards (see `pluginInstallStep.ts`). Echoed
+ * OpenClaw output hides the expected transient warnings about plugins the
+ * run has configured but not installed yet (see `transientNoise.ts`), and
+ * the run reports whether OpenClaw applied every change live (see
+ * `applyReport.ts`).
  *
  * @module
  */
 
+import {
+  type ApplyReport,
+  emptyApplyReport,
+  recordChange,
+} from './applyReport.js';
 import { formatCommand } from './commandLine.js';
-import { type CommandRunner, runChecked } from './commandRunner.js';
+import {
+  type CommandResult,
+  type CommandRunner,
+  runChecked,
+} from './commandRunner.js';
 import { computePostUninstallRepair } from './configPatch.js';
 import {
   type Sleep,
@@ -55,6 +68,7 @@ import {
   withPrivateTempFile,
 } from './privateTempFile.js';
 import type { ServerConfigWriter } from './serverConfigWrite.js';
+import { createTransientNoise, type TransientNoise } from './transientNoise.js';
 
 /** Dependencies of {@link executePlan}. */
 export interface ExecutePlanContext {
@@ -98,25 +112,46 @@ const retryingConfigWrite = (
     beforeRetry: () => runMigrationSweep(ctx.runner, ctx.log),
   });
 
+/** State of one live plan run. */
+interface PlanRun {
+  /** Gateway tracker. */
+  gateway: GatewayTracker;
+  /** Transient warning filter. */
+  noise: TransientNoise;
+  /** Live-apply tally. */
+  report: ApplyReport;
+}
+
+/** Combined output of a result, for live-apply detection. */
+const outputOf = (result: CommandResult): string =>
+  `${result.stdout}\n${result.stderr}`;
+
 /** Run one command (echoing its output), logging its command line first. */
 async function runLogged(
   ctx: ExecutePlanContext,
+  run: PlanRun,
   command: string,
   args: string[],
 ): Promise<void> {
   ctx.log(`$ ${formatCommand(command, args)}`);
-  await runChecked(ctx.runner, command, args, { echo: true });
+  const result = await runChecked(ctx.runner, command, args, {
+    echo: true,
+    echoFilter: run.noise.filter,
+  });
+  recordChange(run.report, outputOf(result));
 }
 
 /**
  * Apply config operations with `openclaw config set --batch-file`.
  *
  * @param ctx - Execution context.
+ * @param run - Plan run state.
  * @param ops - Operations (non-empty).
  * @param redact - Secret values to keep out of logs and errors.
  */
 async function runConfigBatch(
   ctx: ExecutePlanContext,
+  run: PlanRun,
   ops: readonly ConfigSetOperation[],
   redact?: readonly string[],
 ): Promise<void> {
@@ -129,12 +164,17 @@ async function runConfigBatch(
     configBatchPayload(ops),
     (path) =>
       retryingConfigWrite(ctx, async () => {
-        await runChecked(
+        const result = await runChecked(
           ctx.runner,
           OPENCLAW_BIN,
           configSetBatchFileArgs(path),
-          { echo: true, ...(redact ? { redact } : {}) },
+          {
+            echo: true,
+            echoFilter: run.noise.filter,
+            ...(redact ? { redact } : {}),
+          },
         );
+        recordChange(run.report, outputOf(result));
       }),
     ctx.log,
   );
@@ -144,18 +184,26 @@ async function runConfigBatch(
 async function executeStep(
   step: PlanStep,
   ctx: ExecutePlanContext,
-  gateway: GatewayTracker,
+  run: PlanRun,
 ): Promise<void> {
   switch (step.kind) {
     case 'exec':
-      await runLogged(ctx, step.command, step.args);
+      await runLogged(ctx, run, step.command, step.args);
       return;
-    case 'pluginInstall':
-      await runPluginInstall(waitPorts(ctx), gateway, step);
+    case 'pluginInstall': {
+      const result = await runPluginInstall(
+        waitPorts(ctx),
+        run.gateway,
+        step,
+        run.noise.filter,
+      );
+      recordChange(run.report, result && outputOf(result));
+      run.noise.installed(step.pluginId);
       return;
+    }
     case 'configSetBatch':
-      await runConfigBatch(ctx, step.ops, step.redact);
-      gateway.reloadPending = true;
+      await runConfigBatch(ctx, run, step.ops, step.redact);
+      run.gateway.reloadPending = true;
       return;
     case 'migrationSweep':
       await runMigrationSweep(ctx.runner, ctx.log);
@@ -184,10 +232,12 @@ async function executeStep(
       );
       for (const path of repair.unsetPaths) {
         await retryingConfigWrite(ctx, () =>
-          runLogged(ctx, OPENCLAW_BIN, configUnsetArgs(path)),
+          runLogged(ctx, run, OPENCLAW_BIN, configUnsetArgs(path)),
         );
       }
-      if (repair.setOps.length > 0) await runConfigBatch(ctx, repair.setOps);
+      if (repair.setOps.length > 0) {
+        await runConfigBatch(ctx, run, repair.setOps);
+      }
       return;
     }
   }
@@ -198,19 +248,33 @@ async function executeStep(
  *
  * @param steps - Plan steps.
  * @param ctx - Execution context.
+ * @returns Which changes OpenClaw applied live (empty for a dry run).
  */
 export async function executePlan(
   steps: readonly PlanStep[],
   ctx: ExecutePlanContext,
-): Promise<void> {
+): Promise<ApplyReport> {
+  const report = emptyApplyReport();
   if (ctx.dryRun) {
     for (const step of steps) {
       for (const line of describeStep(step)) ctx.log(`[dry-run] ${line}`);
     }
-    return;
+    return report;
   }
-  const gateway: GatewayTracker = steps.some((s) => s.kind === 'pluginInstall')
-    ? await detectGateway(waitPorts(ctx))
-    : { present: false, reloadPending: false };
-  for (const step of steps) await executeStep(step, ctx, gateway);
+  const installs = steps.flatMap((s) =>
+    s.kind === 'pluginInstall' ? [s.pluginId] : [],
+  );
+  const run: PlanRun = {
+    gateway:
+      installs.length > 0
+        ? await detectGateway(waitPorts(ctx))
+        : { present: false, reloadPending: false },
+    noise: createTransientNoise(installs),
+    report,
+  };
+  for (const step of steps) {
+    await executeStep(step, ctx, run);
+    run.noise.flushNote(ctx.log);
+  }
+  return report;
 }
