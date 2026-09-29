@@ -1,42 +1,21 @@
 /**
- * Managed section parsing, writing, and cleanup detection.
+ * Managed block parsing and pure rendering, plus atomic write and file lock.
  *
  * @packageDocumentation
  */
 
-export { jaccard, needsCleanup, shingles } from './cleanupDetection.js';
+export { STALE_LOCK_MS, withFileLock } from './fileLock.js';
+export { atomicWrite } from './fileOps.js';
 export {
-  atomicWrite,
-  DEFAULT_CORE_VERSION,
-  STALE_LOCK_MS,
-  withFileLock,
-} from './fileOps.js';
+  formatBeginMarker,
+  formatEndMarker,
+  type ManagedBlockStampOptions,
+  removeManagedBlock,
+  renderManagedBlock,
+  upsertManagedBlock,
+} from './managedBlock.js';
 export {
-  buildHeartbeatSection,
-  HEARTBEAT_HEADING,
-  type HeartbeatEntry,
-  type ParsedHeartbeat,
-  parseHeartbeat,
-  writeHeartbeatSection,
-} from './heartbeat.js';
-export {
-  type ManagedSection,
   parseManaged,
   type ParseManagedResult,
   type VersionStamp,
 } from './parseManaged.js';
-export {
-  removeManagedSection,
-  type RemoveManagedSectionOptions,
-} from './removeManagedSection.js';
-export { sortSectionsByOrder } from './sectionSort.js';
-export { stripForeignMarkers } from './stripForeignMarkers.js';
-export {
-  updateManagedSection,
-  type UpdateManagedSectionOptions,
-} from './updateManagedSection.js';
-export {
-  formatBeginMarker,
-  formatEndMarker,
-  shouldWrite,
-} from './versionStamp.js';

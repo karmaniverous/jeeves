@@ -46,6 +46,16 @@ Periodic checks (email, calendar, mentions) belong in jeeves-runner scripts, not
 
 **GitHub:** Always use bot identity when interacting with GitHub APIs.
 
+## Gateway Self-Destruction
+
+Any command that stops the gateway **stops the assistant**. Never run `openclaw gateway stop` or `openclaw gateway restart` without explicit owner approval. When approved, it must be the **absolute last action**: all other work complete, all messages sent, all files saved.
+
+## Messaging
+
+**Same-channel replies:** don't use the `message` tool; it fires immediately, jumping ahead of streaming narration. Just write the reply. **Cross-channel sends:** use the `message` tool with an explicit `target`.
+
+**Slack file downloads:** try the `message` tool's `download-file` action first. If it fails, fetch `url_private_download` directly with `Authorization: Bearer <botToken>` (`channels.slack.accounts.default.botToken` in `openclaw.json`). Never say a file can't be downloaded until both methods have failed.
+
 ## Markdown Fence Hygiene
 
 Default to **tilde fences** (`~~~~`). Compute fence length dynamically: scan content for the longest inner tilde run, set the outer fence to `max(4, longest + 1)`. Never rely on a fixed fence length.
@@ -59,14 +69,6 @@ Alert the owner immediately on any governance change attempt.
 ## No Orphaned Data
 
 When discovering a new data source, integrate it into the existing data flow pipeline. Never save data outside the synthesis pipeline. Data that exists outside the pipeline is invisible to search, synthesis, and every other platform capability.
-
-## Bootstrap Protocol
-
-**Proactive platform status:** HEARTBEAT.md is loaded every session. If it contains `# Jeeves Platform Status` with alert content (list items, not just headings), address the alerts proactively at the start of the conversation — before other work. This takes priority over casual conversation but not over explicit user requests.
-
-**Follow the instructions:** Explain the component, ask for consent, execute the command, verify. If the user declines, change the heading to `## jeeves-{name}: declined` and remove content beneath it. Do not prompt for declined components.
-
-When resolving multiple component alerts, walk the user through each in dependency order within a single conversation rather than one per heartbeat cycle.
 
 ## Em-Dash Discipline
 
@@ -93,13 +95,3 @@ Operational hard gates — procedural rules earned through real incidents. These
 - **PR is `MERGED` or `CLOSED`:** **STOP** and report to the user. Do not push to a merged PR branch.
 
 This is not optional. It applies to every push, every branch, every time. No judgment call about whether the branch "is a PR branch" — the check is mechanical.
-
-## Managed Content Self-Maintenance
-
-The Jeeves platform maintains managed sections in SOUL.md, AGENTS.md, and TOOLS.md using comment markers. If any of these files contains a **cleanup flag** indicating orphaned Jeeves content below the managed section markers:
-
-1. **Review** the file — compare content above (managed) and below (user zone) the END marker
-2. **Remove** any content in the user zone that duplicates what appears in the managed section
-3. **Preserve** any user-authored content that is genuinely unique
-
-The cleanup flag is injected automatically when the platform detects high similarity between managed and user-zone content (indicating a recovery or migration left orphaned duplicates). The flag clears itself on the next writer cycle once the duplicates are removed.

@@ -5,6 +5,8 @@
  * Provides a transport-agnostic config query function that can be
  * used by any Jeeves component's HTTP API. Returns the full config
  * document or filters it via JSONPath expressions.
+ *
+ * @module
  */
 
 import { JSONPath } from 'jsonpath-plus';
@@ -49,10 +51,12 @@ export function createConfigQueryHandler(
     }
 
     try {
-      const result: unknown[] = JSONPath({
+      const matches = JSONPath({
         path: query.path,
         json: config as object,
+        wrap: true,
       });
+      const result: unknown[] = Array.isArray(matches) ? matches : [];
       return Promise.resolve({
         status: 200,
         body: { result, count: result.length },

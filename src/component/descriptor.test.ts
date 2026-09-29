@@ -3,7 +3,6 @@ import { z } from 'zod';
 
 import {
   getEffectiveServiceName,
-  isPrime,
   jeevesComponentDescriptorSchema,
 } from './descriptor';
 
@@ -29,37 +28,9 @@ function makeDescriptor(
     run: async () => {
       /* no-op for tests */
     },
-    sectionId: 'Watcher',
-    refreshIntervalSeconds: 71,
-    generateToolsContent: () => 'Watcher tools content.',
     ...overrides,
   };
 }
-
-describe('isPrime', () => {
-  it('should return false for numbers less than 2', () => {
-    expect(isPrime(0)).toBe(false);
-    expect(isPrime(1)).toBe(false);
-    expect(isPrime(-3)).toBe(false);
-  });
-
-  it('should return true for 2', () => {
-    expect(isPrime(2)).toBe(true);
-  });
-
-  it('should identify primes correctly', () => {
-    expect(isPrime(61)).toBe(true);
-    expect(isPrime(67)).toBe(true);
-    expect(isPrime(71)).toBe(true);
-    expect(isPrime(73)).toBe(true);
-  });
-
-  it('should identify non-primes correctly', () => {
-    expect(isPrime(4)).toBe(false);
-    expect(isPrime(60)).toBe(false);
-    expect(isPrime(100)).toBe(false);
-  });
-});
 
 describe('jeevesComponentDescriptorSchema', () => {
   it('should validate a correct descriptor', () => {
@@ -81,30 +52,6 @@ describe('jeevesComponentDescriptorSchema', () => {
     expect(result.success).toBe(false);
   });
 
-  it('should reject non-prime refreshIntervalSeconds', () => {
-    const result = jeevesComponentDescriptorSchema.safeParse(
-      makeDescriptor({ refreshIntervalSeconds: 60 }),
-    );
-    expect(result.success).toBe(false);
-    expect(result.success ? '' : result.error.issues[0].message).toContain(
-      'prime',
-    );
-  });
-
-  it('should reject refreshIntervalSeconds of 1', () => {
-    const result = jeevesComponentDescriptorSchema.safeParse(
-      makeDescriptor({ refreshIntervalSeconds: 1 }),
-    );
-    expect(result.success).toBe(false);
-  });
-
-  it('should accept prime refreshIntervalSeconds', () => {
-    const result = jeevesComponentDescriptorSchema.safeParse(
-      makeDescriptor({ refreshIntervalSeconds: 67 }),
-    );
-    expect(result.success).toBe(true);
-  });
-
   it('should reject non-Zod configSchema', () => {
     const result = jeevesComponentDescriptorSchema.safeParse(
       makeDescriptor({ configSchema: { not: 'a zod schema' } }),
@@ -122,56 +69,50 @@ describe('jeevesComponentDescriptorSchema', () => {
     );
   });
 
-  it('should accept optional dependencies', () => {
+  it('should strip retired v0 TOOLS-writer fields', () => {
     const result = jeevesComponentDescriptorSchema.safeParse(
       makeDescriptor({
-        dependencies: { hard: ['watcher'], soft: [] },
+        sectionId: 'Watcher',
+        refreshIntervalSeconds: 71,
+        generateToolsContent: () => 'x',
+        dependencies: { hard: [], soft: [] },
       }),
     );
     expect(result.success).toBe(true);
+    const keys = result.success ? Object.keys(result.data) : [];
+    for (const retired of [
+      'sectionId',
+      'refreshIntervalSeconds',
+      'generateToolsContent',
+      'dependencies',
+    ]) {
+      expect(keys).not.toContain(retired);
+    }
   });
 
-  it('should accept optional onConfigApply', () => {
-    const result = jeevesComponentDescriptorSchema.safeParse(
-      makeDescriptor({
-        onConfigApply: async () => {
-          /* noop */
-        },
-      }),
-    );
-    expect(result.success).toBe(true);
-  });
-
-  it('should accept optional customCliCommands', () => {
-    const result = jeevesComponentDescriptorSchema.safeParse(
-      makeDescriptor({ customCliCommands: () => {} }),
-    );
-    expect(result.success).toBe(true);
-  });
-
-  it('should accept optional customPluginTools', () => {
-    const result = jeevesComponentDescriptorSchema.safeParse(
-      makeDescriptor({ customPluginTools: () => [] }),
-    );
-    expect(result.success).toBe(true);
-  });
+  it.each(['onConfigApply', 'customCliCommands', 'customPluginTools'])(
+    'should keep an optional %s function and reject a non-function',
+    (field) => {
+      const result = jeevesComponentDescriptorSchema.safeParse(
+        makeDescriptor({ [field]: () => undefined }),
+      );
+      expect(result.success).toBe(true);
+      expect(
+        typeof (result.data as Record<string, unknown> | undefined)?.[field],
+      ).toBe('function');
+      expect(
+        jeevesComponentDescriptorSchema.safeParse(
+          makeDescriptor({ [field]: 'nope' }),
+        ).success,
+      ).toBe(false);
+    },
+  );
 
   it('should require the run field', () => {
     const withoutRun: Record<string, unknown> = { ...makeDescriptor() };
     delete withoutRun['run'];
     const result = jeevesComponentDescriptorSchema.safeParse(withoutRun);
     expect(result.success).toBe(false);
-  });
-
-  it('should accept a valid run function', () => {
-    const result = jeevesComponentDescriptorSchema.safeParse(
-      makeDescriptor({
-        run: async () => {
-          /* noop */
-        },
-      }),
-    );
-    expect(result.success).toBe(true);
   });
 
   it('should reject negative defaultPort', () => {

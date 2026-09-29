@@ -6,6 +6,7 @@
 
 export {
   createServiceManager,
+  type ServiceInstallResult,
   type ServiceManager,
   type ServiceManagerOptions,
 } from './createServiceManager.js';

@@ -26,11 +26,10 @@ rectangle "Services" as services {
 rectangle "Workspace Files" as workspace {
   file "SOUL.md" as soul
   file "AGENTS.md" as agents
-  file "TOOLS.md" as tools
 }
 
-rectangle "Jeeves Core Library" as core {
-  card "Managed content\nVersion convergence\nService discovery" as lib
+rectangle "@karmaniverous/jeeves" as core {
+  card "jeeves install\n(static platform content,\nplugin install)" as lib
 }
 
 sources --> runner : cron schedules
@@ -39,8 +38,7 @@ watcher --> qdrant : embeddings
 meta --> qdrant : reads
 meta --> watcher : ".meta/ output →\nwatcher indexes"
 server ..> qdrant : search proxy
-lib --> soul : managed section
-lib --> agents : managed section
-lib --> tools : Platform +\ncomponent sections
+lib --> soul : managed block
+lib --> agents : managed block
 
 @enduml

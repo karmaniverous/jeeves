@@ -10,6 +10,7 @@ import fs from 'fs-extra';
 import type { InputOptions, RollupOptions } from 'rollup';
 import dtsPlugin from 'rollup-plugin-dts';
 
+import { dtsDependencyGuardPlugin } from './rollup-plugin-dts-deps.js';
 import { mdPlugin } from './rollup-plugin-md.js';
 
 const require = createRequire(import.meta.url);
@@ -21,6 +22,8 @@ const outputPath = `dist`;
 // Rollup writes bundle outputs; the TS plugin should only transpile.
 // - outputToFilesystem=false avoids outDir/dir validation errors for multi-output builds.
 // - incremental=false avoids TS build-info state referencing transient Rollup config artifacts.
+// The --configPlugin instance that loads this file (rollup-config-plugin.mjs)
+// sets outputToFilesystem explicitly too.
 const typescript = typescriptPlugin({
   tsconfig: './tsconfig.json',
   outputToFilesystem: false,
@@ -89,7 +92,7 @@ export const buildLibrary = (dest: string): RollupOptions => ({
 export const buildTypes = (dest: string): RollupOptions => ({
   input: 'src/index.ts',
   output: [{ file: `${dest}/index.d.ts`, format: 'esm' }],
-  plugins: [dtsPlugin()],
+  plugins: [dtsPlugin(), dtsDependencyGuardPlugin(pkg)],
 });
 
 /** Assemble complete config: library, types, and CLI outputs. */

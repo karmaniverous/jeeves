@@ -1,15 +1,15 @@
 import {
   existsSync,
-  mkdirSync,
   readFileSync,
   renameSync,
-  rmSync,
+  statSync,
   writeFileSync,
 } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { useTempDir } from '../test/tempDir.js';
 
 vi.mock('node:fs', async (importOriginal) => {
   const actual = await importOriginal();
@@ -19,25 +19,41 @@ vi.mock('node:fs', async (importOriginal) => {
   });
 });
 
-import { atomicWrite, withWorkspaceLock } from './fileOps.js';
+import { atomicWrite } from './fileOps.js';
 
 describe('atomicWrite', () => {
   let testDir: string;
 
+  const tempDir = useTempDir('jeeves-fileops-test-');
   beforeEach(() => {
-    testDir = join(tmpdir(), `jeeves-fileops-test-${String(Date.now())}`);
-    mkdirSync(testDir, { recursive: true });
+    testDir = tempDir();
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
-    rmSync(testDir, { recursive: true, force: true });
   });
 
   it('writes content to target file', () => {
     const filePath = join(testDir, 'target.txt');
     atomicWrite(filePath, 'hello world');
     expect(readFileSync(filePath, 'utf-8')).toBe('hello world');
+  });
+
+  it.skipIf(process.platform === 'win32')(
+    'applies the requested mode to the written file',
+    () => {
+      const filePath = join(testDir, 'secret.json');
+      writeFileSync(filePath, 'original', { mode: 0o644 });
+      atomicWrite(filePath, 'new', { mode: 0o600 });
+      expect(statSync(filePath).mode & 0o777).toBe(0o600);
+      expect(readFileSync(filePath, 'utf-8')).toBe('new');
+    },
+  );
+
+  it('writes content when a mode is requested', () => {
+    const filePath = join(testDir, 'target.txt');
+    atomicWrite(filePath, 'with mode', { mode: 0o666 });
+    expect(readFileSync(filePath, 'utf-8')).toBe('with mode');
   });
 
   it('retries on EPERM and succeeds on second attempt', () => {
@@ -78,9 +94,10 @@ describe('atomicWrite', () => {
       atomicWrite(filePath, 'new content');
     }).toThrow('EPERM');
 
-    for (const tempPath of renamedTemps) {
-      expect(existsSync(tempPath)).toBe(false);
-    }
+    expect(renamedTemps).toHaveLength(3);
+    expect(new Set(renamedTemps).size).toBe(1);
+    expect(existsSync(renamedTemps[0])).toBe(false);
+    expect(readFileSync(filePath, 'utf-8')).toBe('original');
   });
 
   it('does not retry on non-EPERM errors', () => {
@@ -97,84 +114,5 @@ describe('atomicWrite', () => {
       atomicWrite(filePath, 'new content');
     }).toThrow('EACCES');
     expect(callCount).toBe(1);
-  });
-});
-
-describe('withWorkspaceLock', () => {
-  let testDir: string;
-
-  beforeEach(() => {
-    testDir = join(
-      tmpdir(),
-      `jeeves-fileops-${Date.now().toString()}-${Math.random().toString(36).slice(2, 8)}`,
-    );
-    mkdirSync(testDir, { recursive: true });
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
-    rmSync(testDir, { recursive: true, force: true });
-  });
-
-  it('executes fn and releases lock when workspace lock is free', async () => {
-    const fn = vi.fn().mockResolvedValue(undefined);
-
-    await withWorkspaceLock(testDir, fn);
-    await withWorkspaceLock(testDir, fn);
-
-    expect(fn).toHaveBeenCalledTimes(2);
-  });
-
-  it('returns silently without executing fn when workspace lock is held', async () => {
-    const fn = vi.fn().mockResolvedValue(undefined);
-    let releaseOuter: (() => void) | undefined;
-
-    const outer = withWorkspaceLock(testDir, async () => {
-      await new Promise<void>((resolve) => {
-        releaseOuter = resolve;
-      });
-    });
-
-    await vi.waitFor(() => {
-      expect(releaseOuter).toBeTypeOf('function');
-    });
-    await withWorkspaceLock(testDir, fn);
-
-    expect(fn).not.toHaveBeenCalled();
-
-    releaseOuter?.();
-    await outer;
-  });
-
-  it('recovers after the lock is released', async () => {
-    const fn = vi.fn().mockResolvedValue(undefined);
-    let releaseOuter: (() => void) | undefined;
-
-    const outer = withWorkspaceLock(testDir, async () => {
-      await new Promise<void>((resolve) => {
-        releaseOuter = resolve;
-      });
-    });
-
-    await vi.waitFor(() => {
-      expect(releaseOuter).toBeTypeOf('function');
-    });
-    await withWorkspaceLock(testDir, fn);
-    expect(fn).not.toHaveBeenCalled();
-
-    releaseOuter?.();
-    await outer;
-
-    await withWorkspaceLock(testDir, fn);
-    expect(fn).toHaveBeenCalledTimes(1);
-  });
-
-  it('creates the workspace lock file if missing', async () => {
-    const fn = vi.fn().mockResolvedValue(undefined);
-
-    await withWorkspaceLock(testDir, fn);
-
-    expect(fn).toHaveBeenCalledTimes(1);
-    expect(existsSync(join(testDir, 'jeeves.lock'))).toBe(true);
   });
 });

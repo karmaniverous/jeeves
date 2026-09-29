@@ -99,8 +99,7 @@ describe('createConfigApplyHandler', () => {
       string,
       unknown
     >;
-    expect(written.port).toBe(2000);
-    expect(written.watchPaths).toEqual([]); // default from schema
+    expect(written).toEqual({ port: 2000 }); // no schema defaults written
   });
 
   it('should reject invalid config patches', async () => {
@@ -174,13 +173,11 @@ describe('createConfigApplyHandler', () => {
       JSON.stringify({ port: 1936, watchPaths: [], debug: false }),
     );
 
-    const customMerge = vi.fn(
-      (): Record<string, unknown> => ({
-        port: -1, // invalid: must be positive
-        watchPaths: [],
-        debug: false,
-      }),
-    );
+    const customMerge = vi.fn((): Record<string, unknown> => ({
+      port: -1, // invalid: must be positive
+      watchPaths: [],
+      debug: false,
+    }));
 
     const handler = createConfigApplyHandler(makeDescriptor({ customMerge }));
     const result = await handler({

@@ -2,9 +2,11 @@
  * Factory for a framework-agnostic `/status` HTTP handler.
  *
  * @remarks
- * Returns a standard status response shape consumed by HEARTBEAT
- * orchestration and the `{name}_status` plugin tool.
+ * Returns a standard status response shape consumed by `jeeves status` and
+ * the `{name}_status` plugin tool.
  * Tracks process start time internally for uptime calculation.
+ *
+ * @module
  */
 
 import { getErrorMessage } from '../utils.js';

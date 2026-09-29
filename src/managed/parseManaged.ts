@@ -1,44 +1,37 @@
 /**
- * Parse managed block from file content.
+ * Parse a Jeeves managed block out of workspace file content (pure).
  *
  * @remarks
- * Extracts managed content delimited by comment markers, parses H2
- * sections within the block, and returns the structured result plus
- * user content outside the markers.
+ * Locates the BEGIN/END comment markers, extracts the managed content and its
+ * version stamp, and returns the user content before and after the block.
+ *
+ * @module
  */
 
-import { TOOLS_MARKERS, VERSION_STAMP_PATTERN } from '../constants/index.js';
-import { sortSectionsByOrder } from './sectionSort.js';
-
-/** A parsed H2 section within the managed block. */
-export interface ManagedSection {
-  /** Section heading text (without the `## ` prefix). */
-  id: string;
-  /** Content below the heading (trimmed). */
-  content: string;
-}
+import {
+  type ManagedMarkers,
+  VERSION_STAMP_PATTERN,
+} from '../constants/index.js';
 
 /** Version stamp extracted from the BEGIN marker. */
 export interface VersionStamp {
   /** Core library version (semver). */
   version: string;
-  /** ISO timestamp of last write. */
+  /** ISO timestamp of the render. */
   timestamp: string;
 }
 
 /** Result of parsing a managed block from file content. */
 export interface ParseManagedResult {
-  /** Whether valid markers were found. */
+  /** Whether a valid BEGIN/END marker pair was found. */
   found: boolean;
   /** Version stamp from the BEGIN marker, if present. */
   versionStamp: VersionStamp | undefined;
   /** Raw managed block content (between markers, excluding markers). */
   managedContent: string;
-  /** Parsed H2 sections within the managed block. */
-  sections: ManagedSection[];
-  /** Content before the BEGIN marker. */
+  /** Content before the BEGIN marker (trimmed). */
   beforeContent: string;
-  /** Content after the END marker (user content). */
+  /** Content after the END marker (trimmed), or the whole file if not found. */
   userContent: string;
 }
 
@@ -53,130 +46,64 @@ export function escapeForRegex(str: string): string {
 }
 
 /**
- * Build regex patterns for the given markers.
+ * Build the regex matching a BEGIN marker line (with optional stamp).
  *
- * @param markers - Begin/end marker strings.
- * @returns Object with begin and end regex patterns.
+ * @param begin - BEGIN marker text.
+ * @param flags - RegExp flags.
+ * @returns The BEGIN marker regex.
  */
-function buildMarkerPatterns(markers: { begin: string; end: string }): {
-  beginRe: RegExp;
-  endRe: RegExp;
-} {
-  return {
-    beginRe: new RegExp(
-      `^<!--\\s*${escapeForRegex(markers.begin)}(?:\\s*\\|[^>]*)?\\s*(?:—[^>]*)?\\s*-->\\s*$`,
-      'm',
-    ),
-    endRe: new RegExp(
-      `^<!--\\s*${escapeForRegex(markers.end)}\\s*-->\\s*$`,
-      'm',
-    ),
-  };
-}
-
-/**
- * Parse H2 sections from managed block content.
- *
- * @param content - Raw managed block content.
- * @returns Array of parsed sections in stable order.
- */
-function parseSections(content: string): ManagedSection[] {
-  const lines = content.split('\n');
-  const sections: ManagedSection[] = [];
-  let currentId: string | undefined;
-  let currentLines: string[] = [];
-
-  for (const line of lines) {
-    const h2Match = /^## (.+)$/.exec(line);
-    if (h2Match) {
-      if (currentId !== undefined) {
-        sections.push({
-          id: currentId,
-          content: currentLines.join('\n').trim(),
-        });
-      }
-      currentId = h2Match[1]!;
-      currentLines = [];
-    } else if (currentId !== undefined) {
-      currentLines.push(line);
-    }
-  }
-
-  if (currentId !== undefined) {
-    sections.push({
-      id: currentId,
-      content: currentLines.join('\n').trim(),
-    });
-  }
-
-  return sortSectionsByOrder(sections);
+export function beginMarkerPattern(begin: string, flags = 'm'): RegExp {
+  return new RegExp(
+    `^<!--\\s*${escapeForRegex(begin)}(?:\\s*\\|[^>]*)?\\s*(?:—[^>]*)?\\s*-->\\s*$`,
+    flags,
+  );
 }
 
 /**
  * Parse a managed block from file content.
  *
  * @param fileContent - Full file content.
- * @param markers - Optional custom markers (defaults to TOOLS markers).
- * @returns Parsed result with sections, version stamp, and user content.
+ * @param markers - BEGIN/END marker pair to look for.
+ * @returns Parsed result with version stamp and surrounding user content.
  */
 export function parseManaged(
   fileContent: string,
-  markers: { begin: string; end: string } = TOOLS_MARKERS,
+  markers: Pick<ManagedMarkers, 'begin' | 'end'>,
 ): ParseManagedResult {
-  const { beginRe, endRe } = buildMarkerPatterns(markers);
+  const notFound: ParseManagedResult = {
+    found: false,
+    versionStamp: undefined,
+    managedContent: '',
+    beforeContent: '',
+    userContent: fileContent,
+  };
 
-  const beginMatch = beginRe.exec(fileContent);
-  if (!beginMatch) {
-    return {
-      found: false,
-      versionStamp: undefined,
-      managedContent: '',
-      sections: [],
-      beforeContent: '',
-      userContent: fileContent,
-    };
-  }
+  const beginMatch = beginMarkerPattern(markers.begin).exec(fileContent);
+  if (!beginMatch) return notFound;
 
-  const endMatch = endRe.exec(
-    fileContent.slice(beginMatch.index + beginMatch[0].length),
+  const endRe = new RegExp(
+    `^<!--\\s*${escapeForRegex(markers.end)}\\s*-->\\s*$`,
+    'm',
   );
-  if (!endMatch) {
-    // Corrupt: BEGIN without END — treat as fresh file
-    return {
-      found: false,
-      versionStamp: undefined,
-      managedContent: '',
-      sections: [],
-      beforeContent: '',
-      userContent: fileContent,
-    };
-  }
-
-  const beforeContent = fileContent.slice(0, beginMatch.index).trim();
   const managedStart = beginMatch.index + beginMatch[0].length;
-  const managedEnd = managedStart + endMatch.index;
-  const managedContent = fileContent.slice(managedStart, managedEnd).trim();
-  const afterEnd = managedStart + endMatch.index + endMatch[0].length;
-  const userContent = fileContent.slice(afterEnd).trim();
+  const endMatch = endRe.exec(fileContent.slice(managedStart));
+  // Corrupt: BEGIN without END — treat as a fresh file.
+  if (!endMatch) return notFound;
 
-  // Extract version stamp from BEGIN marker line
+  const managedEnd = managedStart + endMatch.index;
+  const afterEnd = managedEnd + endMatch[0].length;
+
   let versionStamp: VersionStamp | undefined;
   const stampMatch = VERSION_STAMP_PATTERN.exec(beginMatch[0]);
   if (stampMatch?.[2] && stampMatch[3]) {
-    versionStamp = {
-      version: stampMatch[2],
-      timestamp: stampMatch[3],
-    };
+    versionStamp = { version: stampMatch[2], timestamp: stampMatch[3] };
   }
-
-  const sections = parseSections(managedContent);
 
   return {
     found: true,
     versionStamp,
-    managedContent,
-    sections,
-    beforeContent,
-    userContent,
+    managedContent: fileContent.slice(managedStart, managedEnd).trim(),
+    beforeContent: fileContent.slice(0, beginMatch.index).trim(),
+    userContent: fileContent.slice(afterEnd).trim(),
   };
 }

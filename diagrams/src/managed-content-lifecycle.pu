@@ -4,44 +4,35 @@ skinparam defaultFontSize 11
 skinparam backgroundColor white
 skinparam ActivityDiamondBackgroundColor #EEEEEE
 
-title Managed Content Write Cycle
+title Static Platform Content Render (create / deploy)
 
 start
 
-:ComponentWriter timer fires;
+:jeeves install runs\n(locally, or via SSH from jeeves-tools);
 
-:Call generateToolsContent();
-note right: Component produces\nits TOOLS.md section
+:Render content (CLI-internal);
+note right: Pure: SOUL/AGENTS blocks\n(no skills, no templates)
 
-:updateManagedSection()\n**section mode**;
+:Read existing SOUL.md / AGENTS.md;
 
-:Read file, parse markers;
+:Upsert managed block (upsertManagedBlock);
 
-if (Markers found?) then (yes)
-  :Parse H2 sections\n+ version stamp;
+if (Managed block present?) then (yes)
+  :Replace block in place\n(owner content kept);
 else (no)
-  :Fresh-file mode:\nwrap existing content\nbelow END marker;
+  :Strip orphaned BEGIN marker;
+  :Insert block at marker position;
 endif
 
-if (Block mode +\nversion < stamp +\nstamp is fresh?) then (skip)
-  stop
-else (write)
-endif
-
-:Upsert named section;
-:Sort by stable order;
-:Jaccard cleanup check;
-
-if (Orphaned content\ndetected?) then (yes)
-  :Inject cleanup flag;
-else (no)
-endif
-
-:Atomic write\n(temp + rename);
-
-:refreshPlatformContent();
-note right: Probe services\nRender Platform template\nWrite SOUL.md, AGENTS.md\nCopy templates
+:Write SOUL.md / AGENTS.md,\ncore config if missing;
 
 stop
+
+note
+  Nothing re-runs on a timer.
+  Live state: *_status tools.
+  Component rules: before_prompt_build
+  → appendSystemContext.
+end note
 
 @enduml

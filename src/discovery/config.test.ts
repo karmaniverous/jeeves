@@ -25,7 +25,6 @@ describe('config', () => {
         services: {
           watcher: { url: 'http://127.0.0.1:1936' },
         },
-        registryCache: { ttlSeconds: 3600 },
       });
       expect(result.owners).toEqual(['jason']);
       expect(result.services['watcher'].url).toBe('http://127.0.0.1:1936');
@@ -34,8 +33,20 @@ describe('config', () => {
     it('should apply defaults for missing fields', () => {
       const result = coreConfigSchema.parse({});
       expect(result.owners).toEqual([]);
-      expect(result.services).toEqual({});
-      expect(result.registryCache.ttlSeconds).toBe(3600);
+      expect(result).toEqual({
+        owners: [],
+        bindAddress: '0.0.0.0',
+        services: {},
+      });
+    });
+
+    it('should strip the retired v0.x registryCache key', () => {
+      const result = coreConfigSchema.parse({
+        owners: ['jason'],
+        registryCache: { ttlSeconds: 60 },
+      });
+      expect(result).not.toHaveProperty('registryCache');
+      expect(result.owners).toEqual(['jason']);
     });
 
     it('should reject invalid service URL', () => {
@@ -52,7 +63,13 @@ describe('config', () => {
       const schema = generateJsonSchema();
       expect(schema['$schema']).toBe('http://json-schema.org/draft-07/schema#');
       expect(schema['type']).toBe('object');
-      expect(schema['properties']).toBeDefined();
+      expect(Object.keys(schema['properties'] as object)).toEqual([
+        '$schema',
+        'owners',
+        'bindAddress',
+        'services',
+      ]);
+      expect(schema).not.toHaveProperty('additionalProperties');
     });
   });
 
@@ -72,6 +89,25 @@ describe('config', () => {
       const config = loadConfig(testDir);
       expect(config).toBeDefined();
       expect(config?.owners).toEqual(['jason']);
+    });
+
+    it('should load a v0.x config file that still has registryCache', () => {
+      writeFileSync(
+        join(testDir, 'config.json'),
+        JSON.stringify({
+          $schema: './config.schema.json',
+          owners: ['jason'],
+          bindAddress: '127.0.0.1',
+          services: {},
+          registryCache: { ttlSeconds: 3600 },
+        }),
+      );
+      expect(loadConfig(testDir)).toEqual({
+        $schema: './config.schema.json',
+        owners: ['jason'],
+        bindAddress: '127.0.0.1',
+        services: {},
+      });
     });
 
     it('should return undefined for invalid JSON', () => {

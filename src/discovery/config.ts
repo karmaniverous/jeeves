@@ -7,6 +7,11 @@
  * 1. Component's own config file
  * 2. Core config file
  * 3. Hardcoded library defaults
+ *
+ * Unknown keys are stripped on parse, so files that still carry retired
+ * keys (e.g. v0.x `registryCache`) keep validating.
+ *
+ * @module
  */
 
 import { existsSync, readFileSync } from 'node:fs';
@@ -44,19 +49,6 @@ export const coreConfigSchema = z.object({
     .record(z.string(), serviceEntrySchema)
     .default({})
     .describe('Service URL overrides'),
-  /** Registry cache configuration. */
-  registryCache: z
-    .object({
-      /** Cache TTL in seconds for npm registry queries. */
-      ttlSeconds: z
-        .number()
-        .int()
-        .positive()
-        .default(3600)
-        .describe('Cache TTL in seconds'),
-    })
-    .prefault({})
-    .describe('Registry cache settings'),
 });
 
 /** Core config type derived from the Zod schema. */
@@ -92,17 +84,6 @@ export function generateJsonSchema(): Record<string, unknown> {
             url: { type: 'string', format: 'uri' },
           },
           required: ['url'],
-        },
-        default: {},
-      },
-      registryCache: {
-        type: 'object',
-        properties: {
-          ttlSeconds: {
-            type: 'integer',
-            minimum: 1,
-            default: 3600,
-          },
         },
         default: {},
       },
