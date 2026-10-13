@@ -12,14 +12,15 @@
  * @module
  */
 
-import type { PatchOutcome } from './distPatchIo.js';
+import { getErrorMessage } from '../../../utils.js';
+import type { PatchLogger, PatchOutcome } from './distPatchIo.js';
 
 /** One registered dist patch. */
 export interface DistPatch {
   /** Patch name, e.g. `tool-order`. */
   name: string;
   /** Run the patch against a resolved dist directory. */
-  run: (distDir: string, dryRun: boolean) => PatchOutcome;
+  run: (distDir: string, dryRun: boolean, logger?: PatchLogger) => PatchOutcome;
 }
 
 /** Aggregate result of running every registered patch once. */
@@ -32,20 +33,25 @@ export interface PatchRunReport {
   results: PatchOutcome[];
 }
 
+/** Whether an outcome is a failure. */
+const isFailure = (r: PatchOutcome): boolean =>
+  r.status === 'not-found' || r.status === 'error';
+
 /** Run every patch, converting throws into failed outcomes. */
 export function runAllPatches(
   patches: readonly DistPatch[],
   distDir: string,
   dryRun: boolean,
+  logger?: PatchLogger,
 ): PatchOutcome[] {
   return patches.map((patch) => {
     try {
-      return patch.run(distDir, dryRun);
+      return patch.run(distDir, dryRun, logger);
     } catch (err) {
       return {
         name: patch.name,
         status: 'error',
-        message: err instanceof Error ? err.message : String(err),
+        message: getErrorMessage(err),
       };
     }
   });
@@ -55,28 +61,18 @@ export function runAllPatches(
 export function summarizePatchRun(results: PatchOutcome[]): PatchRunReport {
   return {
     changed: results.some((r) => r.status === 'patched'),
-    failed: results.some(
-      (r) => r.status === 'not-found' || r.status === 'error',
-    ),
+    failed: results.some(isFailure),
     results,
   };
 }
 
 /** Human-readable per-patch summary lines. */
 export function formatPatchSummary(results: readonly PatchOutcome[]): string[] {
-  const lines = results.map((r) => {
-    const label = {
-      patched: 'OK      ',
-      'already-patched': 'OK      ',
-      'upstream-fixed': 'OK      ',
-      'not-found': 'FAILED  ',
-      error: 'FAILED  ',
-    }[r.status];
-    return `  ${label}${r.name} — ${r.message}`;
-  });
-  const failed = results.filter(
-    (r) => r.status === 'not-found' || r.status === 'error',
-  ).length;
+  const lines = results.map(
+    (r) =>
+      `  ${isFailure(r) ? 'FAILED  ' : 'OK      '}${r.name} — ${r.message}`,
+  );
+  const failed = results.filter(isFailure).length;
   lines.push(
     failed === 0
       ? `  All ${String(results.length)} patches succeeded.`

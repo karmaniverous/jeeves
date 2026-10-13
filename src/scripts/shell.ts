@@ -6,6 +6,7 @@
 
 import cp from 'node:child_process';
 
+import { getErrorMessage } from '../utils.js';
 import { sleepMs } from './fs-utils.js';
 import { exponentialBackoff, retrySync } from './retry.js';
 
@@ -59,8 +60,9 @@ export interface RetryOptions {
 
 /** Default retryability test: transient timeout-ish error messages. */
 function defaultIsRetryable(e: unknown): boolean {
-  const msg = e instanceof Error ? e.message : String(e);
-  return /context deadline exceeded|timed out|timeout/i.test(msg);
+  return /context deadline exceeded|timed out|timeout/i.test(
+    getErrorMessage(e),
+  );
 }
 
 /**

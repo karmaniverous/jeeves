@@ -235,11 +235,6 @@ describe('runSkillsCommand install', () => {
     ]);
   });
 
-  it('--managed with --self-hosted is an error (resolveModeFlag at the CLI layer)', async () => {
-    const { resolveModeFlag } = await import('./skillsModel.js');
-    expect(() => resolveModeFlag(true, true)).toThrow();
-  });
-
   it('dry-run issues no mutating command', async () => {
     const { runner, lines } = fakeRunner({
       [GET]: ok(JSON.stringify({})),

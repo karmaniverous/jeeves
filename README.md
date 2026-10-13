@@ -71,7 +71,7 @@ openclaw plugins install npm:@karmaniverous/jeeves-{component}-openclaw@<version
 
 so you never need a plugin-specific installer.
 
-Upgrading from v0.x? See the [migration guide](guides/migrating-to-v1.md).
+Upgrading from v0.x? See the [migration guide](guides/migrating-to-v1.md). Upgrading to 0.7.0? See [Migrating to 0.7](guides/migrating-to-0.7.md).
 
 ## Plugin SDK
 
@@ -288,7 +288,7 @@ Plugin changes and OpenClaw dist patches take effect when the gateway next start
 
 ### OpenClaw dist patches
 
-`jeeves patch-openclaw [--dry-run]` applies Jeeves' post-install patches to the installed OpenClaw `dist` (today only `tool-order`). Run it after every OpenClaw upgrade; `jeeves install` and `jeeves update` run it too (`--skip-patch` to opt out). Each patch finds its site by content, so it doesn't depend on chunk names. It is idempotent (`already patched` counts as success) and reports `upstream-fixed` when OpenClaw no longer needs it. One failing patch doesn't stop the others. If a patch site isn't found (for example on an OpenClaw version it has no fixtures for), the patch reports `not found` and the command exits non-zero without guessing. Before writing, it checks the dist files are writable by the current user and fails naming the path and user otherwise; run it as the user who owns the OpenClaw install. It never restarts the gateway: after a live run that changed the dist it prints the restart notice.
+`jeeves patch-openclaw [--dry-run]` applies Jeeves' post-install patches to the installed OpenClaw `dist` (today only `tool-order`). Run it after every OpenClaw upgrade; `jeeves install` and `jeeves update` run it too (`--skip-patch` to opt out). Each patch finds its site by content, so it doesn't depend on chunk names. It is idempotent (`already patched` counts as success). It reports `upstream-fixed`, also a success, when OpenClaw no longer needs the patch: for `tool-order`, when OpenClaw's own `toolOrder` already lists the watcher tools ahead of `grep` in an arrangement this patch didn't write. One failing patch doesn't stop the others. If a patch site isn't found (for example on an OpenClaw version it has no fixtures for), the patch reports `not-found` (`patch site not found in any file`) and the command exits non-zero without guessing. Before writing, it checks the dist files are writable by the current user and fails naming the path and user otherwise; run it as the user who owns the OpenClaw install. It never restarts the gateway: after a live run that changed the dist it prints the restart notice.
 
 ### Plugin config
 
@@ -474,6 +474,7 @@ Memory hygiene is reporting-only. Core does not auto-delete content (Decision 42
 - [Platform Overview](https://docs.karmanivero.us/jeeves/documents/Platform_Overview.html) — architecture, components, design philosophy
 - [Managed Content System](https://docs.karmanivero.us/jeeves/documents/Managed_Content_System.html) — static content, markers, budgets, `jeeves install`
 - [Migrating to v1](guides/migrating-to-v1.md) — what was removed and what replaces it
+- [Migrating to 0.7](guides/migrating-to-0.7.md) — `patch-openclaw`, `jeeves skills`, the bootstrap size report, hoisted script helpers and the fetch timeout
 - [Building a Component Plugin](https://docs.karmanivero.us/jeeves/documents/Building_a_Component_Plugin.html) — step-by-step integration
 - [API Reference](https://docs.karmanivero.us/jeeves) — types, functions, constants
 

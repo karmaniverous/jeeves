@@ -2,41 +2,56 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { listSkillNames, resolveSkillsFolders } from './skillsFolders.js';
+import { discoverSkillNames } from './skillsFolders.js';
 
-describe('resolveSkillsFolders', () => {
-  it('joins the package root with the two folder names', () => {
-    expect(resolveSkillsFolders('/pkg')).toEqual({
-      generic: path.join('/pkg', 'skills'),
-      selfHosted: path.join('/pkg', 'skills-self-hosted'),
-    });
-  });
+let root: string;
+
+beforeEach(() => {
+  root = mkdtempSync(path.join(tmpdir(), 'jeeves-shadow-'));
 });
 
-describe('listSkillNames', () => {
-  let dir: string;
+afterEach(() => {
+  rmSync(root, { recursive: true, force: true });
+});
 
-  afterEach(() => {
-    if (dir) rmSync(dir, { recursive: true, force: true });
+/** Write `<dir>/SKILL.md`, with frontmatter naming `name` unless omitted. */
+function skill(dir: string, name?: string): void {
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    path.join(dir, 'SKILL.md'),
+    name === undefined
+      ? '# no frontmatter\n'
+      : `---\nname: ${name}\ndescription: test skill\n---\n\n# ${name}\n`,
+  );
+}
+
+describe('discoverSkillNames', () => {
+  it('finds flat and grouped skills, named by frontmatter or folder', () => {
+    skill(path.join(root, 'jeeves-platform'), 'jeeves-platform');
+    skill(path.join(root, 'group', 'jeeves-coding'), 'jeeves-coding');
+    skill(path.join(root, 'renamed-folder'), 'jeeves-design');
+    skill(path.join(root, 'bare'));
+
+    expect(discoverSkillNames(root)).toEqual([
+      'bare',
+      'jeeves-coding',
+      'jeeves-design',
+      'jeeves-platform',
+    ]);
   });
 
-  it('returns sorted subfolders that contain a SKILL.md', () => {
-    dir = mkdtempSync(path.join(tmpdir(), 'jeeves-skills-'));
-    mkdirSync(path.join(dir, 'zeta'));
-    writeFileSync(path.join(dir, 'zeta', 'SKILL.md'), '# zeta');
-    mkdirSync(path.join(dir, 'alpha'));
-    writeFileSync(path.join(dir, 'alpha', 'SKILL.md'), '# alpha');
-    mkdirSync(path.join(dir, 'no-skill-md'));
-    writeFileSync(path.join(dir, 'not-a-dir.txt'), 'x');
+  it('stops at the first SKILL.md and below 6 levels', () => {
+    skill(path.join(root, 'outer'), 'outer');
+    skill(path.join(root, 'outer', 'inner'), 'inner');
+    skill(path.join(root, 'a', 'b', 'c', 'd', 'e', 'six'), 'six');
+    skill(path.join(root, 'a', 'b', 'c', 'd', 'e', 'f', 'seven'), 'seven');
 
-    expect(listSkillNames(dir)).toEqual(['alpha', 'zeta']);
+    expect(discoverSkillNames(root)).toEqual(['outer', 'six']);
   });
 
-  it('returns an empty list for a missing folder', () => {
-    expect(
-      listSkillNames(path.join(tmpdir(), 'does-not-exist-jeeves')),
-    ).toEqual([]);
+  it('yields nothing for a missing root', () => {
+    expect(discoverSkillNames(path.join(root, 'nope'))).toEqual([]);
   });
 });

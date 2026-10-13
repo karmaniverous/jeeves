@@ -56,26 +56,50 @@ export interface SkillsChange {
   unsets: string[];
 }
 
-/** Suffix of a (possibly stale) generic-folder `extraDirs` entry. */
-const GENERIC_SUFFIX = '/node_modules/@karmaniverous/jeeves/skills';
+/** One of this package's two skill folders. */
+type FolderKey = keyof SkillsFolders;
 
-/** Suffix of a (possibly stale) self-hosted-folder `extraDirs` entry. */
-const SELF_HOSTED_SUFFIX =
-  '/node_modules/@karmaniverous/jeeves/skills-self-hosted';
+/**
+ * Path suffix identifying each folder in any install location, so a
+ * stale copy (e.g. after an nvm/Node change) is still recognised.
+ */
+const FOLDER_SUFFIX: Readonly<Record<FolderKey, string>> = {
+  generic: '/node_modules/@karmaniverous/jeeves/skills',
+  selfHosted: '/node_modules/@karmaniverous/jeeves/skills-self-hosted',
+};
 
 /** Normalize a path for comparison: forward slashes, no trailing slash. */
 const normalize = (value: string): string =>
   value.replace(/\\/g, '/').replace(/\/+$/, '');
 
-/** Whether an `extraDirs` entry is this package's generic folder (current or stale). */
-const isGenericEntry = (entry: string, folders: SkillsFolders): boolean =>
-  normalize(entry) === normalize(folders.generic) ||
-  normalize(entry).endsWith(GENERIC_SUFFIX);
+/** Whether two paths are the same after {@link normalize}. */
+const samePath = (a: string, b: string): boolean =>
+  normalize(a) === normalize(b);
 
-/** Whether an `extraDirs` entry is this package's self-hosted folder (current or stale). */
-const isSelfHostedEntry = (entry: string, folders: SkillsFolders): boolean =>
-  normalize(entry) === normalize(folders.selfHosted) ||
-  normalize(entry).endsWith(SELF_HOSTED_SUFFIX);
+/** How an `extraDirs` entry relates to one of this package's folders. */
+interface EntryKind {
+  /** Which folder. */
+  folder: FolderKey;
+  /** `true` when it is an old install location, not the running package's. */
+  stale: boolean;
+}
+
+/**
+ * Classify an `extraDirs` entry as one of this package's folders (current
+ * or stale), or `undefined` for anyone else's entry.
+ */
+function entryKind(
+  entry: string,
+  folders: SkillsFolders,
+): EntryKind | undefined {
+  for (const folder of ['generic', 'selfHosted'] as const) {
+    if (samePath(entry, folders[folder])) return { folder, stale: false };
+    if (normalize(entry).endsWith(FOLDER_SUFFIX[folder])) {
+      return { folder, stale: true };
+    }
+  }
+  return undefined;
+}
 
 /**
  * Whether an `extraDirs` entry is one of this package's folders (either
@@ -86,17 +110,14 @@ const isSelfHostedEntry = (entry: string, folders: SkillsFolders): boolean =>
  * @returns `true` for this package's entries.
  */
 export const isOwnEntry = (entry: string, folders: SkillsFolders): boolean =>
-  isGenericEntry(entry, folders) || isSelfHostedEntry(entry, folders);
+  entryKind(entry, folders) !== undefined;
 
-/** Whether an `extraDirs` entry is a stale copy of the generic folder. */
-const isStaleGeneric = (entry: string, folders: SkillsFolders): boolean =>
-  normalize(entry).endsWith(GENERIC_SUFFIX) &&
-  normalize(entry) !== normalize(folders.generic);
-
-/** Whether an `extraDirs` entry is a stale copy of the self-hosted folder. */
-const isStaleSelfHosted = (entry: string, folders: SkillsFolders): boolean =>
-  normalize(entry).endsWith(SELF_HOSTED_SUFFIX) &&
-  normalize(entry) !== normalize(folders.selfHosted);
+/** Whether an entry is this package's `folder` (current or stale). */
+const isFolder = (
+  entry: string,
+  folders: SkillsFolders,
+  folder: FolderKey,
+): boolean => entryKind(entry, folders)?.folder === folder;
 
 /**
  * Resolve `--managed`/`--self-hosted` into a mode, or `undefined` when
@@ -130,10 +151,10 @@ export function resolveModeFlag(
  */
 export function inferMode(context: SkillsContext): SkillsMode {
   const extraDirs = context.config.load?.extraDirs ?? [];
-  if (extraDirs.some((entry) => isSelfHostedEntry(entry, context.folders))) {
+  if (extraDirs.some((e) => isFolder(e, context.folders, 'selfHosted'))) {
     return 'selfHosted';
   }
-  if (extraDirs.some((entry) => isGenericEntry(entry, context.folders))) {
+  if (extraDirs.some((e) => isFolder(e, context.folders, 'generic'))) {
     return 'managed';
   }
   return 'selfHosted';
@@ -157,22 +178,18 @@ export function installChange(
   const extraDirs = context.config.load?.extraDirs ?? [];
   const next: string[] = [];
   for (const entry of extraDirs) {
-    if (isGenericEntry(entry, folders)) {
-      next.push(folders.generic);
-      continue;
+    const kind = entryKind(entry, folders);
+    if (!kind) next.push(entry);
+    else if (kind.folder === 'generic' || mode === 'selfHosted') {
+      next.push(folders[kind.folder]);
     }
-    if (isSelfHostedEntry(entry, folders)) {
-      if (mode === 'selfHosted') next.push(folders.selfHosted);
-      continue;
-    }
-    next.push(entry);
   }
-  if (!next.some((entry) => normalize(entry) === normalize(folders.generic))) {
+  if (!next.some((entry) => samePath(entry, folders.generic))) {
     next.push(folders.generic);
   }
   if (
     mode === 'selfHosted' &&
-    !next.some((entry) => normalize(entry) === normalize(folders.selfHosted))
+    !next.some((entry) => samePath(entry, folders.selfHosted))
   ) {
     next.push(folders.selfHosted);
   }
@@ -204,10 +221,7 @@ const onlyKey = (
 export function uninstallChange(context: SkillsContext): SkillsChange {
   const { folders } = context;
   const extraDirs = context.config.load?.extraDirs ?? [];
-  const next = extraDirs.filter(
-    (entry) =>
-      !isGenericEntry(entry, folders) && !isSelfHostedEntry(entry, folders),
-  );
+  const next = extraDirs.filter((entry) => !isOwnEntry(entry, folders));
   if (next.length === extraDirs.length) return { sets: [], unsets: [] };
   if (next.length > 0) {
     return { sets: [{ path: EXTRA_DIRS_PATH, value: next }], unsets: [] };
@@ -229,17 +243,15 @@ type FolderState = 'wired' | 'missing' | `stale (wired as ${string})`;
 function folderState(
   extraDirs: readonly string[],
   folders: SkillsFolders,
-  which: 'generic' | 'selfHosted',
+  which: FolderKey,
 ): FolderState {
-  const path = which === 'generic' ? folders.generic : folders.selfHosted;
-  if (extraDirs.some((entry) => normalize(entry) === normalize(path))) {
+  if (extraDirs.some((entry) => samePath(entry, folders[which]))) {
     return 'wired';
   }
-  const stale = extraDirs.find((entry) =>
-    which === 'generic'
-      ? isStaleGeneric(entry, folders)
-      : isStaleSelfHosted(entry, folders),
-  );
+  const stale = extraDirs.find((entry) => {
+    const kind = entryKind(entry, folders);
+    return kind?.folder === which && kind.stale;
+  });
   return stale ? `stale (wired as ${stale})` : 'missing';
 }
 

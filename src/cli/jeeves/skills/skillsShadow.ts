@@ -13,10 +13,8 @@
  * lowest tier, so a same-named skill there is a name collision. Bundled
  * and Custodian skills ship inside OpenClaw and are not scanned.
  *
- * Discovery mirrors OpenClaw's grouped layout: a skill is any directory
- * holding a `SKILL.md`, found up to 6 levels below a root, with traversal
- * stopping at the first `SKILL.md`. Its name is the frontmatter `name`, or
- * the directory name when the frontmatter is missing or invalid.
+ * Skills are found with `skillsFolders.ts`'s `discoverSkillNames`, the
+ * same discovery that lists this package's own skills.
  *
  * Read-only and never throws: a missing or unreadable source yields no
  * skills.
@@ -24,12 +22,11 @@
  * @module
  */
 
-import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { validateSkillFrontmatter } from '../../../plugin/skillFrontmatter.js';
 import { resolveOpenClawConfigDir } from '../plugins/legacyExtensions.js';
+import { discoverSkillNames, readEntries } from './skillsFolders.js';
 
 /** One skill source to check for same-named skills. */
 export interface ShadowSource {
@@ -37,51 +34,6 @@ export interface ShadowSource {
   label: string;
   /** Root directory to scan. */
   dir: string;
-}
-
-/** How deep below a root OpenClaw looks for `SKILL.md` (grouped layouts). */
-const MAX_DEPTH = 6;
-
-/** Read a directory's entries, or none when it cannot be read. */
-function readEntries(dir: string): fs.Dirent[] {
-  try {
-    return fs.readdirSync(dir, { withFileTypes: true });
-  } catch {
-    return [];
-  }
-}
-
-/** The skill name a `SKILL.md` declares, falling back to its folder name. */
-function skillName(skillDir: string): string {
-  try {
-    const content = fs.readFileSync(path.join(skillDir, 'SKILL.md'), 'utf8');
-    return validateSkillFrontmatter(content).name;
-  } catch {
-    return path.basename(skillDir);
-  }
-}
-
-/**
- * Every skill name under a root, discovered as OpenClaw does.
- *
- * @param root - Skill root to scan.
- * @returns Skill names, sorted and de-duplicated.
- */
-export function discoverSkillNames(root: string): string[] {
-  const names = new Set<string>();
-  const walk = (dir: string, depth: number): void => {
-    for (const entry of readEntries(dir)) {
-      if (!entry.isDirectory()) continue;
-      const child = path.join(dir, entry.name);
-      if (fs.existsSync(path.join(child, 'SKILL.md'))) {
-        names.add(skillName(child));
-      } else if (depth < MAX_DEPTH) {
-        walk(child, depth + 1);
-      }
-    }
-  };
-  walk(root, 1);
-  return [...names].sort();
 }
 
 /** Inputs to {@link defaultShadowSources}. */

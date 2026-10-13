@@ -4,47 +4,27 @@
  * plus `config unset` calls.
  *
  * @remarks
- * Mirrors `plugins/openclawState.ts`'s `readPluginsConfig` for the `skills`
- * path.
+ * Reading goes through `plugins/openclawState.ts`'s `readConfigSlice`, the
+ * same reader `readPluginsConfig` uses.
  *
  * @module
  */
 
-import { parseJson } from '../../../utils.js';
-import { formatCommand } from '../plugins/commandLine.js';
-import {
-  CommandFailedError,
-  type CommandRunner,
-  runChecked,
-} from '../plugins/commandRunner.js';
+import { type CommandRunner, runChecked } from '../plugins/commandRunner.js';
 import {
   BATCH_FILE_NAME,
   configBatchPayload,
-  configGetArgs,
   configSetBatchFileArgs,
   type ConfigSetOperation,
   configUnsetArgs,
   OPENCLAW_BIN,
 } from '../plugins/openclawCommands.js';
+import { readConfigSlice } from '../plugins/openclawState.js';
 import {
   type PrivateTempFiles,
   withPrivateTempFile,
 } from '../plugins/privateTempFile.js';
 import { type SkillsConfig, skillsConfigSchema } from './skillsModel.js';
-
-/** Prefix of OpenClaw's `config get` message for an unset path. */
-const UNSET_MESSAGE = 'Config path is valid but unset';
-
-/** Whether a failed `config get --json` means "path unset". */
-function isUnsetResponse(stdout: string): boolean {
-  try {
-    const body = JSON.parse(stdout) as { error?: { message?: unknown } };
-    const message = body.error?.message;
-    return typeof message === 'string' && message.startsWith(UNSET_MESSAGE);
-  } catch {
-    return false;
-  }
-}
 
 /**
  * Read the `skills` config slice via `openclaw config get skills --json`.
@@ -52,22 +32,10 @@ function isUnsetResponse(stdout: string): boolean {
  * @param runner - Command runner.
  * @returns The parsed slice (`{}` when unset).
  */
-export async function readSkillsConfig(
+export const readSkillsConfig = (
   runner: CommandRunner,
-): Promise<SkillsConfig> {
-  const args = configGetArgs('skills');
-  const result = await runner(OPENCLAW_BIN, args);
-  if (result.exitCode !== 0) {
-    if (isUnsetResponse(result.stdout)) return {};
-    throw new CommandFailedError(formatCommand(OPENCLAW_BIN, args), result);
-  }
-  return skillsConfigSchema.parse(
-    parseJson(
-      result.stdout,
-      `Unexpected non-JSON output from ${formatCommand(OPENCLAW_BIN, args)}`,
-    ),
-  );
-}
+): Promise<SkillsConfig> =>
+  readConfigSlice(runner, 'skills', skillsConfigSchema);
 
 /**
  * Apply `config set` operations with one `--batch-file` call, through an

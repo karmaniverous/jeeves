@@ -50,7 +50,6 @@ import {
   readBootstrapLimits,
 } from './content/bootstrapReport.js';
 import { installPlatformContent } from './installPlatformContent.js';
-import { runOpenClawPatches } from './openclawPatch/patchOpenclawCommand.js';
 import { emptyApplyReport } from './plugins/applyReport.js';
 import { executePlan } from './plugins/executePlan.js';
 import {
@@ -64,8 +63,12 @@ import {
   parsePluginSpecs,
 } from './plugins/pluginSpec.js';
 import { prepareInstall } from './plugins/workflows.js';
-import { runSkillsCommand } from './skills/skillsCommand.js';
-import { resolveModeFlag } from './skills/skillsModel.js';
+import {
+  addPostPluginOptions,
+  runPostPluginSteps,
+  skipPatchFromCli,
+} from './postPluginSteps.js';
+import { skillsModeFromCli } from './skills/skillsCommand.js';
 
 /**
  * Register the install subcommand on the parent CLI program.
@@ -83,20 +86,13 @@ export function registerInstallCommand(program: Command): void {
       'Plugin specs, e.g. watcher, watcher@1.2.3 (default: runner, watcher, server, meta at latest)',
     );
   addPluginOptions(command);
+  command;
+  addPostPluginOptions(
+    command,
+    'Skills: wire skills/ and skills-self-hosted/ (default on a fresh install)',
+  );
   command
     .option('--content-only', 'Render platform content only; skip plugins')
-    .option(
-      '--skip-patch',
-      'Skip the OpenClaw dist patch step (jeeves patch-openclaw)',
-    )
-    .option(
-      '--managed',
-      'Skills: wire skills/ only (jeeves skills install --managed)',
-    )
-    .option(
-      '--self-hosted',
-      'Skills: wire skills/ and skills-self-hosted/ (default on a fresh install)',
-    )
     .option(
       '--strict',
       'Exit non-zero when a bootstrap file is at or over 90% of its OpenClaw limit',
@@ -107,10 +103,7 @@ export function registerInstallCommand(program: Command): void {
     )
     .action(async (plugins, rawOpts) => {
       const dryRun = rawOpts.dryRun === true;
-      const skillsMode = resolveModeFlag(
-        rawOpts.managed === true,
-        rawOpts.selfHosted === true,
-      );
+      const skillsMode = skillsModeFromCli(rawOpts);
       const opts = pluginCliOptionsSchema.parse(rawOpts);
       // Validate specs and config input before writing anything.
       const targets = rawOpts.contentOnly
@@ -151,24 +144,14 @@ export function registerInstallCommand(program: Command): void {
         printLines(installNotices(prepared, dryRun));
       }
 
-      let patchFailed = false;
-      let distChanged = false;
-      if (rawOpts.contentOnly !== true && rawOpts.skipPatch !== true) {
-        console.log();
-        const patchReport = runOpenClawPatches({ dryRun });
-        patchFailed = patchReport.failed;
-        distChanged = patchReport.changed && !dryRun;
-      }
-
-      let skillsFailed = false;
-      if (rawOpts.contentOnly !== true) {
-        console.log();
-        const skills = await runSkillsCommand('install', {
-          dryRun,
-          ...(skillsMode ? { mode: skillsMode } : {}),
-        });
-        skillsFailed = skills.exitCode !== 0;
-      }
+      const post =
+        rawOpts.contentOnly === true
+          ? { failed: false, distChanged: false }
+          : await runPostPluginSteps({
+              dryRun,
+              skipPatch: skipPatchFromCli(rawOpts),
+              ...(skillsMode ? { skillsMode } : {}),
+            });
 
       console.log();
       const bootstrap = measureBootstrapFiles(
@@ -181,10 +164,10 @@ export function registerInstallCommand(program: Command): void {
       const bootstrapFailed =
         rawOpts.strict === true && hasBootstrapProblems(bootstrap);
 
-      printLines(gatewayNotice(applied, distChanged));
+      printLines(gatewayNotice(applied, post.distChanged));
 
       console.log(dryRun ? DRY_RUN_COMPLETE : '✅ Jeeves installed.');
 
-      if (patchFailed || skillsFailed || bootstrapFailed) process.exitCode = 1;
+      if (post.failed || bootstrapFailed) process.exitCode = 1;
     });
 }

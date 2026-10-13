@@ -20,10 +20,13 @@
 
 import type { Command } from '@commander-js/extra-typings';
 
+import { getErrorMessage } from '../../../utils.js';
 import { RESTART_NOTICE } from '../cliOutput.js';
-import type { PatchRunReport } from './patchRunner.js';
+import { consolePatchLogger, type PatchLogger } from './distPatchIo.js';
 import {
+  type DistPatch,
   formatPatchSummary,
+  type PatchRunReport,
   runAllPatches,
   summarizePatchRun,
 } from './patchRunner.js';
@@ -31,44 +34,64 @@ import { resolveOpenClawDist } from './resolveOpenclawDist.js';
 import { runToolOrderPatch, TOOL_ORDER_PATCH_NAME } from './toolOrderPatch.js';
 
 /** Patches run by `jeeves patch-openclaw`, in order. */
-const DIST_PATCHES = [{ name: TOOL_ORDER_PATCH_NAME, run: runToolOrderPatch }];
+const DIST_PATCHES: readonly DistPatch[] = [
+  { name: TOOL_ORDER_PATCH_NAME, run: runToolOrderPatch },
+];
+
+/** Options for {@link runOpenClawPatches}. */
+export interface RunOpenClawPatchesOptions {
+  /** When true, nothing is written. */
+  dryRun: boolean;
+  /** Where progress lines go (default: the console). */
+  logger?: PatchLogger;
+  /** Locate the OpenClaw dist (default: {@link resolveOpenClawDist}). */
+  resolveDist?: () => string;
+  /** Patches to run (default: every registered patch). */
+  patches?: readonly DistPatch[];
+}
 
 /**
  * Run every registered OpenClaw dist patch and print a summary.
  *
  * @remarks
  * Programmatic entry point used by `install` and `update`. Internal:
- * not part of the public package API.
+ * not part of the public package API. A missing OpenClaw install is
+ * reported as a failed outcome rather than thrown, so install/update
+ * finish their other work and exit non-zero.
  *
- * @param options - `dryRun`: when true, nothing is written.
+ * @param options - Dry-run flag and injectable ports.
  * @returns The aggregate patch run report.
  */
-export function runOpenClawPatches(options: {
-  dryRun: boolean;
-}): PatchRunReport {
-  const { dryRun } = options;
+export function runOpenClawPatches(
+  options: RunOpenClawPatchesOptions,
+): PatchRunReport {
+  const {
+    dryRun,
+    logger = consolePatchLogger,
+    resolveDist = resolveOpenClawDist,
+    patches = DIST_PATCHES,
+  } = options;
+
   let distDir: string;
   try {
-    distDir = resolveOpenClawDist();
+    distDir = resolveDist();
   } catch (err) {
-    // No OpenClaw install found: report a failure instead of throwing, so
-    // install/update finish their other work and exit non-zero.
-    const message = err instanceof Error ? err.message : String(err);
-    console.log(`[patch-openclaw] FAILED: ${message}`);
+    const message = getErrorMessage(err);
+    logger.error(`[patch-openclaw] FAILED: ${message}`);
     return summarizePatchRun([
       { name: 'openclaw-dist', status: 'error', message },
     ]);
   }
-  console.log(
+  logger.log(
     `[patch-openclaw] ${dryRun ? 'DRY RUN — ' : ''}OpenClaw dist: ${distDir}`,
   );
 
-  const results = runAllPatches(DIST_PATCHES, distDir, dryRun);
+  const results = runAllPatches(patches, distDir, dryRun, logger);
 
-  console.log(
+  logger.log(
     `\n[patch-openclaw] Summary${dryRun ? ' (DRY RUN — nothing written)' : ''}:`,
   );
-  for (const line of formatPatchSummary(results)) console.log(line);
+  for (const line of formatPatchSummary(results)) logger.log(line);
 
   return summarizePatchRun(results);
 }
@@ -77,8 +100,12 @@ export function runOpenClawPatches(options: {
  * Register the `patch-openclaw` subcommand on the parent CLI program.
  *
  * @param program - The parent Commander program.
+ * @param ports - Injectable ports for {@link runOpenClawPatches} (tests).
  */
-export function registerPatchOpenClawCommand(program: Command): void {
+export function registerPatchOpenClawCommand(
+  program: Command,
+  ports: Omit<RunOpenClawPatchesOptions, 'dryRun'> = {},
+): void {
   program
     .command('patch-openclaw')
     .description(
@@ -87,11 +114,12 @@ export function registerPatchOpenClawCommand(program: Command): void {
     .option('--dry-run', 'Print what would change and write nothing')
     .action((rawOpts) => {
       const dryRun = rawOpts.dryRun === true;
-      const report = runOpenClawPatches({ dryRun });
+      const report = runOpenClawPatches({ ...ports, dryRun });
+      const logger = ports.logger ?? consolePatchLogger;
 
       if (report.changed && !dryRun) {
-        console.log();
-        console.log(RESTART_NOTICE);
+        logger.log('');
+        logger.log(RESTART_NOTICE);
       }
 
       if (report.failed) process.exitCode = 1;

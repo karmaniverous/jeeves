@@ -32,7 +32,6 @@ import {
   installNotices,
   printLines,
 } from './cliOutput.js';
-import { runOpenClawPatches } from './openclawPatch/patchOpenclawCommand.js';
 import {
   addPluginOptions,
   installOptionsFromCli,
@@ -41,8 +40,12 @@ import {
 import { createPluginWorkflowDeps } from './plugins/pluginDeps.js';
 import { parsePluginSpecs } from './plugins/pluginSpec.js';
 import { installPlugins, selectUpdateTargets } from './plugins/workflows.js';
-import { runSkillsCommand } from './skills/skillsCommand.js';
-import { resolveModeFlag } from './skills/skillsModel.js';
+import {
+  addPostPluginOptions,
+  runPostPluginSteps,
+  skipPatchFromCli,
+} from './postPluginSteps.js';
+import { skillsModeFromCli } from './skills/skillsCommand.js';
 
 /**
  * Register the update subcommand on the parent CLI program.
@@ -60,29 +63,18 @@ export function registerUpdateCommand(program: Command): void {
       'Plugin specs, e.g. @karmaniverous/jeeves-runner-openclaw@1.0.1 or runner@^1 (default: every installed Jeeves plugin at latest)',
     );
   addPluginOptions(command);
+  addPostPluginOptions(
+    command,
+    'Skills: wire skills/ and skills-self-hosted/ (default: keep the current mode)',
+  );
   command
-    .option(
-      '--skip-patch',
-      'Skip the OpenClaw dist patch step (jeeves patch-openclaw)',
-    )
-    .option(
-      '--managed',
-      'Skills: wire skills/ only (jeeves skills install --managed)',
-    )
-    .option(
-      '--self-hosted',
-      'Skills: wire skills/ and skills-self-hosted/ (default: keep the current mode)',
-    )
     .option(
       '--dry-run',
       'Print plugin config and the exact openclaw commands; change nothing',
     )
     .action(async (packages, rawOpts) => {
       const dryRun = rawOpts.dryRun === true;
-      const skillsMode = resolveModeFlag(
-        rawOpts.managed === true,
-        rawOpts.selfHosted === true,
-      );
+      const skillsMode = skillsModeFromCli(rawOpts);
       const opts = pluginCliOptionsSchema.parse(rawOpts);
       const specs = parsePluginSpecs(packages);
       const installOptions = installOptionsFromCli(
@@ -95,22 +87,13 @@ export function registerUpdateCommand(program: Command): void {
       console.log();
       printLines(installNotices(prepared, dryRun));
 
-      let patchFailed = false;
-      let distChanged = false;
-      if (rawOpts.skipPatch !== true) {
-        console.log();
-        const patchReport = runOpenClawPatches({ dryRun });
-        patchFailed = patchReport.failed;
-        distChanged = patchReport.changed && !dryRun;
-      }
-
-      console.log();
-      const skills = await runSkillsCommand('install', {
+      const post = await runPostPluginSteps({
         dryRun,
-        ...(skillsMode ? { mode: skillsMode } : {}),
+        skipPatch: skipPatchFromCli(rawOpts),
+        ...(skillsMode ? { skillsMode } : {}),
       });
 
-      printLines(gatewayNotice(prepared.applied, distChanged));
+      printLines(gatewayNotice(prepared.applied, post.distChanged));
       console.log(
         dryRun
           ? DRY_RUN_COMPLETE
@@ -119,6 +102,6 @@ export function registerUpdateCommand(program: Command): void {
             : '✅ Plugins already up to date.',
       );
 
-      if (patchFailed || skills.exitCode !== 0) process.exitCode = 1;
+      if (post.failed) process.exitCode = 1;
     });
 }

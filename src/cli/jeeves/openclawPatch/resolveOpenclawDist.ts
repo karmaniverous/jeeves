@@ -3,10 +3,10 @@
  *
  * @remarks
  * Used by `jeeves patch-openclaw` to locate the installed OpenClaw
- * distribution before applying runtime dist patches. Falls back to
- * scanning nvm directories when `npm root -g` is not available (e.g.
- * non-interactive shells on managed instances where nvm is only loaded in
- * interactive shell rc files).
+ * distribution before applying runtime dist patches. Falls back to nvm
+ * directories when `npm root -g` is not available (e.g. non-interactive
+ * shells on managed instances where nvm is only loaded in interactive
+ * shell rc files).
  *
  * Hoisted from
  * `jeeves-scripts-template/src/admin/lib/resolve-openclaw-dist.ts`
@@ -20,20 +20,25 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-/** Try resolving via `npm root -g`. Returns the dist path or null. */
-function tryNpmRoot(): string | null {
-  try {
-    const npmRoot = execSync('npm root -g', {
-      encoding: 'utf8',
-      timeout: 10_000,
-    }).trim();
-    const distDir = path.join(npmRoot, 'openclaw', 'dist');
-    if (fs.existsSync(distDir)) return distDir;
-  } catch {
-    // npm not on PATH — fall through to nvm fallback
-  }
-  return null;
+/** Path of the OpenClaw dist below a global `node_modules`. */
+const OPENCLAW_DIST = path.join('openclaw', 'dist');
+
+/** Path of the OpenClaw dist below an nvm node install. */
+const NVM_OPENCLAW_DIST = path.join('lib', 'node_modules', OPENCLAW_DIST);
+
+/** Injectable environment for {@link resolveOpenClawDist} (tests). */
+export interface ResolveOpenClawDistPorts {
+  /** Global `node_modules` path; throws when npm is unavailable. */
+  npmRoot?: () => string;
+  /** Environment (default `process.env`), for `NVM_DIR`. */
+  env?: NodeJS.ProcessEnv;
+  /** Home directory (default `os.homedir()`), for `~/.nvm`. */
+  home?: string;
 }
+
+/** `npm root -g`, trimmed. */
+const defaultNpmRoot = (): string =>
+  execSync('npm root -g', { encoding: 'utf8', timeout: 10_000 }).trim();
 
 /** Parse `vMAJOR.MINOR.PATCH` into numeric parts (non-numeric parts become 0). */
 function parseVersion(dir: string): number[] {
@@ -58,62 +63,67 @@ export function compareNodeVersionsDesc(a: string, b: string): number {
   return 0;
 }
 
-/**
- * Scan nvm node version directories for an OpenClaw global install.
- * Checks `NVM_DIR` env var, then falls back to `~/.nvm`.
- */
-function tryNvmFallback(): string | null {
-  const nvmDir = process.env.NVM_DIR ?? path.join(os.homedir(), '.nvm');
-  const versionsDir = path.join(nvmDir, 'versions', 'node');
+/** The nvm directory: `NVM_DIR`, else `~/.nvm`. */
+const nvmDirOf = (ports: ResolveOpenClawDistPorts): string =>
+  (ports.env ?? process.env).NVM_DIR ??
+  path.join(ports.home ?? os.homedir(), '.nvm');
 
-  if (!fs.existsSync(versionsDir)) return null;
-
-  // Check 'current' symlink first (created by jeeves-tools bootstrap)
-  const currentLink = path.join(nvmDir, 'current');
-  if (fs.existsSync(currentLink)) {
-    const distDir = path.join(
-      currentLink,
-      'lib',
-      'node_modules',
-      'openclaw',
-      'dist',
-    );
-    if (fs.existsSync(distDir)) return distDir;
+/** Version directories under `versionsDir`, newest first. */
+function nvmVersions(versionsDir: string): string[] {
+  try {
+    return fs
+      .readdirSync(versionsDir)
+      .filter((d) => d.startsWith('v'))
+      .sort(compareNodeVersionsDesc);
+  } catch {
+    return [];
   }
-
-  // Scan version directories, newest first by numeric semver
-  const versions = fs
-    .readdirSync(versionsDir)
-    .filter((d) => d.startsWith('v'))
-    .sort(compareNodeVersionsDesc);
-
-  for (const version of versions) {
-    const distDir = path.join(
-      versionsDir,
-      version,
-      'lib',
-      'node_modules',
-      'openclaw',
-      'dist',
-    );
-    if (fs.existsSync(distDir)) return distDir;
-  }
-
-  return null;
 }
 
-/** Resolve the global npm OpenClaw dist directory. */
-export function resolveOpenClawDist(): string {
-  const distDir = tryNpmRoot() ?? tryNvmFallback();
+/**
+ * Candidate dist directories, in lookup order: `npm root -g`, then
+ * `<nvm>/current` (the symlink jeeves-tools bootstrap creates), then each
+ * `<nvm>/versions/node/v*`, newest first. `<nvm>` is `NVM_DIR`, else
+ * `~/.nvm`.
+ */
+function candidates(ports: ResolveOpenClawDistPorts): string[] {
+  const nvmDir = nvmDirOf(ports);
+  const versionsDir = path.join(nvmDir, 'versions', 'node');
 
-  if (!distDir) {
-    throw new Error(
-      'OpenClaw dist directory not found. ' +
-        'Checked: npm root -g, NVM_DIR/versions/node/*/lib/node_modules/openclaw/dist, ' +
-        '~/.nvm/current/lib/node_modules/openclaw/dist. ' +
-        'Is openclaw installed globally?',
-    );
+  const fromNpm: string[] = [];
+  try {
+    fromNpm.push(path.join((ports.npmRoot ?? defaultNpmRoot)(), OPENCLAW_DIST));
+  } catch {
+    // npm not on PATH: fall through to nvm.
   }
 
-  return distDir;
+  return [
+    ...fromNpm,
+    path.join(nvmDir, 'current', NVM_OPENCLAW_DIST),
+    ...nvmVersions(versionsDir).map((v) =>
+      path.join(versionsDir, v, NVM_OPENCLAW_DIST),
+    ),
+  ];
+}
+
+/**
+ * Resolve the global npm OpenClaw dist directory.
+ *
+ * @param ports - Injectable environment (tests).
+ * @returns The first existing candidate dist directory.
+ * @throws When no candidate exists; the message lists what was checked.
+ */
+export function resolveOpenClawDist(
+  ports: ResolveOpenClawDistPorts = {},
+): string {
+  const nvmDir = nvmDirOf(ports);
+  const found = candidates(ports).find((dir) => fs.existsSync(dir));
+  if (found) return found;
+
+  throw new Error(
+    'OpenClaw dist directory not found. Checked: npm root -g, ' +
+      `${path.join(nvmDir, 'current', NVM_OPENCLAW_DIST)}, ` +
+      `${path.join(nvmDir, 'versions', 'node', '*', NVM_OPENCLAW_DIST)} ` +
+      'Is openclaw installed globally?',
+  );
 }

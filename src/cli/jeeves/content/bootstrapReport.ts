@@ -99,12 +99,8 @@ export const levelOf = (chars: number, limit: number): BootstrapLevel =>
 
 /** Characters of the managed block in `content` (markers included), or 0. */
 function managedSize(content: string, markers: ManagedMarkers): number {
-  const parsed = parseManaged(content, markers);
-  if (!parsed.found) return 0;
-  const begin = content.indexOf(`<!-- ${markers.begin}`);
-  const endTag = `<!-- ${markers.end} -->`;
-  const end = content.indexOf(endTag, begin);
-  return begin < 0 || end < 0 ? 0 : end + endTag.length - begin;
+  const { blockRange } = parseManaged(content, markers);
+  return blockRange ? blockRange.end - blockRange.start : 0;
 }
 
 /**

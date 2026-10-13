@@ -6,7 +6,7 @@ title: Managed Content System
 
 Jeeves contributes a small amount of **static** content to each OpenClaw workspace: a managed block in SOUL.md and a managed block in AGENTS.md. Core ships no skills and no templates: the spec templates (`spec.md`, `spec-to-code-guide.md`) ship with the jeeves-design skill in jeeves-tools. This guide covers what that content is, how it is rendered, and how it coexists with the owner's own content.
 
-Since v1 nothing rewrites workspace files at runtime. There is no timer, no TOOLS.md, no HEARTBEAT.md, and no cross-writer convergence. See [Migrating to v1](migrating-to-v1.md).
+Since v1 nothing rewrites workspace files at runtime. There is no timer, no TOOLS.md, no HEARTBEAT.md, and no cross-writer convergence. See [Migrating to v1](migrating-to-v1.md). 0.7.0 adds the bootstrap-file size report to `jeeves install`; see [Migrating to 0.7](migrating-to-0.7.md).
 
 ## The Managed Block
 

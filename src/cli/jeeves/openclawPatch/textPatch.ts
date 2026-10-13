@@ -1,8 +1,9 @@
 /**
  * Pure primitives for anchored, idempotent text patches against bundled
  * OpenClaw dist chunks. No filesystem access: callers feed file contents
- * in and get a decision (patch / already patched / not found / ambiguous)
- * back, plus before/after snippets for dry-run previews.
+ * in and get a decision (patch / already patched / upstream-fixed / not
+ * found / ambiguous) back, plus before/after snippets for dry-run
+ * previews.
  *
  * @remarks
  * Hoisted from `jeeves-scripts-template/src/admin/lib/text-patch.ts`
@@ -10,6 +11,14 @@
  *
  * @module
  */
+
+/** A patch site that needs no write: patched by us, or fixed upstream. */
+interface SettledSite {
+  /** 1-based line number of the site. */
+  line: number;
+  /** The site's text as found. */
+  snippet: string;
+}
 
 /** Outcome of evaluating one patch against one file's content. */
 export type TextPatchResult =
@@ -24,7 +33,8 @@ export type TextPatchResult =
       /** Exact replacement text. */
       after: string;
     }
-  | { status: 'already-patched'; line: number; snippet: string }
+  | ({ status: 'already-patched' } & SettledSite)
+  | ({ status: 'upstream-fixed' } & SettledSite)
   | { status: 'not-found' }
   | { status: 'ambiguous'; detail: string };
 
@@ -34,18 +44,15 @@ export interface FilePatchResult {
   result: TextPatchResult;
 }
 
+/** A per-file result that locates the patch site. */
+export type SiteResult = Extract<
+  TextPatchResult,
+  { status: 'patch' | 'already-patched' | 'upstream-fixed' }
+>;
+
 /** Aggregated decision for one patch across every scanned dist file. */
 export type DistPatchPlan =
-  | {
-      status: 'patch';
-      file: string;
-      result: Extract<TextPatchResult, { status: 'patch' }>;
-    }
-  | {
-      status: 'already-patched';
-      file: string;
-      result: Extract<TextPatchResult, { status: 'already-patched' }>;
-    }
+  | { status: 'found'; file: string; result: SiteResult }
   | { status: 'not-found'; message: string }
   | { status: 'error'; message: string };
 
@@ -61,54 +68,6 @@ export function allMatches(content: string, re: RegExp): RegExpExecArray[] {
 }
 
 /**
- * Evaluate a single-site patch: exactly one `unpatched` match gets
- * rewritten by `rewrite`; exactly one `patched` match means done.
- * Zero of both is not-found; more than one of either (or one of each)
- * is ambiguous.
- */
-export function evaluateAnchoredPatch(
-  content: string,
-  unpatched: RegExp,
-  patched: RegExp,
-  rewrite: (match: string) => string,
-): TextPatchResult {
-  const todo = allMatches(content, unpatched);
-  const done = allMatches(content, patched);
-
-  if (todo.length === 0 && done.length === 0) return { status: 'not-found' };
-
-  if (todo.length + done.length > 1) {
-    return {
-      status: 'ambiguous',
-      detail: `${String(todo.length)} unpatched + ${String(done.length)} patched matches (expected exactly 1)`,
-    };
-  }
-
-  if (done.length === 1) {
-    const [m] = done;
-    return {
-      status: 'already-patched',
-      line: lineOf(content, m.index),
-      snippet: m[0],
-    };
-  }
-
-  const [m] = todo;
-  const before = m[0];
-  const after = rewrite(before);
-  return {
-    status: 'patch',
-    content:
-      content.slice(0, m.index) +
-      after +
-      content.slice(m.index + before.length),
-    line: lineOf(content, m.index),
-    before,
-    after,
-  };
-}
-
-/**
  * Reduce per-file results for one patch to a single decision. Exactly one
  * file may carry the patch site; zero sites is `not-found` (e.g. an
  * unknown OpenClaw version shape); anything else is an error so we never
@@ -116,21 +75,13 @@ export function evaluateAnchoredPatch(
  */
 export function planAcrossFiles(results: FilePatchResult[]): DistPatchPlan {
   const errors: string[] = [];
-  const hits: DistPatchPlan[] = [];
+  const hits: Array<{ file: string; result: SiteResult }> = [];
 
   for (const { file, result } of results) {
-    switch (result.status) {
-      case 'ambiguous':
-        errors.push(`${file}: ${result.detail}`);
-        break;
-      case 'patch':
-        hits.push({ status: 'patch', file, result });
-        break;
-      case 'already-patched':
-        hits.push({ status: 'already-patched', file, result });
-        break;
-      case 'not-found':
-        break;
+    if (result.status === 'ambiguous') {
+      errors.push(`${file}: ${result.detail}`);
+    } else if (result.status !== 'not-found') {
+      hits.push({ file, result });
     }
   }
 
@@ -141,14 +92,12 @@ export function planAcrossFiles(results: FilePatchResult[]): DistPatchPlan {
   }
 
   if (hits.length > 1) {
-    const files = hits.map((h) =>
-      h.status === 'not-found' || h.status === 'error' ? '' : h.file,
-    );
     return {
       status: 'error',
-      message: `patch site found in ${String(hits.length)} files (expected 1): ${files.join(', ')}`,
+      message: `patch site found in ${String(hits.length)} files (expected 1): ${hits.map((h) => h.file).join(', ')}`,
     };
   }
 
-  return hits[0];
+  const [hit] = hits;
+  return { status: 'found', ...hit };
 }

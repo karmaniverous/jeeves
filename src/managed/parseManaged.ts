@@ -33,6 +33,11 @@ export interface ParseManagedResult {
   beforeContent: string;
   /** Content after the END marker (trimmed), or the whole file if not found. */
   userContent: string;
+  /**
+   * Character range of the whole block, BEGIN marker through END marker
+   * (`end` exclusive), when found.
+   */
+  blockRange?: { start: number; end: number };
 }
 
 /**
@@ -105,5 +110,11 @@ export function parseManaged(
     managedContent: fileContent.slice(managedStart, managedEnd).trim(),
     beforeContent: fileContent.slice(0, beginMatch.index).trim(),
     userContent: fileContent.slice(afterEnd).trim(),
+    // The marker patterns end in `\s*$`, which can swallow trailing
+    // newlines; the range stops at the END marker's closing `-->`.
+    blockRange: {
+      start: beginMatch.index,
+      end: managedEnd + endMatch[0].trimEnd().length,
+    },
   };
 }

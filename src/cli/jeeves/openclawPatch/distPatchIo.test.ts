@@ -10,7 +10,7 @@ import {
   findChunks,
   listDistChunks,
 } from './distPatchIo.js';
-import { evaluateAnchoredPatch, planAcrossFiles } from './textPatch.js';
+import { lineOf, planAcrossFiles, type TextPatchResult } from './textPatch.js';
 
 /** Content marker used to locate the target chunk. */
 const MARKER = 'SAMPLE_PATCH_SITE';
@@ -22,14 +22,29 @@ const TARGET = [
   'export { SAMPLE_PATCH_SITE };',
 ].join('\n');
 
-/** Sample anchored patch: flip `enabled: true` to `false` at the marker. */
-const samplePatch = (content: string) =>
-  evaluateAnchoredPatch(
-    content,
-    /SAMPLE_PATCH_SITE = \{ enabled: true \}/g,
-    /SAMPLE_PATCH_SITE = \{ enabled: false \}/g,
-    (m) => m.replace('true', 'false'),
-  );
+const UNPATCHED = 'SAMPLE_PATCH_SITE = { enabled: true }';
+const PATCHED = 'SAMPLE_PATCH_SITE = { enabled: false }';
+
+/** Sample patch: flip `enabled: true` to `false` at the marker. */
+const samplePatch = (content: string): TextPatchResult => {
+  const done = content.indexOf(PATCHED);
+  if (done >= 0) {
+    return {
+      status: 'already-patched',
+      line: lineOf(content, done),
+      snippet: PATCHED,
+    };
+  }
+  const todo = content.indexOf(UNPATCHED);
+  if (todo < 0) return { status: 'not-found' };
+  return {
+    status: 'patch',
+    content: content.replace(UNPATCHED, PATCHED),
+    line: lineOf(content, todo),
+    before: UNPATCHED,
+    after: PATCHED,
+  };
+};
 
 let dir: string;
 
@@ -112,7 +127,9 @@ describe('applyDistPlan', () => {
       'SAMPLE_PATCH_SITE = { enabled: false }',
     );
     const second = plan();
-    expect(second.status).toBe('already-patched');
+    expect(second.status === 'found' && second.result.status).toBe(
+      'already-patched',
+    );
     const outcome = applyDistPlan('t', dir, second, false);
     expect(outcome.status).toBe('already-patched');
   });
@@ -157,6 +174,47 @@ describe('applyDistPlan', () => {
     } finally {
       fs.chmodSync(target(), 0o644);
     }
+  });
+
+  it('reports upstream-fixed and writes nothing', () => {
+    const outcome = applyDistPlan(
+      't',
+      dir,
+      {
+        status: 'found',
+        file: 'sample-tool-AB.mjs',
+        result: { status: 'upstream-fixed', line: 2, snippet: 'x' },
+      },
+      false,
+    );
+    expect(outcome).toEqual({
+      name: 't',
+      status: 'upstream-fixed',
+      message:
+        'upstream-fixed: OpenClaw no longer needs this patch (sample-tool-AB.mjs:2)',
+    });
+    expect(fs.readFileSync(target(), 'utf8')).toBe(TARGET);
+  });
+
+  it('sends progress to the injected logger and failures to its error sink', () => {
+    const logs: string[] = [];
+    const errors: string[] = [];
+    const logger = {
+      log: (l: string) => logs.push(l),
+      error: (l: string) => errors.push(l),
+    };
+    applyDistPlan('t', dir, plan(), true, logger);
+    applyDistPlan(
+      't',
+      dir,
+      { status: 'not-found', message: 'nope' },
+      true,
+      logger,
+    );
+    expect(logs[0]).toBe('[t] WOULD PATCH sample-tool-AB.mjs:2');
+    expect(errors).toEqual(['[t] FAILED — nope']);
+    expect(console.log).not.toHaveBeenCalled();
+    expect(console.error).not.toHaveBeenCalled();
   });
 
   it('a dry run reports the read-only failure a live run would hit', () => {

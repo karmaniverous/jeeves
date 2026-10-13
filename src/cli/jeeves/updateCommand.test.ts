@@ -27,12 +27,14 @@ import {
   W,
   WPKG,
 } from './plugins/workflowTestKit.js';
+import type * as SkillsCommandModule from './skills/skillsCommand.js';
 import { registerUpdateCommand } from './updateCommand.js';
 
 const skillsMock = vi.hoisted(() =>
   vi.fn(() => Promise.resolve({ exitCode: 0, changed: false })),
 );
-vi.mock('./skills/skillsCommand.js', () => ({
+vi.mock('./skills/skillsCommand.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof SkillsCommandModule>()),
   runSkillsCommand: skillsMock,
 }));
 

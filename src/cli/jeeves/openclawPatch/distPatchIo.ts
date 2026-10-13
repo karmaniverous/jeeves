@@ -19,6 +19,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { atomicWrite } from '../../../managed/index.js';
+import { getErrorMessage } from '../../../utils.js';
 import type { DistPatchPlan } from './textPatch.js';
 
 /** A dist chunk whose content contains a given marker. */
@@ -66,6 +67,24 @@ export function assertWritable(filePath: string): void {
   }
 }
 
+/** Line sinks for patch progress (default: the console). */
+export interface PatchLogger {
+  /** Progress and success lines. */
+  log: (line: string) => void;
+  /** Failure lines. */
+  error: (line: string) => void;
+}
+
+/** {@link PatchLogger} writing to `console.log` / `console.error`. */
+export const consolePatchLogger: PatchLogger = {
+  log: (line) => {
+    console.log(line);
+  },
+  error: (line) => {
+    console.error(line);
+  },
+};
+
 /** Outcome of running one dist patch. */
 export interface PatchOutcome {
   /** Patch name, e.g. `tool-order`. */
@@ -89,6 +108,7 @@ const indent = (s: string): string =>
  * @param distDir - Dist directory the plan's file is relative to.
  * @param plan - Decision computed by {@link planAcrossFiles}.
  * @param dryRun - When true, nothing is written.
+ * @param logger - Where progress lines go (default: the console).
  * @returns A structured {@link PatchOutcome}.
  */
 export function applyDistPlan(
@@ -96,51 +116,52 @@ export function applyDistPlan(
   distDir: string,
   plan: DistPatchPlan,
   dryRun: boolean,
+  logger: PatchLogger = consolePatchLogger,
 ): PatchOutcome {
-  if (plan.status === 'not-found') {
-    console.error(`[${name}] FAILED — ${plan.message}`);
-    return { name, status: 'not-found', message: plan.message };
-  }
+  const fail = (
+    status: 'not-found' | 'error',
+    message: string,
+  ): PatchOutcome => {
+    logger.error(`[${name}] FAILED — ${message}`);
+    return { name, status, message };
+  };
 
-  if (plan.status === 'error') {
-    console.error(`[${name}] FAILED — ${plan.message}`);
-    return { name, status: 'error', message: plan.message };
-  }
-
-  if (plan.status === 'already-patched') {
-    const message = `already patched (${plan.file}:${String(plan.result.line)})`;
-    console.log(`[${name}] ${message}.`);
-    return { name, status: 'already-patched', message };
-  }
+  if (plan.status !== 'found') return fail(plan.status, plan.message);
 
   const { file, result } = plan;
+  const where = `${file}:${String(result.line)}`;
+
+  if (result.status !== 'patch') {
+    const message =
+      result.status === 'already-patched'
+        ? `already patched (${where})`
+        : `upstream-fixed: OpenClaw no longer needs this patch (${where})`;
+    logger.log(`[${name}] ${message}.`);
+    return { name, status: result.status, message };
+  }
+
   const filePath = path.join(distDir, file);
-  console.log(
-    `[${name}] ${dryRun ? 'WOULD PATCH' : 'patching'} ${file}:${String(result.line)}`,
-  );
-  console.log(`  before:\n${indent(result.before)}`);
-  console.log(`  after:\n${indent(result.after)}`);
+  logger.log(`[${name}] ${dryRun ? 'WOULD PATCH' : 'patching'} ${where}`);
+  logger.log(`  before:\n${indent(result.before)}`);
+  logger.log(`  after:\n${indent(result.after)}`);
 
   // Checked in dry runs too, so a dry run reports the failure a live run
   // would hit instead of "would patch".
   try {
     assertWritable(filePath);
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error(`[${name}] FAILED — ${message}`);
-    return { name, status: 'error', message };
+    return fail('error', getErrorMessage(err));
   }
 
   if (dryRun) {
     return {
       name,
       status: 'patched',
-      message: `would patch ${file}:${String(result.line)} (dry run)`,
+      message: `would patch ${where} (dry run)`,
     };
   }
 
   atomicWrite(filePath, result.content);
-  const message = `patched ${file}:${String(result.line)}`;
-  console.log(`[${name}] ${message}.`);
-  return { name, status: 'patched', message };
+  logger.log(`[${name}] patched ${where}.`);
+  return { name, status: 'patched', message: `patched ${where}` };
 }

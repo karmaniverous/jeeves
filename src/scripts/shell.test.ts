@@ -80,17 +80,42 @@ describe('runWithRetry', () => {
     expect(fs.readFileSync(counterFile, 'utf8')).toBe('1');
   });
 
-  it('uses the default isRetryable predicate for timeout-like messages', () => {
+  /** A script that fails with `stderr` on its first run, then prints ok. */
+  const failOnceWith = (counterFile: string, stderr: string): string => `
+      const fs = require('fs');
+      const n = Number(fs.readFileSync(${JSON.stringify(counterFile)}, 'utf8')) + 1;
+      fs.writeFileSync(${JSON.stringify(counterFile)}, String(n));
+      if (n < 2) { console.error(${JSON.stringify(stderr)}); process.exit(1); }
+      console.log('ok');
+    `;
+
+  it.each(['context deadline exceeded', 'request timed out', 'Timeout'])(
+    'by default retries a failure whose message says %j',
+    (stderr) => {
+      const counterFile = path.join(tmpDir, 'counter');
+      fs.writeFileSync(counterFile, '0');
+      expect(
+        runWithRetry('node', ['-e', failOnceWith(counterFile, stderr)], {
+          backoffMs: 1,
+        }),
+      ).toBe('ok');
+      expect(fs.readFileSync(counterFile, 'utf8')).toBe('2');
+    },
+  );
+
+  it('by default does not retry other failures', () => {
+    const counterFile = path.join(tmpDir, 'counter');
+    fs.writeFileSync(counterFile, '0');
     expect(() =>
       runWithRetry(
         'node',
-        ['-e', 'process.stderr.write("timeout"); process.exit(1)'],
+        ['-e', failOnceWith(counterFile, 'permission denied')],
         {
-          retries: 0,
           backoffMs: 1,
         },
       ),
     ).toThrow('failed (exit 1)');
+    expect(fs.readFileSync(counterFile, 'utf8')).toBe('1');
   });
 
   it('waits with exponential backoff between attempts', () => {

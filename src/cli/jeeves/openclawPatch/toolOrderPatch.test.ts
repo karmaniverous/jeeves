@@ -174,6 +174,41 @@ describe('evaluateToolOrderPatch', () => {
     );
   });
 
+  it('reports already-patched when the tools sit immediately before the anchor', () => {
+    const src =
+      'toolOrder = ["read", "watcher_search", "watcher_scan", "grep"]';
+    const r = evaluateToolOrderPatch(src, INSERT, 'grep');
+    expect(r).toEqual({ status: 'already-patched', line: 1, snippet: src });
+  });
+
+  it('reports upstream-fixed when every tool is ahead of the anchor in another arrangement', () => {
+    const src =
+      'toolOrder = ["watcher_scan", "read", "watcher_search", "grep"]';
+    const r = evaluateToolOrderPatch(src, INSERT, 'grep');
+    expect(r).toEqual({ status: 'upstream-fixed', line: 1, snippet: src });
+  });
+
+  it('moves tools that sit after the anchor into place', () => {
+    const src =
+      'toolOrder = ["read", "grep", "watcher_search", "watcher_scan"]';
+    const r = evaluateToolOrderPatch(src, INSERT, 'grep');
+    expect(r.status).toBe('patch');
+    if (r.status !== 'patch') return;
+    expect(parseToolOrder(r.content)!.tools).toEqual([
+      'read',
+      'watcher_search',
+      'watcher_scan',
+      'grep',
+    ]);
+  });
+
+  it('is ambiguous when the tools are present but the anchor is gone', () => {
+    const src = 'toolOrder = ["watcher_search", "watcher_scan", "read"]';
+    expect(evaluateToolOrderPatch(src, INSERT, 'grep').status).toBe(
+      'ambiguous',
+    );
+  });
+
   it('reports not-found when there is no toolOrder assignment', () => {
     expect(
       evaluateToolOrderPatch('const toolOrderX = 1;', INSERT, 'grep').status,

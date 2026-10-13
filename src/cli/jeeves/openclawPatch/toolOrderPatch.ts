@@ -9,13 +9,22 @@
  *
  * - Locates the array by content across every `.js` / `.mjs` chunk; zero
  *   or multiple `toolOrder` assignments abort (fail closed).
- * - Idempotent: no-ops if already patched.
+ * - Idempotent: no-ops if already patched (the tools sit immediately
+ *   before the anchor, in insertion order, as this patch writes them).
+ * - Reports `upstream-fixed` when OpenClaw's own `toolOrder` already puts
+ *   every tool ahead of the anchor in some other arrangement: the patch
+ *   is no longer needed and nothing is written.
  * - Safe: uninstalled tools are filtered out at prompt-build time.
  *
  * @module
  */
 
-import { applyDistPlan, findChunks, type PatchOutcome } from './distPatchIo.js';
+import {
+  applyDistPlan,
+  findChunks,
+  type PatchLogger,
+  type PatchOutcome,
+} from './distPatchIo.js';
 import {
   allMatches,
   lineOf,
@@ -105,11 +114,38 @@ export function buildToolOrderString(
 }
 
 /**
+ * Where the tools stand relative to the anchor in a parsed `toolOrder`.
+ *
+ * @returns `patched` when they sit immediately before the anchor in
+ *   insertion order (this patch's own output); `ahead` when all of them
+ *   precede the anchor in some other arrangement (OpenClaw already ranks
+ *   them first); `needed` otherwise (a tool is missing or after the
+ *   anchor).
+ */
+function placement(
+  tools: readonly string[],
+  toolsToInsert: readonly string[],
+  insertBefore: string,
+): 'patched' | 'ahead' | 'needed' {
+  const anchor = tools.indexOf(insertBefore);
+  const positions = toolsToInsert.map((t) => tools.indexOf(t));
+  if (anchor === -1 || positions.some((p) => p === -1 || p > anchor)) {
+    return 'needed';
+  }
+  const adjacent = positions.every(
+    (p, i) => p === anchor - toolsToInsert.length + i,
+  );
+  return adjacent ? 'patched' : 'ahead';
+}
+
+/**
  * Evaluate the `toolOrder` patch for one chunk: insert `toolsToInsert`
  * immediately before `insertBefore`. Exactly one `toolOrder` assignment
  * may exist; zero is not-found, several (or an unparseable array or a
- * missing anchor) is ambiguous so the caller fails closed. All tools
- * already present counts as already patched (idempotent).
+ * missing anchor) is ambiguous so the caller fails closed. The tools
+ * already immediately before the anchor is already patched (idempotent);
+ * all of them ahead of the anchor in another arrangement is
+ * upstream-fixed; otherwise any existing copies are moved into place.
  */
 export function evaluateToolOrderPatch(
   content: string,
@@ -136,8 +172,12 @@ export function evaluateToolOrderPatch(
   const index = content.indexOf(parsed.match);
   const line = lineOf(content, index);
 
-  if (toolsToInsert.every((t) => parsed.tools.includes(t))) {
+  const where = placement(parsed.tools, toolsToInsert, insertBefore);
+  if (where === 'patched') {
     return { status: 'already-patched', line, snippet: parsed.match };
+  }
+  if (where === 'ahead') {
+    return { status: 'upstream-fixed', line, snippet: parsed.match };
   }
 
   const cleaned = parsed.entries.filter((e) => !toolsToInsert.includes(e.name));
@@ -177,11 +217,13 @@ export function evaluateToolOrderPatch(
  *
  * @param distDir - Resolved OpenClaw dist directory.
  * @param dryRun - When true, nothing is written.
+ * @param logger - Where progress lines go (default: the console).
  * @returns A structured outcome.
  */
 export function runToolOrderPatch(
   distDir: string,
   dryRun: boolean,
+  logger?: PatchLogger,
 ): PatchOutcome {
   const results = findChunks(distDir, TOOL_ORDER_PREFILTER).map((c) => ({
     file: c.file,
@@ -193,5 +235,5 @@ export function runToolOrderPatch(
   }));
 
   const plan = planAcrossFiles(results);
-  return applyDistPlan(TOOL_ORDER_PATCH_NAME, distDir, plan, dryRun);
+  return applyDistPlan(TOOL_ORDER_PATCH_NAME, distDir, plan, dryRun, logger);
 }

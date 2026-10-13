@@ -4,11 +4,7 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import {
-  defaultShadowSources,
-  discoverSkillNames,
-  findShadows,
-} from './skillsShadow.js';
+import { defaultShadowSources, findShadows } from './skillsShadow.js';
 
 let root: string;
 
@@ -30,35 +26,6 @@ function skill(dir: string, name?: string): void {
       : `---\nname: ${name}\ndescription: test skill\n---\n\n# ${name}\n`,
   );
 }
-
-describe('discoverSkillNames', () => {
-  it('finds flat and grouped skills, named by frontmatter or folder', () => {
-    skill(path.join(root, 'jeeves-platform'), 'jeeves-platform');
-    skill(path.join(root, 'group', 'jeeves-coding'), 'jeeves-coding');
-    skill(path.join(root, 'renamed-folder'), 'jeeves-design');
-    skill(path.join(root, 'bare'));
-
-    expect(discoverSkillNames(root)).toEqual([
-      'bare',
-      'jeeves-coding',
-      'jeeves-design',
-      'jeeves-platform',
-    ]);
-  });
-
-  it('stops at the first SKILL.md and below 6 levels', () => {
-    skill(path.join(root, 'outer'), 'outer');
-    skill(path.join(root, 'outer', 'inner'), 'inner');
-    skill(path.join(root, 'a', 'b', 'c', 'd', 'e', 'six'), 'six');
-    skill(path.join(root, 'a', 'b', 'c', 'd', 'e', 'f', 'seven'), 'seven');
-
-    expect(discoverSkillNames(root)).toEqual(['outer', 'six']);
-  });
-
-  it('yields nothing for a missing root', () => {
-    expect(discoverSkillNames(path.join(root, 'nope'))).toEqual([]);
-  });
-});
 
 describe('findShadows', () => {
   it('maps each shipped skill to every other source providing it', () => {

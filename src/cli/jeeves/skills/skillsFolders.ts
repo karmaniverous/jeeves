@@ -1,13 +1,22 @@
 /**
  * Filesystem resolution for this package's two shipped skill folders
  * (Decision 71): `skills/` (generic, every instance) and
- * `skills-self-hosted/` (non-managed instances only).
+ * `skills-self-hosted/` (non-managed instances only), and the one skill
+ * discovery used for them and for every other skill source.
+ *
+ * @remarks
+ * Discovery mirrors OpenClaw's grouped layout: a skill is any directory
+ * holding a `SKILL.md`, found up to 6 levels below a root, with traversal
+ * stopping at the first `SKILL.md`. Its name is the frontmatter `name`, or
+ * the directory name when the frontmatter is missing or invalid.
  *
  * @module
  */
 
 import fs from 'node:fs';
 import path from 'node:path';
+
+import { validateSkillFrontmatter } from '../../../plugin/skillFrontmatter.js';
 
 /** Name of the generic skills folder (every instance). */
 export const GENERIC_SKILLS_DIR = 'skills';
@@ -37,27 +46,52 @@ export function resolveSkillsFolders(packageRoot: string): SkillsFolders {
   };
 }
 
+/** How deep below a root OpenClaw looks for `SKILL.md` (grouped layouts). */
+const MAX_DEPTH = 6;
+
 /**
- * The skill names a folder provides: its subfolders containing a
- * `SKILL.md`, sorted. Never throws; a missing or unreadable folder yields
- * no skills.
+ * A directory's entries, or none when it cannot be read.
  *
- * @param dir - Folder to scan (a skills folder, generic or self-hosted, or
- *   a workspace `skills/` directory).
- * @returns Skill names, sorted.
+ * @param dir - Directory to read.
+ * @returns Its entries (empty on any error).
  */
-export function listSkillNames(dir: string): string[] {
-  let entries: fs.Dirent[];
+export function readEntries(dir: string): fs.Dirent[] {
   try {
-    entries = fs.readdirSync(dir, { withFileTypes: true });
+    return fs.readdirSync(dir, { withFileTypes: true });
   } catch {
     return [];
   }
-  return entries
-    .filter(
-      (e) =>
-        e.isDirectory() && fs.existsSync(path.join(dir, e.name, 'SKILL.md')),
-    )
-    .map((e) => e.name)
-    .sort();
+}
+
+/** The skill name a `SKILL.md` declares, falling back to its folder name. */
+function skillName(skillDir: string): string {
+  try {
+    const content = fs.readFileSync(path.join(skillDir, 'SKILL.md'), 'utf8');
+    return validateSkillFrontmatter(content).name;
+  } catch {
+    return path.basename(skillDir);
+  }
+}
+
+/**
+ * Every skill name under a root, discovered as OpenClaw does.
+ *
+ * @param root - Skill root to scan.
+ * @returns Skill names, sorted and de-duplicated.
+ */
+export function discoverSkillNames(root: string): string[] {
+  const names = new Set<string>();
+  const walk = (dir: string, depth: number): void => {
+    for (const entry of readEntries(dir)) {
+      if (!entry.isDirectory()) continue;
+      const child = path.join(dir, entry.name);
+      if (fs.existsSync(path.join(child, 'SKILL.md'))) {
+        names.add(skillName(child));
+      } else if (depth < MAX_DEPTH) {
+        walk(child, depth + 1);
+      }
+    }
+  };
+  walk(root, 1);
+  return [...names].sort();
 }
