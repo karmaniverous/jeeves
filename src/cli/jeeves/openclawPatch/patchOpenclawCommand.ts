@@ -47,7 +47,18 @@ export function runOpenClawPatches(options: {
   dryRun: boolean;
 }): PatchRunReport {
   const { dryRun } = options;
-  const distDir = resolveOpenClawDist();
+  let distDir: string;
+  try {
+    distDir = resolveOpenClawDist();
+  } catch (err) {
+    // No OpenClaw install found: report a failure instead of throwing, so
+    // install/update finish their other work and exit non-zero.
+    const message = err instanceof Error ? err.message : String(err);
+    console.log(`[patch-openclaw] FAILED: ${message}`);
+    return summarizePatchRun([
+      { name: 'openclaw-dist', status: 'error', message },
+    ]);
+  }
   console.log(
     `[patch-openclaw] ${dryRun ? 'DRY RUN — ' : ''}OpenClaw dist: ${distDir}`,
   );

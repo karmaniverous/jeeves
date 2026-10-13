@@ -9,10 +9,12 @@ import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 import { Command } from '@commander-js/extra-typings';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useConsoleCapture, useUnsetEnv } from '../../test/cliHarness.js';
 import { useTempDir } from '../../test/tempDir.js';
+import { RESTART_NOTICE } from './cliOutput.js';
+import type * as PatchModule from './openclawPatch/patchOpenclawCommand.js';
 import { fakeRunner, fakeTempFiles, ok } from './plugins/fakePorts.js';
 import { MissingPluginConfigError } from './plugins/pluginConfigResolve.js';
 import type * as PluginDepsModule from './plugins/pluginDeps.js';
@@ -28,6 +30,12 @@ import {
 import { registerUpdateCommand } from './updateCommand.js';
 
 const state = vi.hoisted((): CommandTestPorts => ({}));
+const patchMock = vi.hoisted(() => vi.fn());
+
+vi.mock('./openclawPatch/patchOpenclawCommand.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof PatchModule>()),
+  runOpenClawPatches: patchMock,
+}));
 
 vi.mock('./plugins/pluginDeps.js', async (importOriginal) => {
   const actual = await importOriginal<typeof PluginDepsModule>();
@@ -57,9 +65,22 @@ describe('jeeves update (plugin config)', () => {
     [`npm view ${WPKG}@0.16.0 jeeves.conversationHooks`]: ok(''),
   });
 
+  let originalExitCode: typeof process.exitCode;
+
   beforeEach(() => {
+    originalExitCode = process.exitCode;
+    process.exitCode = undefined;
+    patchMock.mockReset().mockReturnValue({
+      changed: false,
+      failed: false,
+      results: [],
+    });
     dir = tempDir();
     state.temp = fakeTempFiles();
+  });
+
+  afterEach(() => {
+    process.exitCode = originalExitCode;
   });
 
   const run = async (...args: string[]) => {
@@ -216,6 +237,47 @@ describe('jeeves update (plugin config)', () => {
         `[dry-run] set keys._plugin = <redacted> in ${serverFile()}`,
       );
       expect(printed).not.toContain('explicit-seed');
+    });
+  });
+  describe('OpenClaw patch step', () => {
+    const current = () => {
+      state.fake = fakeRunner(
+        script({
+          [W]: { config: { configRoot: '/cfg', apiUrl: 'http://h:1' } },
+        }),
+      );
+    };
+    const restartNotices = () =>
+      out.filter((l) => l.includes(RESTART_NOTICE)).length;
+
+    it('runs live after the plugins and passes --dry-run through', async () => {
+      current();
+      await run();
+      expect(patchMock).toHaveBeenLastCalledWith({ dryRun: false });
+      await run('--dry-run');
+      expect(patchMock).toHaveBeenLastCalledWith({ dryRun: true });
+      expect(restartNotices()).toBe(0);
+    });
+
+    it('is skipped with --skip-patch', async () => {
+      current();
+      await run('--skip-patch');
+      expect(patchMock).not.toHaveBeenCalled();
+    });
+
+    it('prints the restart notice once when only the dist changed', async () => {
+      current();
+      patchMock.mockReturnValue({ changed: true, failed: false, results: [] });
+      await run();
+      expect(mutations()).toEqual([]);
+      expect(restartNotices()).toBe(1);
+    });
+
+    it('exits non-zero when a patch fails', async () => {
+      current();
+      patchMock.mockReturnValue({ changed: false, failed: true, results: [] });
+      await run();
+      expect(process.exitCode).toBe(1);
     });
   });
 });

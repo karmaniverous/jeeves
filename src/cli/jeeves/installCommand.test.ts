@@ -14,11 +14,13 @@ import {
 import { join, resolve } from 'node:path';
 
 import { Command } from '@commander-js/extra-typings';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useConsoleCapture, useUnsetEnv } from '../../test/cliHarness.js';
 import { useTempDir } from '../../test/tempDir.js';
+import { RESTART_NOTICE } from './cliOutput.js';
 import { registerInstallCommand } from './installCommand.js';
+import type * as PatchModule from './openclawPatch/patchOpenclawCommand.js';
 import { fakeRunner, fakeTempFiles, ok } from './plugins/fakePorts.js';
 import { MissingPluginConfigError } from './plugins/pluginConfigResolve.js';
 import type * as PluginDepsModule from './plugins/pluginDeps.js';
@@ -34,6 +36,7 @@ import {
 const SEED = 'c0ffee'.repeat(10) + 'c0ff';
 
 const state = vi.hoisted((): CommandTestPorts => ({}));
+const patchMock = vi.hoisted(() => vi.fn());
 
 vi.mock('./plugins/pluginDeps.js', async (importOriginal) => {
   const actual = await importOriginal<typeof PluginDepsModule>();
@@ -52,14 +55,27 @@ vi.mock('./plugins/secrets.js', async (importOriginal) => ({
   generatePluginKey: () => SEED,
 }));
 
+vi.mock('./openclawPatch/patchOpenclawCommand.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof PatchModule>()),
+  runOpenClawPatches: patchMock,
+}));
+
 describe('jeeves install (plugin config)', () => {
   const tempDir = useTempDir('jeeves-install-');
   const out = useConsoleCapture();
   useUnsetEnv('JEEVES_CONFIG_ROOT');
   let dir: string;
   let ws: string;
+  let originalExitCode: typeof process.exitCode;
 
   beforeEach(() => {
+    originalExitCode = process.exitCode;
+    process.exitCode = undefined;
+    patchMock.mockReset().mockReturnValue({
+      changed: false,
+      failed: false,
+      results: [],
+    });
     dir = tempDir();
     ws = join(dir, 'ws');
     mkdirSync(ws, { recursive: true });
@@ -73,6 +89,10 @@ describe('jeeves install (plugin config)', () => {
       ),
     });
     state.temp = fakeTempFiles();
+  });
+
+  afterEach(() => {
+    process.exitCode = originalExitCode;
   });
 
   const run = async (...args: string[]) => {
@@ -305,5 +325,75 @@ describe('jeeves install (plugin config)', () => {
     expect(
       lines.slice(0, firstInstall).some((l) => l.includes('plugins inspect')),
     ).toBe(false);
+  });
+  describe('OpenClaw patch step', () => {
+    const currentPlugin = () => {
+      state.fake = fakeRunner({
+        'openclaw --version': ok('OpenClaw 2026.9.6'),
+        'openclaw config get plugins': ok(
+          JSON.stringify({
+            entries: {
+              [S]: {
+                config: {
+                  configRoot: resolve(join(dir, 'cfg')),
+                  apiUrl: 'http://127.0.0.1:1934',
+                  pluginKey: 'kept-seed',
+                },
+              },
+            },
+          }),
+        ),
+        'openclaw plugins inspect --all --json': ok(
+          JSON.stringify([npmRecord(S, SPKG, '0.14.0')]),
+        ),
+        [`npm view ${SPKG}`]: ok('"0.14.0"'),
+        [`npm view ${SPKG}@0.14.0 jeeves.conversationHooks`]: ok(''),
+      });
+    };
+    const restartNotices = () =>
+      out.filter((l) => l.includes(RESTART_NOTICE)).length;
+
+    it('runs live after the plugins, and says nothing when the dist is unchanged', async () => {
+      currentPlugin();
+      await run('-c', join(dir, 'cfg'));
+      expect(patchMock).toHaveBeenCalledWith({ dryRun: false });
+      expect(restartNotices()).toBe(0);
+      expect(process.exitCode).toBeUndefined();
+    });
+
+    it('passes --dry-run through', async () => {
+      currentPlugin();
+      await run('-c', join(dir, 'cfg'), '--dry-run');
+      expect(patchMock).toHaveBeenCalledWith({ dryRun: true });
+    });
+
+    it('is skipped with --skip-patch and with --content-only', async () => {
+      currentPlugin();
+      await run('-c', join(dir, 'cfg'), '--skip-patch');
+      await run('-c', join(dir, 'cfg'), '--content-only');
+      expect(patchMock).not.toHaveBeenCalled();
+    });
+
+    it('prints the restart notice once when the dist changed', async () => {
+      currentPlugin();
+      patchMock.mockReturnValue({ changed: true, failed: false, results: [] });
+      await run('-c', join(dir, 'cfg'));
+      expect(restartNotices()).toBe(1);
+    });
+
+    it('does not ask for a restart after a dry run that would patch', async () => {
+      currentPlugin();
+      patchMock.mockReturnValue({ changed: true, failed: false, results: [] });
+      await run('-c', join(dir, 'cfg'), '--dry-run');
+      expect(restartNotices()).toBe(0);
+    });
+
+    it('finishes its work and exits non-zero when a patch fails', async () => {
+      currentPlugin();
+      patchMock.mockReturnValue({ changed: false, failed: true, results: [] });
+      await run('-c', join(dir, 'cfg'));
+      expect(existsSync(join(ws, 'SOUL.md'))).toBe(true);
+      expect(process.exitCode).toBe(1);
+    });
   });
 });

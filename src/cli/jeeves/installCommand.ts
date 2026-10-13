@@ -20,6 +20,13 @@
  * restarts the gateway. Idempotent: re-running replaces managed blocks in
  * place and skips plugins that are already current.
  *
+ * After plugins are applied, runs the `patch-openclaw` dist patch step
+ * (step 5, #121) unless `--content-only` or `--skip-patch` is given. If the
+ * patch step reports a failure, the command still finishes (content and
+ * plugins stay written) and exits non-zero. The restart notice folds in
+ * both plugin changes needing a restart and a live (non-dry-run) dist
+ * patch, printed once.
+ *
  * @module
  */
 
@@ -36,6 +43,8 @@ import {
   runHeaderLines,
 } from './cliOutput.js';
 import { installPlatformContent } from './installPlatformContent.js';
+import { runOpenClawPatches } from './openclawPatch/patchOpenclawCommand.js';
+import { emptyApplyReport } from './plugins/applyReport.js';
 import { executePlan } from './plugins/executePlan.js';
 import {
   addPluginOptions,
@@ -67,6 +76,10 @@ export function registerInstallCommand(program: Command): void {
   addPluginOptions(command);
   command
     .option('--content-only', 'Render platform content only; skip plugins')
+    .option(
+      '--skip-patch',
+      'Skip the OpenClaw dist patch step (jeeves patch-openclaw)',
+    )
     .option(
       '--dry-run',
       'Print planned file writes, plugin config and exact openclaw commands; change nothing',
@@ -106,13 +119,26 @@ export function registerInstallCommand(program: Command): void {
       }
       console.log();
 
+      let applied = emptyApplyReport();
       if (targets.length > 0) {
-        const applied = await executePlan(prepared.plan, deps);
+        applied = await executePlan(prepared.plan, deps);
         console.log();
         printLines(installNotices(prepared, dryRun));
-        printLines(gatewayNotice(applied));
       }
 
+      let patchFailed = false;
+      let distChanged = false;
+      if (rawOpts.contentOnly !== true && rawOpts.skipPatch !== true) {
+        console.log();
+        const patchReport = runOpenClawPatches({ dryRun });
+        patchFailed = patchReport.failed;
+        distChanged = patchReport.changed && !dryRun;
+      }
+
+      printLines(gatewayNotice(applied, distChanged));
+
       console.log(dryRun ? DRY_RUN_COMPLETE : '✅ Jeeves installed.');
+
+      if (patchFailed) process.exitCode = 1;
     });
 }

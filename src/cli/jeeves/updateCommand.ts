@@ -14,6 +14,12 @@
  * values fail before anything changes. Does not touch workspace content.
  * Only Jeeves OpenClaw plugin packages are accepted.
  *
+ * After plugins are applied, runs the `patch-openclaw` dist patch step
+ * (step 5, #121) unless `--skip-patch` is given. If the patch step reports
+ * a failure, the command still finishes (plugins stay updated) and exits
+ * non-zero. The restart notice folds in both plugin changes needing a
+ * restart and a live (non-dry-run) dist patch, printed once.
+ *
  * @module
  */
 
@@ -26,6 +32,7 @@ import {
   installNotices,
   printLines,
 } from './cliOutput.js';
+import { runOpenClawPatches } from './openclawPatch/patchOpenclawCommand.js';
 import {
   addPluginOptions,
   installOptionsFromCli,
@@ -53,6 +60,10 @@ export function registerUpdateCommand(program: Command): void {
   addPluginOptions(command);
   command
     .option(
+      '--skip-patch',
+      'Skip the OpenClaw dist patch step (jeeves patch-openclaw)',
+    )
+    .option(
       '--dry-run',
       'Print plugin config and the exact openclaw commands; change nothing',
     )
@@ -69,7 +80,17 @@ export function registerUpdateCommand(program: Command): void {
       const prepared = await installPlugins(deps, targets, installOptions);
       console.log();
       printLines(installNotices(prepared, dryRun));
-      printLines(gatewayNotice(prepared.applied));
+
+      let patchFailed = false;
+      let distChanged = false;
+      if (rawOpts.skipPatch !== true) {
+        console.log();
+        const patchReport = runOpenClawPatches({ dryRun });
+        patchFailed = patchReport.failed;
+        distChanged = patchReport.changed && !dryRun;
+      }
+
+      printLines(gatewayNotice(prepared.applied, distChanged));
       console.log(
         dryRun
           ? DRY_RUN_COMPLETE
@@ -77,5 +98,7 @@ export function registerUpdateCommand(program: Command): void {
             ? '✅ Plugins updated.'
             : '✅ Plugins already up to date.',
       );
+
+      if (patchFailed) process.exitCode = 1;
     });
 }

@@ -235,6 +235,7 @@ Pre-defined marker sets: `SOUL_MARKERS`, `AGENTS_MARKERS`, and `LEGACY_TOOLS_MAR
 ```bash
 jeeves install [plugins...]    # Render platform content, then install/update plugins
 jeeves update [packages...]    # Update Jeeves plugins, fill in missing plugin config (no content changes)
+jeeves patch-openclaw          # Re-apply the OpenClaw dist patches (after an OpenClaw upgrade)
 jeeves uninstall               # Remove managed blocks (incl. legacy TOOLS.md), artifacts and the Jeeves plugins
 jeeves status                  # Probe all service ports, report health + memory hygiene
 jeeves config [jsonpath]       # Print effective config with provenance
@@ -262,13 +263,19 @@ OpenClaw must already be installed; `jeeves` checks for it and never installs it
 
    OpenClaw can refuse to edit a plugin's config until it finishes that plugin's data/settings upgrade (`Plugin "<id>" data/settings upgrade is unfinished: ... has not converged`). This happens when the gateway started with `plugins.entries.<id>` configured before the package was installed (for example after an earlier failed run): OpenClaw records a pending migration for that plugin, installing it does not clear the record, and a refused `openclaw config set` doesn't either. OpenClaw resolves such records in the startup preflight of ordinary CLI commands (not `config`, and not `plugins list`), which is why a sweep runs `plugins inspect` right after each install. The config batch goes through a retry: only that refusal is retried: the sweep runs again, then the same batch file is resubmitted after 2s, 4s, 8s, 16s, then every 30s, for up to 120s of waiting in total, with one log line per retry. If the plugin still hasn't converged, the command fails and names the plugin; wait and rerun it (the writes are idempotent). Any other error fails at once. The `openclaw config unset` repairs after an uninstall follow the same rule. A dry run never retries.
 
+5. Runs the OpenClaw dist patch step (the same as `jeeves patch-openclaw`, below). `--content-only` and `--skip-patch` skip it.
+
 Plugin specs can be short (`watcher`, `watcher@1.2.3`, `runner@^1`) or full (`@karmaniverous/jeeves-watcher-openclaw@1.2.3`). Only `@karmaniverous/jeeves-*-openclaw` packages are accepted. `--content-only` skips the plugins.
 
-`jeeves update` runs steps 2 to 4 for the named packages, or for every Jeeves plugin that has a `plugins.entries` record, at `latest`. It takes the same plugin options as `jeeves install` (including `--plugin-config` and `--force-reinstall`) and fills in missing plugin config with the same precedence: existing values are kept unless you pass them, and a missing required value fails the command before anything changes.
+`jeeves update` runs steps 2 to 5 for the named packages, or for every Jeeves plugin that has a `plugins.entries` record, at `latest`. It takes the same plugin options as `jeeves install` (including `--plugin-config` and `--force-reinstall`) and fills in missing plugin config with the same precedence: existing values are kept unless you pass them, and a missing required value fails the command before anything changes.
 
 `jeeves uninstall` removes the SOUL.md/AGENTS.md managed blocks (and any legacy TOOLS.md block) and the core `config.schema.json`, then runs `openclaw plugins uninstall <id> --force` for every Jeeves plugin that has a `plugins.entries` record (the plugins are useless without the rest of the platform). If OpenClaw is not installed, the plugin step is skipped. OpenClaw leaves `plugins.entries.<id> = { enabled: false }` behind and can delete `plugins.load`, so the CLI then unsets the leftover entry and restores `plugins.load` from its value before the uninstall. The core `config.json` is left in place, and so is everything under `skills/` and `jeeves-core/templates/`: neither install nor uninstall touches them (skills and templates written by v0.x stay where they are).
 
-Plugin changes take effect when the gateway next starts. The CLI tells you to restart it; it never restarts the gateway itself, because it can't know how you run it (console, service, container). There is no `--restart` option.
+Plugin changes and OpenClaw dist patches take effect when the gateway next starts. The CLI tells you to restart it; it never restarts the gateway itself, because it can't know how you run it (console, service, container). There is no `--restart` option.
+
+### OpenClaw dist patches
+
+`jeeves patch-openclaw [--dry-run]` applies Jeeves' post-install patches to the installed OpenClaw `dist` (today only `tool-order`). Run it after every OpenClaw upgrade; `jeeves install` and `jeeves update` run it too (`--skip-patch` to opt out). Each patch finds its site by content, so it doesn't depend on chunk names. It is idempotent (`already patched` counts as success) and reports `upstream-fixed` when OpenClaw no longer needs it. One failing patch doesn't stop the others. If a patch site isn't found (for example on an OpenClaw version it has no fixtures for), the patch reports `not found` and the command exits non-zero without guessing. Before writing, it checks the dist files are writable by the current user and fails naming the path and user otherwise; run it as the user who owns the OpenClaw install. It never restarts the gateway: after a live run that changed the dist it prints the restart notice.
 
 ### Plugin config
 
