@@ -28,6 +28,14 @@ const FLEET_PATTERNS = [
   /systemd unit/i,
 ];
 
+/** Managed-fleet / operator-driven detail forbidden in the self-hosted onboarding skill. */
+const SELF_HOSTED_FORBIDDEN_PATTERNS = [
+  /\/opt\/jeeves/,
+  /jeeves-tools config set/,
+  /jeeves-tools deploy/,
+  /operator/,
+];
+
 const skillDirs = (folder: string): string[] => {
   const dir = join(root, folder);
   if (!existsSync(dir)) return [];
@@ -81,5 +89,39 @@ describe('shipped skills', () => {
       'spec-to-code-guide.md',
       'spec.md',
     ]);
+  });
+
+  it('ships the self-hosted jeeves-onboarding skill', () => {
+    expect(skillDirs('skills-self-hosted')).toEqual(
+      expect.arrayContaining(['jeeves-onboarding']),
+    );
+  });
+
+  it('ships the jeeves-onboarding checklist template', () => {
+    const refs = join(
+      root,
+      'skills-self-hosted',
+      'jeeves-onboarding',
+      'references',
+    );
+    expect(readdirSync(refs)).toContain('onboarding-checklist.md');
+  });
+
+  it('keeps jeeves-onboarding free of managed/operator content', () => {
+    const skill = read('skills-self-hosted', 'jeeves-onboarding');
+    const template = readFileSync(
+      join(
+        root,
+        'skills-self-hosted',
+        'jeeves-onboarding',
+        'references',
+        'onboarding-checklist.md',
+      ),
+      'utf8',
+    );
+    for (const pattern of SELF_HOSTED_FORBIDDEN_PATTERNS) {
+      expect(skill).not.toMatch(pattern);
+      expect(template).not.toMatch(pattern);
+    }
   });
 });
