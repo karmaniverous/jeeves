@@ -62,7 +62,7 @@ Core reads shared defaults from `jeeves.config.json` in the workspace root:
 - Namespaced: `core.*` (workspace, configRoot, gatewayUrl, devRepos) and `memory.*` (budget, warningThreshold)
 - Inspect with `jeeves config [jsonpath]`
 
-**Managed instances:** the instance layout (paths, units, ports, config locations, restarts, what deploy overwrites) is in the `jeeves-platform-managed` skill that jeeves-tools deploys.
+**Managed instances:** the instance layout (paths, units, ports, config locations, restarts, what deploy overwrites) is in the `jeeves-platform-managed` skill, which managed instances get alongside this one.
 
 ## Recurring Checklists
 
