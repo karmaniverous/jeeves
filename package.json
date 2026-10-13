@@ -65,7 +65,9 @@
   },
   "files": [
     "dist",
-    "content"
+    "content",
+    "skills",
+    "skills-self-hosted"
   ],
   "homepage": "https://github.com/karmaniverous/jeeves#readme",
   "keywords": [
