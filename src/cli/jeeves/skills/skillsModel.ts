@@ -1,0 +1,302 @@
+/**
+ * Pure computation for `jeeves skills install | uninstall | status`
+ * (Decision 71): mode inference, the `extraDirs` change each action makes,
+ * and the status report. No I/O.
+ *
+ * @remarks
+ * `--managed` wires only `skills/`; `--self-hosted` wires both folders.
+ * With no flag, the mode is inferred from `skills.load.extraDirs`: the
+ * self-hosted folder (current or stale) wired means self-hosted; only the
+ * generic folder wired means managed; nothing wired (fresh install) means
+ * self-hosted. `install` is idempotent, preserves every other entry and
+ * its position, replaces a stale copy of either folder (a path ending in
+ * `/node_modules/@karmaniverous/jeeves/skills[-self-hosted]` that no
+ * longer matches the running package's own location, e.g. after an
+ * nvm/Node change) with the current path, and drops the self-hosted
+ * folder when the mode is managed. `uninstall` removes exactly this
+ * package's entries (current and stale, both folders) and unsets
+ * `skills.load.extraDirs` (and `skills.load` if that empties it) rather
+ * than leaving `[]`.
+ *
+ * @module
+ */
+
+import { z } from 'zod';
+
+import type { ConfigSetOperation } from '../plugins/openclawCommands.js';
+import type { SkillsFolders } from './skillsFolders.js';
+
+/** Which folder(s) `jeeves skills` wires. */
+export type SkillsMode = 'managed' | 'selfHosted';
+
+/** Config path of `skills.load.extraDirs`. */
+export const EXTRA_DIRS_PATH = 'skills.load.extraDirs';
+
+/** The slice of `openclaw.json` under `skills` this command reads. */
+export const skillsConfigSchema = z.looseObject({
+  load: z.looseObject({ extraDirs: z.array(z.string()).optional() }).optional(),
+});
+
+/** Parsed `skills` config slice (`{}` when unset). */
+export type SkillsConfig = z.infer<typeof skillsConfigSchema>;
+
+/** What a command works on. */
+export interface SkillsContext {
+  /** This package's two skill folders. */
+  folders: SkillsFolders;
+  /** OpenClaw's current `skills` config block. */
+  config: SkillsConfig;
+}
+
+/** A change to OpenClaw's config: sets applied in one batch, then unsets. */
+export interface SkillsChange {
+  /** Paths to set (at most one: `skills.load.extraDirs`). */
+  sets: ConfigSetOperation[];
+  /** Paths to unset. */
+  unsets: string[];
+}
+
+/** Suffix of a (possibly stale) generic-folder `extraDirs` entry. */
+const GENERIC_SUFFIX = '/node_modules/@karmaniverous/jeeves/skills';
+
+/** Suffix of a (possibly stale) self-hosted-folder `extraDirs` entry. */
+const SELF_HOSTED_SUFFIX =
+  '/node_modules/@karmaniverous/jeeves/skills-self-hosted';
+
+/** Normalize a path for comparison: forward slashes, no trailing slash. */
+const normalize = (value: string): string =>
+  value.replace(/\\/g, '/').replace(/\/+$/, '');
+
+/** Whether an `extraDirs` entry is this package's generic folder (current or stale). */
+const isGenericEntry = (entry: string, folders: SkillsFolders): boolean =>
+  normalize(entry) === normalize(folders.generic) ||
+  normalize(entry).endsWith(GENERIC_SUFFIX);
+
+/** Whether an `extraDirs` entry is this package's self-hosted folder (current or stale). */
+const isSelfHostedEntry = (entry: string, folders: SkillsFolders): boolean =>
+  normalize(entry) === normalize(folders.selfHosted) ||
+  normalize(entry).endsWith(SELF_HOSTED_SUFFIX);
+
+/** Whether an `extraDirs` entry is a stale copy of the generic folder. */
+const isStaleGeneric = (entry: string, folders: SkillsFolders): boolean =>
+  normalize(entry).endsWith(GENERIC_SUFFIX) &&
+  normalize(entry) !== normalize(folders.generic);
+
+/** Whether an `extraDirs` entry is a stale copy of the self-hosted folder. */
+const isStaleSelfHosted = (entry: string, folders: SkillsFolders): boolean =>
+  normalize(entry).endsWith(SELF_HOSTED_SUFFIX) &&
+  normalize(entry) !== normalize(folders.selfHosted);
+
+/**
+ * Resolve `--managed`/`--self-hosted` into a mode, or `undefined` when
+ * neither is given (infer from wiring).
+ *
+ * @param managed - `--managed` given.
+ * @param selfHosted - `--self-hosted` given.
+ * @returns The explicit mode, or `undefined`.
+ * @throws Error when both flags are given.
+ */
+export function resolveModeFlag(
+  managed: boolean,
+  selfHosted: boolean,
+): SkillsMode | undefined {
+  if (managed && selfHosted) {
+    throw new Error('--managed and --self-hosted cannot both be given');
+  }
+  if (managed) return 'managed';
+  if (selfHosted) return 'selfHosted';
+  return undefined;
+}
+
+/**
+ * Infer the mode from the current wiring (spec section 5 scope C; Decision 71):
+ * self-hosted folder wired (current or stale) wins; else only the generic
+ * folder wired means managed; nothing wired (fresh install) means
+ * self-hosted. Never flips a mode `install` already applied.
+ *
+ * @param context - Folders and current config.
+ * @returns The inferred mode.
+ */
+export function inferMode(context: SkillsContext): SkillsMode {
+  const extraDirs = context.config.load?.extraDirs ?? [];
+  if (extraDirs.some((entry) => isSelfHostedEntry(entry, context.folders))) {
+    return 'selfHosted';
+  }
+  if (extraDirs.some((entry) => isGenericEntry(entry, context.folders))) {
+    return 'managed';
+  }
+  return 'selfHosted';
+}
+
+/**
+ * The change `install` makes: idempotent, preserves every other entry and
+ * its position, replaces a stale copy of either of this package's folders
+ * with its current path, and drops the self-hosted folder when `mode` is
+ * `managed`. Empty when `extraDirs` is already in the desired state.
+ *
+ * @param context - Folders and current config.
+ * @param mode - The mode to wire (explicit flag, or {@link inferMode}).
+ * @returns The change (`sets` empty when nothing needs to change).
+ */
+export function installChange(
+  context: SkillsContext,
+  mode: SkillsMode,
+): SkillsChange {
+  const { folders } = context;
+  const extraDirs = context.config.load?.extraDirs ?? [];
+  const next: string[] = [];
+  for (const entry of extraDirs) {
+    if (isGenericEntry(entry, folders)) {
+      next.push(folders.generic);
+      continue;
+    }
+    if (isSelfHostedEntry(entry, folders)) {
+      if (mode === 'selfHosted') next.push(folders.selfHosted);
+      continue;
+    }
+    next.push(entry);
+  }
+  if (!next.some((entry) => normalize(entry) === normalize(folders.generic))) {
+    next.push(folders.generic);
+  }
+  if (
+    mode === 'selfHosted' &&
+    !next.some((entry) => normalize(entry) === normalize(folders.selfHosted))
+  ) {
+    next.push(folders.selfHosted);
+  }
+
+  const changed =
+    next.length !== extraDirs.length ||
+    next.some((entry, i) => entry !== extraDirs[i]);
+  return changed
+    ? { sets: [{ path: EXTRA_DIRS_PATH, value: next }], unsets: [] }
+    : { sets: [], unsets: [] };
+}
+
+/** Whether `object` holds nothing but `key`. */
+const onlyKey = (
+  object: Record<string, unknown> | undefined,
+  key: string,
+): boolean =>
+  object !== undefined && Object.keys(object).length === 1 && key in object;
+
+/**
+ * The change `uninstall` makes: removes exactly this package's entries
+ * (current and stale, both folders) and nothing else; unsets
+ * `skills.load.extraDirs` (and `skills.load` if that empties it) rather
+ * than leaving `[]`. Empty when nothing of this package's is wired.
+ *
+ * @param context - Folders and current config.
+ * @returns The change.
+ */
+export function uninstallChange(context: SkillsContext): SkillsChange {
+  const { folders } = context;
+  const extraDirs = context.config.load?.extraDirs ?? [];
+  const next = extraDirs.filter(
+    (entry) =>
+      !isGenericEntry(entry, folders) && !isSelfHostedEntry(entry, folders),
+  );
+  if (next.length === extraDirs.length) return { sets: [], unsets: [] };
+  if (next.length > 0) {
+    return { sets: [{ path: EXTRA_DIRS_PATH, value: next }], unsets: [] };
+  }
+  return {
+    sets: [],
+    unsets: [
+      onlyKey(context.config.load, 'extraDirs')
+        ? 'skills.load'
+        : EXTRA_DIRS_PATH,
+    ],
+  };
+}
+
+/** Folder wiring states for {@link statusLines}. */
+type FolderState = 'wired' | 'missing' | `stale (wired as ${string})`;
+
+/** The wiring state of one of this package's folders. */
+function folderState(
+  extraDirs: readonly string[],
+  folders: SkillsFolders,
+  which: 'generic' | 'selfHosted',
+): FolderState {
+  const path = which === 'generic' ? folders.generic : folders.selfHosted;
+  if (extraDirs.some((entry) => normalize(entry) === normalize(path))) {
+    return 'wired';
+  }
+  const stale = extraDirs.find((entry) =>
+    which === 'generic'
+      ? isStaleGeneric(entry, folders)
+      : isStaleSelfHosted(entry, folders),
+  );
+  return stale ? `stale (wired as ${stale})` : 'missing';
+}
+
+/** Skill names each folder provides, for {@link statusLines}. */
+export interface SkillsProvided {
+  /** Skills under `skills/`. */
+  generic: readonly string[];
+  /** Skills under `skills-self-hosted/`. */
+  selfHosted: readonly string[];
+}
+
+/** Input to {@link statusLines} beyond the context. */
+export interface SkillsStatusInput {
+  /** The inferred mode. */
+  mode: SkillsMode;
+  /** Skill names each folder provides. */
+  providedSkills: SkillsProvided;
+  /** Skill names present in the workspace `skills/` directory (shadowing). */
+  workspaceSkillNames: readonly string[];
+}
+
+/** One folder's status lines: the folder line, then one per skill. */
+function folderLines(
+  label: string,
+  path: string,
+  state: FolderState,
+  skills: readonly string[],
+  workspaceSkillNames: readonly string[],
+): string[] {
+  const lines = [`${label}: ${path} — ${state}`];
+  for (const skill of skills) {
+    const shadow = workspaceSkillNames.includes(skill)
+      ? ' (shadowed by a workspace skill)'
+      : '';
+    lines.push(`  ${skill}${shadow}`);
+  }
+  return lines;
+}
+
+/**
+ * The `status` report: inferred mode, each folder's wiring state and the
+ * skills it provides, and shadowing by a same-named workspace skill. Never
+ * fails on shadowing: it only reports.
+ *
+ * @param context - Folders and current config.
+ * @param input - Inferred mode, provided skills, and workspace skill names.
+ * @returns Lines to print.
+ */
+export function statusLines(
+  context: SkillsContext,
+  input: SkillsStatusInput,
+): string[] {
+  const extraDirs = context.config.load?.extraDirs ?? [];
+  return [
+    `mode: ${input.mode === 'managed' ? 'managed' : 'self-hosted'}`,
+    ...folderLines(
+      'skills/',
+      context.folders.generic,
+      folderState(extraDirs, context.folders, 'generic'),
+      input.providedSkills.generic,
+      input.workspaceSkillNames,
+    ),
+    ...folderLines(
+      'skills-self-hosted/',
+      context.folders.selfHosted,
+      folderState(extraDirs, context.folders, 'selfHosted'),
+      input.providedSkills.selfHosted,
+      input.workspaceSkillNames,
+    ),
+  ];
+}

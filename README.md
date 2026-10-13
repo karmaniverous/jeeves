@@ -236,6 +236,7 @@ Pre-defined marker sets: `SOUL_MARKERS`, `AGENTS_MARKERS`, and `LEGACY_TOOLS_MAR
 jeeves install [plugins...]    # Render platform content, then install/update plugins
 jeeves update [packages...]    # Update Jeeves plugins, fill in missing plugin config (no content changes)
 jeeves patch-openclaw          # Re-apply the OpenClaw dist patches (after an OpenClaw upgrade)
+jeeves skills install|uninstall|status [--managed|--self-hosted]  # Wire the shipped skills into OpenClaw
 jeeves uninstall               # Remove managed blocks (incl. legacy TOOLS.md), artifacts and the Jeeves plugins
 jeeves status                  # Probe all service ports, report health + memory hygiene
 jeeves config [jsonpath]       # Print effective config with provenance
@@ -272,6 +273,15 @@ Plugin specs can be short (`watcher`, `watcher@1.2.3`, `runner@^1`) or full (`@k
 `jeeves uninstall` removes the SOUL.md/AGENTS.md managed blocks (and any legacy TOOLS.md block) and the core `config.schema.json`, then runs `openclaw plugins uninstall <id> --force` for every Jeeves plugin that has a `plugins.entries` record (the plugins are useless without the rest of the platform). If OpenClaw is not installed, the plugin step is skipped. OpenClaw leaves `plugins.entries.<id> = { enabled: false }` behind and can delete `plugins.load`, so the CLI then unsets the leftover entry and restores `plugins.load` from its value before the uninstall. The core `config.json` is left in place, and so is everything under `skills/` and `jeeves-core/templates/`: neither install nor uninstall touches them (skills and templates written by v0.x stay where they are).
 
 Plugin changes and OpenClaw dist patches take effect when the gateway next starts. The CLI tells you to restart it; it never restarts the gateway itself, because it can't know how you run it (console, service, container). There is no `--restart` option.
+
+### Skills
+
+`@karmaniverous/jeeves` ships two skill folders: `skills/` (`jeeves-platform`, `jeeves-coding`, `jeeves-design`) for every instance, and `skills-self-hosted/` (`jeeves-onboarding`) for instances not managed by jeeves-tools. `jeeves skills install` adds them to OpenClaw's `skills.load.extraDirs`, so OpenClaw loads them in place from the installed package and `npm update -g` refreshes them; nothing is copied into the workspace.
+
+- `--managed` wires `skills/` only; `--self-hosted` wires both. With neither, the mode follows the current wiring, and a fresh install is self-hosted, so re-running never switches modes.
+- `install` edits only this package's entries (exact match), replaces entries left behind under an old global `node_modules`, and keeps everything else in order. `uninstall` removes exactly this package's entries.
+- `status` shows the mode, each folder as wired, missing or stale, the skills each provides, and any workspace skill with the same name, which shadows the package's copy. It only reports.
+- No prompts: changes apply directly; `--dry-run` previews the exact `openclaw config` commands.
 
 ### OpenClaw dist patches
 
