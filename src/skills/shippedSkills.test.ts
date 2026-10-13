@@ -43,7 +43,11 @@ const read = (folder: string, name: string): string =>
 describe('shipped skills', () => {
   it('ships the generic skills', () => {
     expect(skillDirs('skills')).toEqual(
-      expect.arrayContaining(['jeeves-coding', 'jeeves-design']),
+      expect.arrayContaining([
+        'jeeves-coding',
+        'jeeves-design',
+        'jeeves-platform',
+      ]),
     );
   });
 
