@@ -38,7 +38,7 @@ Shared library and CLI that provides the substrate all components build on:
 - **Service SDK** — service CLI, service manager, and transport-agnostic config query/apply and status handlers
 - **Service discovery** — URL and bind-address resolution
 - **Managed-block primitives** — pure `renderManagedBlock` / `upsertManagedBlock` / `removeManagedBlock` / `parseManaged`, `atomicWrite` and `withFileLock`
-- **CLI** — `jeeves install` renders the static platform content (SOUL.md/AGENTS.md managed blocks; CLI-internal, with test-enforced character budgets) and installs the component plugins; `jeeves update` updates the plugins; `uninstall`, `status`, `config`
+- **CLI** — `jeeves install` renders the static platform content (SOUL.md/AGENTS.md managed blocks; CLI-internal, with test-enforced character budgets) and installs the component plugins, re-applies the OpenClaw dist patches and wires the shipped skills; `jeeves update` updates the plugins (and patches and skills); `jeeves patch-openclaw`, `jeeves skills`, `uninstall`, `status`, `config`
 
 ## How Components Interact
 
@@ -68,7 +68,7 @@ Both blocks are capped by documented budgets (7,500 chars each) so owner content
 
 - **Live state** (index size, job status, versions, health) is served by each component's `*_status` tool, not written into files.
 - **Always-in-context component rules** are injected by the owning plugin through OpenClaw's `before_prompt_build` hook as `appendSystemContext`.
-- **How-to and reference** lives in skills shipped in each plugin package. Core ships no skills in v1.
+- **How-to and reference** lives in skills: platform skills ship in `@karmaniverous/jeeves` (0.7.0), component skills in each plugin package.
 
 TOOLS.md and HEARTBEAT.md are no longer written (OpenClaw 2026.9.6 does not load TOOLS.md).
 
@@ -138,7 +138,7 @@ MEMORY.md is the assistant's curated long-term memory, loaded at every session s
 
 ## Skills
 
-Core ships no skills in v1. `jeeves install` writes nothing under `{workspace}/skills/` and `jeeves uninstall` leaves it alone, so skills written by v0.x stay where they are. Component plugins ship their own skills in their packages via the plugin manifest.
+Since 0.7.0, core ships platform skills in two folders: `skills/` (`jeeves-platform`, `jeeves-coding`, `jeeves-design`) for every instance and `skills-self-hosted/` (`jeeves-onboarding`) for instances not managed by jeeves-tools. `jeeves skills install [--managed|--self-hosted]` (also run by `jeeves install` and `update`) adds them to OpenClaw's `skills.load.extraDirs`, so they load in place from the installed package; nothing is copied into `{workspace}/skills/`, and a workspace skill with the same name shadows the package's (`jeeves skills status` reports it). Component plugins ship their own skills in their packages via the plugin manifest.
 
 ## Node.js Requirement
 
