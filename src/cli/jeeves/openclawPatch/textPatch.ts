@@ -6,7 +6,7 @@
  *
  * @remarks
  * Hoisted from `jeeves-scripts-template/src/admin/lib/text-patch.ts`
- * (jeeves-core 0.7.0 step 4, #121).
+ * (jeeves-core 0.7.0, #121).
  *
  * @module
  */

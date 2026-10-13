@@ -11,14 +11,11 @@
  * `skills-self-hosted/`; with neither, the mode is inferred from the
  * current wiring (see `skillsModel.ts`). `status` is read-only and never
  * fails on shadowing. Programmatic entry point ({@link runSkillsCommand})
- * reused by step 10 (`jeeves install`/`update`/`uninstall`/`status`);
- * exposed internally only, not part of the public package API unless knip
- * requires otherwise.
+ * used by `jeeves install`/`update`/`uninstall`/`status`. Internal: not
+ * part of the public package API.
  *
  * @module
  */
-
-import path from 'node:path';
 
 import type { Command } from '@commander-js/extra-typings';
 
@@ -51,6 +48,7 @@ import {
 import {
   inferMode,
   installChange,
+  isOwnEntry,
   resolveModeFlag,
   type SkillsChange,
   type SkillsContext,
@@ -58,6 +56,11 @@ import {
   statusLines,
   uninstallChange,
 } from './skillsModel.js';
+import {
+  defaultShadowSources,
+  findShadows,
+  type ShadowSource,
+} from './skillsShadow.js';
 
 /** Which `jeeves skills` subcommand is running. */
 export type SkillsAction = 'install' | 'uninstall' | 'status';
@@ -74,8 +77,11 @@ export interface SkillsCommandPorts {
   error?: (line: string) => void;
   /** This package's root (default: resolved from `import.meta.url`). */
   packageRoot?: string;
-  /** Workspace `skills/` directory, for shadow detection (`status`). */
-  workspaceSkillsDir?: string;
+  /**
+   * Skill sources checked for same-named skills (`status`; default:
+   * {@link defaultShadowSources}).
+   */
+  shadowSources?: readonly ShadowSource[];
 }
 
 /** Options for {@link runSkillsCommand}. */
@@ -151,17 +157,25 @@ export async function runSkillsCommand(
 
     if (action === 'status') {
       const mode = inferMode(context);
-      const workspaceSkillsDir =
-        options.workspaceSkillsDir ?? path.join(getWorkspacePath(), 'skills');
       const providedSkills = {
         generic: listSkillNames(folders.generic),
         selfHosted: listSkillNames(folders.selfHosted),
       };
-      const workspaceSkillNames = listSkillNames(workspaceSkillsDir);
+      const sources =
+        options.shadowSources ??
+        defaultShadowSources({
+          workspace: getWorkspacePath(),
+          extraDirs: config.load?.extraDirs ?? [],
+          isOwnEntry: (entry) => isOwnEntry(entry, folders),
+        });
+      const shadows = findShadows(
+        [...providedSkills.generic, ...providedSkills.selfHosted],
+        sources,
+      );
       for (const line of statusLines(context, {
         mode,
         providedSkills,
-        workspaceSkillNames,
+        shadows,
       })) {
         log(line);
       }

@@ -108,8 +108,8 @@ export function loadEnvFile(envPath: string): void {
  *
  * @remarks
  * Prefer {@link parseRunnableArgs}, which takes a declared spec, returns
- * typed values and rejects missing or unknown values. Deprecation is
- * planned for 0.7.1 (#127).
+ * typed values and throws when a valued option is given without a
+ * value. Deprecation is planned for 0.7.1 (#127).
  */
 export function parseArgs(
   argv: string[] = process.argv.slice(2),
@@ -129,8 +129,8 @@ export function parseArgs(
  *
  * @remarks
  * Prefer {@link parseRunnableArgs}, which takes a declared spec, returns
- * typed values and rejects missing or unknown values. Deprecation is
- * planned for 0.7.1 (#127).
+ * typed values and throws when a valued option is given without a
+ * value. Deprecation is planned for 0.7.1 (#127).
  */
 export function getArg(
   argv: string[],

@@ -5,7 +5,7 @@
  *
  * @remarks
  * Hoisted from `jeeves-scripts-template/src/admin/patch-tool-order.ts` and
- * `lib/patch-tool-order-utils.ts` (jeeves-core 0.7.0 step 4, #121).
+ * `lib/patch-tool-order-utils.ts` (jeeves-core 0.7.0, #121).
  *
  * - Locates the array by content across every `.js` / `.mjs` chunk; zero
  *   or multiple `toolOrder` assignments abort (fail closed).

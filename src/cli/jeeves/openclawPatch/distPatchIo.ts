@@ -5,9 +5,9 @@
  *
  * @remarks
  * Hoisted from `jeeves-scripts-template/src/admin/lib/dist-patch-io.ts`
- * (jeeves-core 0.7.0 step 4, #121), adapted to return a structured
+ * (jeeves-core 0.7.0, #121), adapted to return a structured
  * {@link PatchOutcome} instead of a boolean so the CLI can fold results
- * into install/update reporting (step 5). Never restarts the gateway
+ * into install/update reporting. Never restarts the gateway
  * (Decision 70): the caller is responsible for printing a restart notice
  * when a live run changes the dist.
  *
@@ -121,20 +121,22 @@ export function applyDistPlan(
   console.log(`  before:\n${indent(result.before)}`);
   console.log(`  after:\n${indent(result.after)}`);
 
-  if (dryRun) {
-    return {
-      name,
-      status: 'patched',
-      message: `would patch ${file}:${String(result.line)} (dry run)`,
-    };
-  }
-
+  // Checked in dry runs too, so a dry run reports the failure a live run
+  // would hit instead of "would patch".
   try {
     assertWritable(filePath);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[${name}] FAILED — ${message}`);
     return { name, status: 'error', message };
+  }
+
+  if (dryRun) {
+    return {
+      name,
+      status: 'patched',
+      message: `would patch ${file}:${String(result.line)} (dry run)`,
+    };
   }
 
   atomicWrite(filePath, result.content);

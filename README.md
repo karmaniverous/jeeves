@@ -282,7 +282,7 @@ Plugin changes and OpenClaw dist patches take effect when the gateway next start
 
 - `--managed` wires `skills/` only; `--self-hosted` wires both. With neither, the mode follows the current wiring, and a fresh install is self-hosted, so re-running never switches modes.
 - `install` edits only this package's entries (exact match), replaces entries left behind under an old global `node_modules`, and keeps everything else in order. `uninstall` removes exactly this package's entries.
-- `status` shows the mode, each folder as wired, missing or stale, the skills each provides, and any workspace skill with the same name, which shadows the package's copy. It only reports.
+- `status` shows the mode, each folder as wired, missing or stale, the skills each provides, and every other skill source holding a skill with the same name: the workspace `skills/` and `.agents/skills/`, `~/.agents/skills`, OpenClaw's managed `skills/` and each agent's workshop skills (all of which outrank `extraDirs`, so they shadow the package's copy), and any other `extraDirs` entry (a collision at the same level). OpenClaw's bundled skills aren't checked. It only reports.
 - No prompts: changes apply directly; `--dry-run` previews the exact `openclaw config` commands.
 - `jeeves install` and `jeeves update` run `skills install`, `jeeves uninstall` runs `skills uninstall`, and `jeeves status` includes `skills status`.
 

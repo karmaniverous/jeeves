@@ -16,7 +16,7 @@ export const RESTART_NOTICE =
   'Changes take effect on the next OpenClaw gateway start. Restart the gateway when convenient.';
 
 /**
- * What to say about the gateway after plugin changes and (step 5) the
+ * What to say about the gateway after plugin changes and the
  * `patch-openclaw` dist patch step: nothing when neither changed anything,
  * a live-apply line when OpenClaw reported every plugin change applied
  * live and the dist was not changed, else {@link RESTART_NOTICE} (printed

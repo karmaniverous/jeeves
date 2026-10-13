@@ -233,7 +233,12 @@ describe('statusLines', () => {
         generic: ['jeeves-coding', 'jeeves-platform'],
         selfHosted: ['jeeves-onboarding'],
       },
-      workspaceSkillNames: ['jeeves-onboarding'],
+      shadows: {
+        'jeeves-onboarding': [
+          'workspace skills/',
+          'managed skills (/state/skills)',
+        ],
+      },
     });
 
     expect(lines[0]).toBe('mode: self-hosted');
@@ -246,7 +251,7 @@ describe('statusLines', () => {
       `skills-self-hosted/: ${folders.selfHosted} — wired`,
     );
     expect(lines).toContain(
-      '  jeeves-onboarding (shadowed by a workspace skill)',
+      '  jeeves-onboarding (also in: workspace skills/; managed skills (/state/skills))',
     );
   });
 
@@ -254,7 +259,7 @@ describe('statusLines', () => {
     const lines = statusLines(ctx(), {
       mode: 'selfHosted',
       providedSkills: { generic: [], selfHosted: [] },
-      workspaceSkillNames: [],
+      shadows: {},
     });
     expect(lines).toContain(`skills/: ${folders.generic} — missing`);
     expect(lines).toContain(

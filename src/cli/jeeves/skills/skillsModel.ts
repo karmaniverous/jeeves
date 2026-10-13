@@ -77,6 +77,17 @@ const isSelfHostedEntry = (entry: string, folders: SkillsFolders): boolean =>
   normalize(entry) === normalize(folders.selfHosted) ||
   normalize(entry).endsWith(SELF_HOSTED_SUFFIX);
 
+/**
+ * Whether an `extraDirs` entry is one of this package's folders (either
+ * folder, current or stale).
+ *
+ * @param entry - An `extraDirs` entry.
+ * @param folders - This package's folders.
+ * @returns `true` for this package's entries.
+ */
+export const isOwnEntry = (entry: string, folders: SkillsFolders): boolean =>
+  isGenericEntry(entry, folders) || isSelfHostedEntry(entry, folders);
+
 /** Whether an `extraDirs` entry is a stale copy of the generic folder. */
 const isStaleGeneric = (entry: string, folders: SkillsFolders): boolean =>
   normalize(entry).endsWith(GENERIC_SUFFIX) &&
@@ -246,8 +257,11 @@ export interface SkillsStatusInput {
   mode: SkillsMode;
   /** Skill names each folder provides. */
   providedSkills: SkillsProvided;
-  /** Skill names present in the workspace `skills/` directory (shadowing). */
-  workspaceSkillNames: readonly string[];
+  /**
+   * Shipped skill name to the other sources that provide a skill of the
+   * same name (see `skillsShadow.ts`). Skills found nowhere else are absent.
+   */
+  shadows: Readonly<Record<string, readonly string[]>>;
 }
 
 /** One folder's status lines: the folder line, then one per skill. */
@@ -256,13 +270,12 @@ function folderLines(
   path: string,
   state: FolderState,
   skills: readonly string[],
-  workspaceSkillNames: readonly string[],
+  shadows: Readonly<Record<string, readonly string[]>>,
 ): string[] {
   const lines = [`${label}: ${path} — ${state}`];
   for (const skill of skills) {
-    const shadow = workspaceSkillNames.includes(skill)
-      ? ' (shadowed by a workspace skill)'
-      : '';
+    const others = shadows[skill] ?? [];
+    const shadow = others.length > 0 ? ` (also in: ${others.join('; ')})` : '';
     lines.push(`  ${skill}${shadow}`);
   }
   return lines;
@@ -270,8 +283,10 @@ function folderLines(
 
 /**
  * The `status` report: inferred mode, each folder's wiring state and the
- * skills it provides, and shadowing by a same-named workspace skill. Never
- * fails on shadowing: it only reports.
+ * skills it provides, and every other source holding a same-named skill
+ * (a higher-precedence source shadows the shipped copy; another
+ * `extraDirs` entry collides with it). Never fails on shadowing: it only
+ * reports.
  *
  * @param context - Folders and current config.
  * @param input - Inferred mode, provided skills, and workspace skill names.
@@ -289,14 +304,14 @@ export function statusLines(
       context.folders.generic,
       folderState(extraDirs, context.folders, 'generic'),
       input.providedSkills.generic,
-      input.workspaceSkillNames,
+      input.shadows,
     ),
     ...folderLines(
       'skills-self-hosted/',
       context.folders.selfHosted,
       folderState(extraDirs, context.folders, 'selfHosted'),
       input.providedSkills.selfHosted,
-      input.workspaceSkillNames,
+      input.shadows,
     ),
   ];
 }

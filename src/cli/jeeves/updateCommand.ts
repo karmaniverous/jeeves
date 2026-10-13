@@ -15,7 +15,7 @@
  * Only Jeeves OpenClaw plugin packages are accepted.
  *
  * After plugins are applied, runs the `patch-openclaw` dist patch step
- * (step 5, #121) unless `--skip-patch` is given. If the patch step reports
+ * (#121) unless `--skip-patch` is given. If the patch step reports
  * a failure, the command still finishes (plugins stay updated) and exits
  * non-zero. The restart notice folds in both plugin changes needing a
  * restart and a live (non-dry-run) dist patch, printed once.

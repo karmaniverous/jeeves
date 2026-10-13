@@ -21,7 +21,7 @@
  * place and skips plugins that are already current.
  *
  * After plugins are applied, runs the `patch-openclaw` dist patch step
- * (step 5, #121) unless `--content-only` or `--skip-patch` is given. If the
+ * (#121) unless `--content-only` or `--skip-patch` is given. If the
  * patch step reports a failure, the command still finishes (content and
  * plugins stay written) and exits non-zero. The restart notice folds in
  * both plugin changes needing a restart and a live (non-dry-run) dist

@@ -158,4 +158,16 @@ describe('applyDistPlan', () => {
       fs.chmodSync(target(), 0o644);
     }
   });
+
+  it('a dry run reports the read-only failure a live run would hit', () => {
+    fs.chmodSync(target(), 0o444);
+    try {
+      const outcome = applyDistPlan('t', dir, plan(), true);
+      expect(outcome.status).toBe('error');
+      expect(outcome.message).toContain(target());
+      expect(fs.readFileSync(target(), 'utf8')).toBe(TARGET);
+    } finally {
+      fs.chmodSync(target(), 0o644);
+    }
+  });
 });

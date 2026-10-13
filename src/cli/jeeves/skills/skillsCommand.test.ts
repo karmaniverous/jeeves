@@ -327,16 +327,14 @@ describe('runSkillsCommand status', () => {
       runner,
       log,
       packageRoot: pkgRoot,
-      workspaceSkillsDir,
+      shadowSources: [{ label: 'workspace skills/', dir: workspaceSkillsDir }],
     });
 
     expect(result).toEqual({ exitCode: 0, changed: false });
     expect(lines[0]).toBe('mode: self-hosted');
     expect(lines).toContain(`skills/: ${path.join(pkgRoot, 'skills')} — wired`);
     expect(lines).toContain('  jeeves-platform');
-    expect(lines).toContain(
-      '  jeeves-onboarding (shadowed by a workspace skill)',
-    );
+    expect(lines).toContain('  jeeves-onboarding (also in: workspace skills/)');
   });
 
   it('reports a stale folder without failing', async () => {
@@ -356,7 +354,7 @@ describe('runSkillsCommand status', () => {
       runner,
       log: () => undefined,
       packageRoot: pkgRoot,
-      workspaceSkillsDir,
+      shadowSources: [{ label: 'workspace skills/', dir: workspaceSkillsDir }],
     });
 
     expect(result.exitCode).toBe(0);
@@ -373,7 +371,7 @@ describe('runSkillsCommand status', () => {
       runner,
       log,
       packageRoot: pkgRoot,
-      workspaceSkillsDir,
+      shadowSources: [{ label: 'workspace skills/', dir: workspaceSkillsDir }],
     });
 
     expect(result).toEqual({ exitCode: 0, changed: false });
@@ -389,7 +387,7 @@ describe('runSkillsCommand status', () => {
       log: () => undefined,
       error: (l) => errors.push(l),
       packageRoot: pkgRoot,
-      workspaceSkillsDir,
+      shadowSources: [{ label: 'workspace skills/', dir: workspaceSkillsDir }],
     });
 
     expect(result.exitCode).toBe(1);

@@ -10,9 +10,10 @@
  * (Decision 70): when a live run changes the dist, prints the shared
  * `RESTART_NOTICE` from `cliOutput.ts` instead.
  *
- * Only the `tool-order` patch is hoisted in step 4. `patch-also-allow-policy`
+ * Only the `tool-order` patch is registered. `patch-also-allow-policy`
  * is not hoisted: the underlying OpenClaw behavior it worked around is
- * upstream-fixed. Wiring this command into `install`/`update` is step 5.
+ * upstream-fixed. `install` and `update` run this step through
+ * {@link runOpenClawPatches}.
  *
  * @module
  */
@@ -36,9 +37,8 @@ const DIST_PATCHES = [{ name: TOOL_ORDER_PATCH_NAME, run: runToolOrderPatch }];
  * Run every registered OpenClaw dist patch and print a summary.
  *
  * @remarks
- * Programmatic entry point reused by step 5 (`install`/`update`). Exposed
- * internally only; not part of the public package API unless knip
- * requires otherwise.
+ * Programmatic entry point used by `install` and `update`. Internal:
+ * not part of the public package API.
  *
  * @param options - `dryRun`: when true, nothing is written.
  * @returns The aggregate patch run report.

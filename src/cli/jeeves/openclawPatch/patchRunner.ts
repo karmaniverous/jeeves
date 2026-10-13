@@ -4,7 +4,7 @@
  *
  * @remarks
  * Hoisted from `jeeves-scripts-template/src/admin/lib/patch-runner.ts` and
- * `patch-openclaw.ts` (jeeves-core 0.7.0 step 4, #121), adapted to run
+ * `patch-openclaw.ts` (jeeves-core 0.7.0, #121), adapted to run
  * each patch as a direct function call (no `tsx` child process — jeeves
  * ships compiled JS) and to never restart the gateway (Decision 70): the
  * caller folds `changed`/`failed` into install/update reporting instead.
