@@ -21,7 +21,13 @@ export type {
   PromptBuildHandler,
   PromptBuildResult,
 } from './hookTypes.js';
-export { fetchJson, fetchWithTimeout, postJson } from './http.js';
+export {
+  DEFAULT_FETCH_TIMEOUT_MS,
+  fetchJson,
+  type FetchJsonOptions,
+  fetchWithTimeout,
+  postJson,
+} from './http.js';
 export { onPluginDispose } from './lifecycle.js';
 export {
   type PluginApiUrlResolver,

@@ -3,8 +3,29 @@
  *
  * @remarks
  * Thin wrappers around `fetch` that throw on non-OK responses
- * and handle JSON serialisation/deserialisation.
+ * and handle JSON serialisation/deserialisation. The JSON helpers abort
+ * after {@link DEFAULT_FETCH_TIMEOUT_MS} unless the caller passes its own
+ * `signal` or a `timeoutMs` override, so a service that accepts the
+ * connection but never answers cannot hang a plugin tool call.
  */
+
+/**
+ * Default timeout for {@link fetchJson} and {@link postJson}, in
+ * milliseconds (2 minutes): long enough for the slowest existing caller
+ * (jeeves-server export, OAuth and meta synthesis calls), short enough
+ * that a stalled service cannot hold a call open indefinitely.
+ */
+export const DEFAULT_FETCH_TIMEOUT_MS = 120_000;
+
+/** Options for {@link fetchJson} and {@link postJson}. */
+export interface FetchJsonOptions {
+  /**
+   * Abort after this many milliseconds (default
+   * {@link DEFAULT_FETCH_TIMEOUT_MS}). Ignored when `init.signal` is set:
+   * a caller-supplied signal always wins.
+   */
+  timeoutMs?: number;
+}
 
 /**
  * Fetch a URL with an automatic abort timeout.
@@ -35,15 +56,22 @@ export async function fetchWithTimeout(
  * Fetch JSON from a URL, throwing on non-OK responses.
  *
  * @param url - URL to fetch.
- * @param init - Optional `fetch` init options.
+ * @param init - Optional `fetch` init options. A `signal` here is used
+ *   as-is and replaces the default timeout.
+ * @param options - Per-call options (`timeoutMs`).
  * @returns Parsed JSON response body.
  * @throws Error with `HTTP {status}: {body}` message on non-OK responses.
+ * @throws The abort error when the timeout (or the caller's signal) fires.
  */
 export async function fetchJson(
   url: string,
   init?: RequestInit,
+  options: FetchJsonOptions = {},
 ): Promise<unknown> {
-  const res = await fetch(url, init);
+  const signal =
+    init?.signal ??
+    AbortSignal.timeout(options.timeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS);
+  const res = await fetch(url, { ...init, signal });
   if (!res.ok) {
     throw new Error('HTTP ' + String(res.status) + ': ' + (await res.text()));
   }
@@ -55,12 +83,21 @@ export async function fetchJson(
  *
  * @param url - URL to POST to.
  * @param body - Request body (will be JSON-stringified).
+ * @param options - Per-call options (`timeoutMs`).
  * @returns Parsed JSON response body.
  */
-export async function postJson(url: string, body: unknown): Promise<unknown> {
-  return fetchJson(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+export async function postJson(
+  url: string,
+  body: unknown,
+  options: FetchJsonOptions = {},
+): Promise<unknown> {
+  return fetchJson(
+    url,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+    options,
+  );
 }
