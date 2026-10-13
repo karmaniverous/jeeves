@@ -57,6 +57,8 @@ import {
   parsePluginSpecs,
 } from './plugins/pluginSpec.js';
 import { prepareInstall } from './plugins/workflows.js';
+import { runSkillsCommand } from './skills/skillsCommand.js';
+import { resolveModeFlag } from './skills/skillsModel.js';
 
 /**
  * Register the install subcommand on the parent CLI program.
@@ -81,11 +83,23 @@ export function registerInstallCommand(program: Command): void {
       'Skip the OpenClaw dist patch step (jeeves patch-openclaw)',
     )
     .option(
+      '--managed',
+      'Skills: wire skills/ only (jeeves skills install --managed)',
+    )
+    .option(
+      '--self-hosted',
+      'Skills: wire skills/ and skills-self-hosted/ (default on a fresh install)',
+    )
+    .option(
       '--dry-run',
       'Print planned file writes, plugin config and exact openclaw commands; change nothing',
     )
     .action(async (plugins, rawOpts) => {
       const dryRun = rawOpts.dryRun === true;
+      const skillsMode = resolveModeFlag(
+        rawOpts.managed === true,
+        rawOpts.selfHosted === true,
+      );
       const opts = pluginCliOptionsSchema.parse(rawOpts);
       // Validate specs and config input before writing anything.
       const targets = rawOpts.contentOnly
@@ -135,10 +149,20 @@ export function registerInstallCommand(program: Command): void {
         distChanged = patchReport.changed && !dryRun;
       }
 
+      let skillsFailed = false;
+      if (rawOpts.contentOnly !== true) {
+        console.log();
+        const skills = await runSkillsCommand('install', {
+          dryRun,
+          ...(skillsMode ? { mode: skillsMode } : {}),
+        });
+        skillsFailed = skills.exitCode !== 0;
+      }
+
       printLines(gatewayNotice(applied, distChanged));
 
       console.log(dryRun ? DRY_RUN_COMPLETE : '✅ Jeeves installed.');
 
-      if (patchFailed) process.exitCode = 1;
+      if (patchFailed || skillsFailed) process.exitCode = 1;
     });
 }

@@ -29,6 +29,13 @@ import {
 } from './plugins/workflowTestKit.js';
 import { registerUpdateCommand } from './updateCommand.js';
 
+const skillsMock = vi.hoisted(() =>
+  vi.fn(() => Promise.resolve({ exitCode: 0, changed: false })),
+);
+vi.mock('./skills/skillsCommand.js', () => ({
+  runSkillsCommand: skillsMock,
+}));
+
 const state = vi.hoisted((): CommandTestPorts => ({}));
 const patchMock = vi.hoisted(() => vi.fn());
 
@@ -70,6 +77,7 @@ describe('jeeves update (plugin config)', () => {
   beforeEach(() => {
     originalExitCode = process.exitCode;
     process.exitCode = undefined;
+    skillsMock.mockClear();
     patchMock.mockReset().mockReturnValue({
       changed: false,
       failed: false,
@@ -276,6 +284,33 @@ describe('jeeves update (plugin config)', () => {
     it('exits non-zero when a patch fails', async () => {
       current();
       patchMock.mockReturnValue({ changed: false, failed: true, results: [] });
+      await run();
+      expect(process.exitCode).toBe(1);
+    });
+  });
+  describe('skills step', () => {
+    const current = () => {
+      state.fake = fakeRunner(
+        script({
+          [W]: { config: { configRoot: '/cfg', apiUrl: 'http://h:1' } },
+        }),
+      );
+    };
+
+    it('keeps the current mode unless a flag is given', async () => {
+      current();
+      await run();
+      expect(skillsMock).toHaveBeenLastCalledWith('install', { dryRun: false });
+      await run('--self-hosted', '--dry-run');
+      expect(skillsMock).toHaveBeenLastCalledWith('install', {
+        dryRun: true,
+        mode: 'selfHosted',
+      });
+    });
+
+    it('exits non-zero when the skills step fails', async () => {
+      current();
+      skillsMock.mockResolvedValueOnce({ exitCode: 1, changed: false });
       await run();
       expect(process.exitCode).toBe(1);
     });

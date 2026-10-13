@@ -265,10 +265,11 @@ OpenClaw must already be installed; `jeeves` checks for it and never installs it
    OpenClaw can refuse to edit a plugin's config until it finishes that plugin's data/settings upgrade (`Plugin "<id>" data/settings upgrade is unfinished: ... has not converged`). This happens when the gateway started with `plugins.entries.<id>` configured before the package was installed (for example after an earlier failed run): OpenClaw records a pending migration for that plugin, installing it does not clear the record, and a refused `openclaw config set` doesn't either. OpenClaw resolves such records in the startup preflight of ordinary CLI commands (not `config`, and not `plugins list`), which is why a sweep runs `plugins inspect` right after each install. The config batch goes through a retry: only that refusal is retried: the sweep runs again, then the same batch file is resubmitted after 2s, 4s, 8s, 16s, then every 30s, for up to 120s of waiting in total, with one log line per retry. If the plugin still hasn't converged, the command fails and names the plugin; wait and rerun it (the writes are idempotent). Any other error fails at once. The `openclaw config unset` repairs after an uninstall follow the same rule. A dry run never retries.
 
 5. Runs the OpenClaw dist patch step (the same as `jeeves patch-openclaw`, below). `--content-only` and `--skip-patch` skip it.
+6. Wires the shipped skills (`jeeves skills install`, below), passing `--managed` or `--self-hosted` through. `--content-only` skips it.
 
 Plugin specs can be short (`watcher`, `watcher@1.2.3`, `runner@^1`) or full (`@karmaniverous/jeeves-watcher-openclaw@1.2.3`). Only `@karmaniverous/jeeves-*-openclaw` packages are accepted. `--content-only` skips the plugins.
 
-`jeeves update` runs steps 2 to 5 for the named packages, or for every Jeeves plugin that has a `plugins.entries` record, at `latest`. It takes the same plugin options as `jeeves install` (including `--plugin-config` and `--force-reinstall`) and fills in missing plugin config with the same precedence: existing values are kept unless you pass them, and a missing required value fails the command before anything changes.
+`jeeves update` runs steps 2 to 6 for the named packages, or for every Jeeves plugin that has a `plugins.entries` record, at `latest`. It takes the same plugin options as `jeeves install` (including `--plugin-config` and `--force-reinstall`) and fills in missing plugin config with the same precedence: existing values are kept unless you pass them, and a missing required value fails the command before anything changes.
 
 `jeeves uninstall` removes the SOUL.md/AGENTS.md managed blocks (and any legacy TOOLS.md block) and the core `config.schema.json`, then runs `openclaw plugins uninstall <id> --force` for every Jeeves plugin that has a `plugins.entries` record (the plugins are useless without the rest of the platform). If OpenClaw is not installed, the plugin step is skipped. OpenClaw leaves `plugins.entries.<id> = { enabled: false }` behind and can delete `plugins.load`, so the CLI then unsets the leftover entry and restores `plugins.load` from its value before the uninstall. The core `config.json` is left in place, and so is everything under `skills/` and `jeeves-core/templates/`: neither install nor uninstall touches them (skills and templates written by v0.x stay where they are).
 
@@ -282,6 +283,7 @@ Plugin changes and OpenClaw dist patches take effect when the gateway next start
 - `install` edits only this package's entries (exact match), replaces entries left behind under an old global `node_modules`, and keeps everything else in order. `uninstall` removes exactly this package's entries.
 - `status` shows the mode, each folder as wired, missing or stale, the skills each provides, and any workspace skill with the same name, which shadows the package's copy. It only reports.
 - No prompts: changes apply directly; `--dry-run` previews the exact `openclaw config` commands.
+- `jeeves install` and `jeeves update` run `skills install`, `jeeves uninstall` runs `skills uninstall`, and `jeeves status` includes `skills status`.
 
 ### OpenClaw dist patches
 

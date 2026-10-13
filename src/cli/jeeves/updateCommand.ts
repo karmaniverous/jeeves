@@ -41,6 +41,8 @@ import {
 import { createPluginWorkflowDeps } from './plugins/pluginDeps.js';
 import { parsePluginSpecs } from './plugins/pluginSpec.js';
 import { installPlugins, selectUpdateTargets } from './plugins/workflows.js';
+import { runSkillsCommand } from './skills/skillsCommand.js';
+import { resolveModeFlag } from './skills/skillsModel.js';
 
 /**
  * Register the update subcommand on the parent CLI program.
@@ -64,11 +66,23 @@ export function registerUpdateCommand(program: Command): void {
       'Skip the OpenClaw dist patch step (jeeves patch-openclaw)',
     )
     .option(
+      '--managed',
+      'Skills: wire skills/ only (jeeves skills install --managed)',
+    )
+    .option(
+      '--self-hosted',
+      'Skills: wire skills/ and skills-self-hosted/ (default: keep the current mode)',
+    )
+    .option(
       '--dry-run',
       'Print plugin config and the exact openclaw commands; change nothing',
     )
     .action(async (packages, rawOpts) => {
       const dryRun = rawOpts.dryRun === true;
+      const skillsMode = resolveModeFlag(
+        rawOpts.managed === true,
+        rawOpts.selfHosted === true,
+      );
       const opts = pluginCliOptionsSchema.parse(rawOpts);
       const specs = parsePluginSpecs(packages);
       const installOptions = installOptionsFromCli(
@@ -90,6 +104,12 @@ export function registerUpdateCommand(program: Command): void {
         distChanged = patchReport.changed && !dryRun;
       }
 
+      console.log();
+      const skills = await runSkillsCommand('install', {
+        dryRun,
+        ...(skillsMode ? { mode: skillsMode } : {}),
+      });
+
       printLines(gatewayNotice(prepared.applied, distChanged));
       console.log(
         dryRun
@@ -99,6 +119,6 @@ export function registerUpdateCommand(program: Command): void {
             : '✅ Plugins already up to date.',
       );
 
-      if (patchFailed) process.exitCode = 1;
+      if (patchFailed || skills.exitCode !== 0) process.exitCode = 1;
     });
 }

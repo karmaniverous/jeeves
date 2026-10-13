@@ -33,6 +33,13 @@ import {
   SPKG,
 } from './plugins/workflowTestKit.js';
 
+const skillsMock = vi.hoisted(() =>
+  vi.fn(() => Promise.resolve({ exitCode: 0, changed: false })),
+);
+vi.mock('./skills/skillsCommand.js', () => ({
+  runSkillsCommand: skillsMock,
+}));
+
 const SEED = 'c0ffee'.repeat(10) + 'c0ff';
 
 const state = vi.hoisted((): CommandTestPorts => ({}));
@@ -71,6 +78,7 @@ describe('jeeves install (plugin config)', () => {
   beforeEach(() => {
     originalExitCode = process.exitCode;
     process.exitCode = undefined;
+    skillsMock.mockClear();
     patchMock.mockReset().mockReturnValue({
       changed: false,
       failed: false,
@@ -393,6 +401,34 @@ describe('jeeves install (plugin config)', () => {
       patchMock.mockReturnValue({ changed: false, failed: true, results: [] });
       await run('-c', join(dir, 'cfg'));
       expect(existsSync(join(ws, 'SOUL.md'))).toBe(true);
+      expect(process.exitCode).toBe(1);
+    });
+    // Skills step (same fixture as the patch step).
+    it('installs skills in the inferred mode and passes --dry-run', async () => {
+      currentPlugin();
+      await run('-c', join(dir, 'cfg'), '--dry-run');
+      expect(skillsMock).toHaveBeenCalledWith('install', { dryRun: true });
+    });
+
+    it('passes --managed through', async () => {
+      currentPlugin();
+      await run('-c', join(dir, 'cfg'), '--managed');
+      expect(skillsMock).toHaveBeenCalledWith('install', {
+        dryRun: false,
+        mode: 'managed',
+      });
+    });
+
+    it('skips the skills step with --content-only', async () => {
+      currentPlugin();
+      await run('-c', join(dir, 'cfg'), '--content-only');
+      expect(skillsMock).not.toHaveBeenCalled();
+    });
+
+    it('exits non-zero when the skills step fails', async () => {
+      currentPlugin();
+      skillsMock.mockResolvedValueOnce({ exitCode: 1, changed: false });
+      await run('-c', join(dir, 'cfg'));
       expect(process.exitCode).toBe(1);
     });
   });
