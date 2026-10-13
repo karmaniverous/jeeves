@@ -7,6 +7,7 @@
 import cp from 'node:child_process';
 
 import { sleepMs } from './fs-utils.js';
+import { exponentialBackoff, retrySync } from './retry.js';
 
 /** Options for synchronous command execution. */
 export interface RunOptions {
@@ -56,6 +57,12 @@ export interface RetryOptions {
   isRetryable?: (error: unknown) => boolean;
 }
 
+/** Default retryability test: transient timeout-ish error messages. */
+function defaultIsRetryable(e: unknown): boolean {
+  const msg = e instanceof Error ? e.message : String(e);
+  return /context deadline exceeded|timed out|timeout/i.test(msg);
+}
+
 /**
  * Run a command with automatic retries on transient failures.
  * Uses exponential backoff between attempts.
@@ -66,21 +73,11 @@ export function runWithRetry(
   opts: RetryOptions & RunOptions = {},
 ): string {
   const { retries = 2, backoffMs = 5000, isRetryable, ...runOpts } = opts;
-  let lastErr: unknown;
 
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      return run(cmd, args, runOpts);
-    } catch (e) {
-      lastErr = e;
-      const msg = e instanceof Error ? e.message : String(e);
-      const retryable = isRetryable
-        ? isRetryable(e)
-        : /context deadline exceeded|timed out|timeout/i.test(msg);
-      if (!retryable || attempt === retries) throw lastErr;
-      sleepMs(backoffMs * Math.pow(2, attempt));
-    }
-  }
-
-  throw lastErr;
+  return retrySync(() => run(cmd, args, runOpts), {
+    attempts: retries + 1,
+    delayMs: exponentialBackoff(backoffMs),
+    isRetryable: isRetryable ?? defaultIsRetryable,
+    sleep: sleepMs,
+  });
 }

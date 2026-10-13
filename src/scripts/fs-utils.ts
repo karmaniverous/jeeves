@@ -103,7 +103,14 @@ export function loadEnvFile(envPath: string): void {
 
 // ========== CLI Arg Parsing ==========
 
-/** Parse --key=value arguments from argv into a record. */
+/**
+ * Parse --key=value arguments from argv into a record.
+ *
+ * @remarks
+ * Prefer {@link parseRunnableArgs}, which takes a declared spec, returns
+ * typed values and rejects missing or unknown values. Deprecation is
+ * planned for 0.7.1 (#127).
+ */
 export function parseArgs(
   argv: string[] = process.argv.slice(2),
 ): Record<string, string> {
@@ -117,7 +124,14 @@ export function parseArgs(
   return args;
 }
 
-/** Get the value following a named flag, or a default. */
+/**
+ * Get the value following a named flag, or a default.
+ *
+ * @remarks
+ * Prefer {@link parseRunnableArgs}, which takes a declared spec, returns
+ * typed values and rejects missing or unknown values. Deprecation is
+ * planned for 0.7.1 (#127).
+ */
 export function getArg(
   argv: string[],
   name: string,

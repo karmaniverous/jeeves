@@ -79,6 +79,10 @@ async function queryChannelWorkspace(
  * @param channelId - Slack channel ID.
  * @param token - Slack bot token for API calls.
  * @param options - Cache path and default workspace.
+ *
+ * @remarks
+ * No remaining consumer: jeeves-scripts-core keeps channel-to-workspace in
+ * its Slack state cache. Deprecation is planned for 0.7.1 (#127).
  */
 export async function getChannelWorkspace(
   channelId: string,
