@@ -42,6 +42,13 @@ import {
   printLines,
   runHeaderLines,
 } from './cliOutput.js';
+import {
+  bootstrapReportLines,
+  DEFAULT_BOOTSTRAP_LIMITS,
+  hasBootstrapProblems,
+  measureBootstrapFiles,
+  readBootstrapLimits,
+} from './content/bootstrapReport.js';
 import { installPlatformContent } from './installPlatformContent.js';
 import { runOpenClawPatches } from './openclawPatch/patchOpenclawCommand.js';
 import { emptyApplyReport } from './plugins/applyReport.js';
@@ -89,6 +96,10 @@ export function registerInstallCommand(program: Command): void {
     .option(
       '--self-hosted',
       'Skills: wire skills/ and skills-self-hosted/ (default on a fresh install)',
+    )
+    .option(
+      '--strict',
+      'Exit non-zero when a bootstrap file is at or over 90% of its OpenClaw limit',
     )
     .option(
       '--dry-run',
@@ -159,10 +170,21 @@ export function registerInstallCommand(program: Command): void {
         skillsFailed = skills.exitCode !== 0;
       }
 
+      console.log();
+      const bootstrap = measureBootstrapFiles(
+        getWorkspacePath(),
+        rawOpts.contentOnly === true
+          ? DEFAULT_BOOTSTRAP_LIMITS
+          : await readBootstrapLimits(deps.runner),
+      );
+      printLines(bootstrapReportLines(bootstrap));
+      const bootstrapFailed =
+        rawOpts.strict === true && hasBootstrapProblems(bootstrap);
+
       printLines(gatewayNotice(applied, distChanged));
 
       console.log(dryRun ? DRY_RUN_COMPLETE : '✅ Jeeves installed.');
 
-      if (patchFailed || skillsFailed) process.exitCode = 1;
+      if (patchFailed || skillsFailed || bootstrapFailed) process.exitCode = 1;
     });
 }

@@ -419,6 +419,20 @@ describe('jeeves install (plugin config)', () => {
       });
     });
 
+    it('prints the bootstrap report, and --strict fails on a near-limit file', async () => {
+      currentPlugin();
+      await run('-c', join(dir, 'cfg'));
+      expect(out.some((l) => l.startsWith('Bootstrap files'))).toBe(true);
+      expect(process.exitCode).toBeUndefined();
+
+      writeFileSync(join(ws, 'MEMORY.md'), 'x'.repeat(19_000));
+      await run('-c', join(dir, 'cfg'), '--strict');
+      expect(out.some((l) => l.includes('MEMORY.md: 19000 / 20000'))).toBe(
+        true,
+      );
+      expect(process.exitCode).toBe(1);
+    });
+
     it('skips the skills step with --content-only', async () => {
       currentPlugin();
       await run('-c', join(dir, 'cfg'), '--content-only');

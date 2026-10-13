@@ -266,6 +266,7 @@ OpenClaw must already be installed; `jeeves` checks for it and never installs it
 
 5. Runs the OpenClaw dist patch step (the same as `jeeves patch-openclaw`, below). `--content-only` and `--skip-patch` skip it.
 6. Wires the shipped skills (`jeeves skills install`, below), passing `--managed` or `--self-hosted` through. `--content-only` skips it.
+7. Reports the size of each workspace bootstrap file (AGENTS.md, SOUL.md, IDENTITY.md, USER.md, BOOTSTRAP.md, MEMORY.md) against OpenClaw's truncation limits (`agents.defaults.bootstrapMaxChars`, default 20,000 per file; `bootstrapTotalMaxChars`, default 60,000 in total; 4,000 for USER.md), splitting AGENTS.md and SOUL.md into the Jeeves block and your own content. A file at 90% of its limit is a warning; `--strict` makes any warning a non-zero exit.
 
 Plugin specs can be short (`watcher`, `watcher@1.2.3`, `runner@^1`) or full (`@karmaniverous/jeeves-watcher-openclaw@1.2.3`). Only `@karmaniverous/jeeves-*-openclaw` packages are accepted. `--content-only` skips the plugins.
 
