@@ -94,7 +94,7 @@
     "github": {
       "release": true,
       "releaseName": "${name.split('/').pop()}@${version}",
-      "releaseNotes": "npx git-cliff --tag ${version} --latest --strip header"
+      "releaseNotes": "npx git-cliff --tag ${version} --unreleased --strip header"
     },
     "hooks": {
       "after:init": [
