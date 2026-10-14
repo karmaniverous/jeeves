@@ -37,7 +37,12 @@ export interface ParseManagedResult {
    * Character range of the whole block, BEGIN marker through END marker
    * (`end` exclusive), when found.
    */
-  blockRange?: { start: number; end: number };
+  blockRange?: {
+    /** Index of the BEGIN marker's first character. */
+    start: number;
+    /** Index just past the END marker's closing `-->`. */
+    end: number;
+  };
 }
 
 /**
