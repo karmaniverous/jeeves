@@ -16,6 +16,7 @@ import { getWorkspacePath } from '../../init.js';
 import { analyzeMemory } from '../../memory/index.js';
 import { initFromOptions } from './cliDefaults.js';
 import { probeStatus, readStatusVersion } from './serviceProbe.js';
+import { runSkillsCommand } from './skills/skillsCommand.js';
 
 /** Column widths of the component table. */
 const COLUMN_WIDTHS = [10, 30, 12] as const;
@@ -122,6 +123,12 @@ export function registerStatusCommand(program: Command): void {
         );
       }
 
+      console.log();
+
+      // Report-only: a skills problem never changes the status exit code.
+      console.log('Skills');
+      console.log('-'.repeat(60));
+      await runSkillsCommand('status', {});
       console.log();
 
       if (!allHealthy) {

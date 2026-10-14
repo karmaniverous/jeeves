@@ -30,6 +30,7 @@ import {
 import { createPluginWorkflowDeps } from './plugins/pluginDeps.js';
 import { uninstallPlugins } from './plugins/workflows.js';
 import { probeStatus } from './serviceProbe.js';
+import { runSkillsCommand } from './skills/skillsCommand.js';
 import { removePlatformArtifacts } from './uninstallHelpers.js';
 
 /**
@@ -80,6 +81,9 @@ export function registerUninstallCommand(program: Command): void {
       console.log();
 
       const plugins = await uninstallPlugins(createPluginWorkflowDeps(dryRun));
+      console.log();
+      const skills = await runSkillsCommand('uninstall', { dryRun });
+      if (skills.exitCode !== 0) process.exitCode = 1;
       console.log();
       if (!dryRun && plugins.length > 0) console.log(RESTART_NOTICE);
 

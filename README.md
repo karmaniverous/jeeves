@@ -71,7 +71,7 @@ openclaw plugins install npm:@karmaniverous/jeeves-{component}-openclaw@<version
 
 so you never need a plugin-specific installer.
 
-Upgrading from v0.x? See the [migration guide](guides/migrating-to-v1.md).
+Upgrading from v0.x? See the [migration guide](guides/migrating-to-v1.md). Upgrading to 0.7.0? See [Migrating to 0.7](guides/migrating-to-0.7.md).
 
 ## Plugin SDK
 
@@ -235,6 +235,8 @@ Pre-defined marker sets: `SOUL_MARKERS`, `AGENTS_MARKERS`, and `LEGACY_TOOLS_MAR
 ```bash
 jeeves install [plugins...]    # Render platform content, then install/update plugins
 jeeves update [packages...]    # Update Jeeves plugins, fill in missing plugin config (no content changes)
+jeeves patch-openclaw          # Re-apply the OpenClaw dist patches (after an OpenClaw upgrade)
+jeeves skills install|uninstall|status [--managed|--self-hosted]  # Wire the shipped skills into OpenClaw
 jeeves uninstall               # Remove managed blocks (incl. legacy TOOLS.md), artifacts and the Jeeves plugins
 jeeves status                  # Probe all service ports, report health + memory hygiene
 jeeves config [jsonpath]       # Print effective config with provenance
@@ -262,13 +264,31 @@ OpenClaw must already be installed; `jeeves` checks for it and never installs it
 
    OpenClaw can refuse to edit a plugin's config until it finishes that plugin's data/settings upgrade (`Plugin "<id>" data/settings upgrade is unfinished: ... has not converged`). This happens when the gateway started with `plugins.entries.<id>` configured before the package was installed (for example after an earlier failed run): OpenClaw records a pending migration for that plugin, installing it does not clear the record, and a refused `openclaw config set` doesn't either. OpenClaw resolves such records in the startup preflight of ordinary CLI commands (not `config`, and not `plugins list`), which is why a sweep runs `plugins inspect` right after each install. The config batch goes through a retry: only that refusal is retried: the sweep runs again, then the same batch file is resubmitted after 2s, 4s, 8s, 16s, then every 30s, for up to 120s of waiting in total, with one log line per retry. If the plugin still hasn't converged, the command fails and names the plugin; wait and rerun it (the writes are idempotent). Any other error fails at once. The `openclaw config unset` repairs after an uninstall follow the same rule. A dry run never retries.
 
+5. Runs the OpenClaw dist patch step (the same as `jeeves patch-openclaw`, below). `--content-only` and `--skip-patch` skip it.
+6. Wires the shipped skills (`jeeves skills install`, below), passing `--managed` or `--self-hosted` through. `--content-only` skips it.
+7. Reports the size of each workspace bootstrap file (AGENTS.md, SOUL.md, IDENTITY.md, USER.md, BOOTSTRAP.md, MEMORY.md) against OpenClaw's truncation limits (`agents.defaults.bootstrapMaxChars`, default 20,000 per file; `bootstrapTotalMaxChars`, default 60,000 in total; 4,000 for USER.md), splitting AGENTS.md and SOUL.md into the Jeeves block and your own content. A file at 90% of its limit is a warning; `--strict` makes any warning a non-zero exit.
+
 Plugin specs can be short (`watcher`, `watcher@1.2.3`, `runner@^1`) or full (`@karmaniverous/jeeves-watcher-openclaw@1.2.3`). Only `@karmaniverous/jeeves-*-openclaw` packages are accepted. `--content-only` skips the plugins.
 
-`jeeves update` runs steps 2 to 4 for the named packages, or for every Jeeves plugin that has a `plugins.entries` record, at `latest`. It takes the same plugin options as `jeeves install` (including `--plugin-config` and `--force-reinstall`) and fills in missing plugin config with the same precedence: existing values are kept unless you pass them, and a missing required value fails the command before anything changes.
+`jeeves update` runs steps 2 to 6 for the named packages, or for every Jeeves plugin that has a `plugins.entries` record, at `latest`. It takes the same plugin options as `jeeves install` (including `--plugin-config` and `--force-reinstall`) and fills in missing plugin config with the same precedence: existing values are kept unless you pass them, and a missing required value fails the command before anything changes.
 
 `jeeves uninstall` removes the SOUL.md/AGENTS.md managed blocks (and any legacy TOOLS.md block) and the core `config.schema.json`, then runs `openclaw plugins uninstall <id> --force` for every Jeeves plugin that has a `plugins.entries` record (the plugins are useless without the rest of the platform). If OpenClaw is not installed, the plugin step is skipped. OpenClaw leaves `plugins.entries.<id> = { enabled: false }` behind and can delete `plugins.load`, so the CLI then unsets the leftover entry and restores `plugins.load` from its value before the uninstall. The core `config.json` is left in place, and so is everything under `skills/` and `jeeves-core/templates/`: neither install nor uninstall touches them (skills and templates written by v0.x stay where they are).
 
-Plugin changes take effect when the gateway next starts. The CLI tells you to restart it; it never restarts the gateway itself, because it can't know how you run it (console, service, container). There is no `--restart` option.
+Plugin changes and OpenClaw dist patches take effect when the gateway next starts. The CLI tells you to restart it; it never restarts the gateway itself, because it can't know how you run it (console, service, container). There is no `--restart` option.
+
+### Skills
+
+`@karmaniverous/jeeves` ships two skill folders: `skills/` (`jeeves-platform`, `jeeves-coding`, `jeeves-design`) for every instance, and `skills-self-hosted/` (`jeeves-onboarding`) for instances not managed by jeeves-tools. `jeeves skills install` adds them to OpenClaw's `skills.load.extraDirs`, so OpenClaw loads them in place from the installed package and `npm update -g` refreshes them; nothing is copied into the workspace.
+
+- `--managed` wires `skills/` only; `--self-hosted` wires both. With neither, the mode follows the current wiring, and a fresh install is self-hosted, so re-running never switches modes.
+- `install` edits only this package's entries (exact match), replaces entries left behind under an old global `node_modules`, and keeps everything else in order. `uninstall` removes exactly this package's entries.
+- `status` shows the mode, each folder as wired, missing or stale, the skills each provides, and every other skill source holding a skill with the same name: the workspace `skills/` and `.agents/skills/`, `~/.agents/skills`, OpenClaw's managed `skills/` and each agent's workshop skills (all of which outrank `extraDirs`, so they shadow the package's copy), and, at the same level (a collision rather than shadowing), any other `extraDirs` entry and every enabled plugin's skills (read from OpenClaw's generated `<state dir>/plugin-skills/` index). OpenClaw's own bundled skills aren't checked. It only reports.
+- No prompts: changes apply directly; `--dry-run` previews the exact `openclaw config` commands.
+- `jeeves install` and `jeeves update` run `skills install`, `jeeves uninstall` runs `skills uninstall`, and `jeeves status` includes `skills status`.
+
+### OpenClaw dist patches
+
+`jeeves patch-openclaw [--dry-run]` applies Jeeves' post-install patches to the installed OpenClaw `dist` (today only `tool-order`). Run it after every OpenClaw upgrade; `jeeves install` and `jeeves update` run it too (`--skip-patch` to opt out). Each patch finds its site by content, so it doesn't depend on chunk names. It is idempotent (`already patched` counts as success). It reports `upstream-fixed`, also a success, when OpenClaw no longer needs the patch: for `tool-order`, when OpenClaw's own `toolOrder` already lists the watcher tools ahead of `grep` in an arrangement this patch didn't write. One failing patch doesn't stop the others. If a patch site isn't found (for example on an OpenClaw version it has no fixtures for), the patch reports `not-found` (`patch site not found in any file`) and the command exits non-zero without guessing. The fixtures cover OpenClaw 2026.9.6, the version Jeeves pins. OpenClaw 2026.10.x builds `toolOrder` differently (`Object.keys(...)`), so there `tool-order` reports `not-found` and `install`/`update` exit non-zero; pass `--skip-patch` on such hosts. Before writing, it checks the dist files are writable by the current user and fails naming the path and user otherwise; run it as the user who owns the OpenClaw install. It never restarts the gateway: after a live run that changed the dist it prints the restart notice.
 
 ### Plugin config
 
@@ -454,6 +474,7 @@ Memory hygiene is reporting-only. Core does not auto-delete content (Decision 42
 - [Platform Overview](https://docs.karmanivero.us/jeeves/documents/Platform_Overview.html) — architecture, components, design philosophy
 - [Managed Content System](https://docs.karmanivero.us/jeeves/documents/Managed_Content_System.html) — static content, markers, budgets, `jeeves install`
 - [Migrating to v1](guides/migrating-to-v1.md) — what was removed and what replaces it
+- [Migrating to 0.7](guides/migrating-to-0.7.md) — `patch-openclaw`, `jeeves skills`, the bootstrap size report, hoisted script helpers and the fetch timeout
 - [Building a Component Plugin](https://docs.karmanivero.us/jeeves/documents/Building_a_Component_Plugin.html) — step-by-step integration
 - [API Reference](https://docs.karmanivero.us/jeeves) — types, functions, constants
 

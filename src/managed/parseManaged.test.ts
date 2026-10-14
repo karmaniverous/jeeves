@@ -47,7 +47,20 @@ describe('parseManaged', () => {
       managedContent: 'Managed.',
       beforeContent: '# Title',
       userContent: 'User notes.',
+      blockRange: {
+        start: content.indexOf('<!--'),
+        end: content.indexOf('-->', content.lastIndexOf('<!--')) + 3,
+      },
     });
+  });
+
+  it('locates the whole block, markers included, with surrounding whitespace excluded', () => {
+    const block = `<!-- ${SOUL_MARKERS.begin} | core:0.7.0 | 2026-10-13T00:00:00Z -->\nX\n<!-- ${SOUL_MARKERS.end} -->`;
+    const content = `before\n\n${block}\n\nafter`;
+    const { blockRange } = parseManaged(content, SOUL_MARKERS);
+    expect(blockRange).toBeDefined();
+    expect(content.slice(blockRange!.start, blockRange!.end)).toBe(block);
+    expect(parseManaged('no block', SOUL_MARKERS).blockRange).toBeUndefined();
   });
 
   it('handles a block without version stamp', () => {

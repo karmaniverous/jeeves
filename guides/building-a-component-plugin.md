@@ -6,7 +6,7 @@ title: Building a Component Plugin
 
 This guide walks through building a Jeeves component plugin: a standard OpenClaw plugin that uses `@karmaniverous/jeeves` for settings resolution, tools, always-in-context rules, and lifecycle hygiene.
 
-Plugins do **not** write workspace files. Static platform content (the SOUL/AGENTS managed blocks) is rendered only by `jeeves install`; live state is served by your plugin's tools. Upgrading a v0.x plugin? See [Migrating to v1](migrating-to-v1.md).
+Plugins do **not** write workspace files. Static platform content (the SOUL/AGENTS managed blocks) is rendered only by `jeeves install`; live state is served by your plugin's tools. Upgrading a v0.x plugin? See [Migrating to v1](migrating-to-v1.md). For what changed in 0.7.0 (including the `fetchJson`/`postJson` timeout), see [Migrating to 0.7](migrating-to-0.7.md).
 
 ## Prerequisites
 
@@ -157,6 +157,8 @@ function registerTools(api: PluginApi): void {
   });
 }
 ```
+
+`fetchJson` and `postJson` abort after `DEFAULT_FETCH_TIMEOUT_MS` (120 s), so a service that accepts the connection but never answers can't hang a tool call. A tool whose call can legitimately take longer (an export, a synthesis run) passes its own limit, `postJson(url, body, { timeoutMs: 300_000 })`, or its own `signal` in `fetchJson`'s `init`, which always wins over the default.
 
 ## Step 6: Always-in-Context Rules
 

@@ -77,27 +77,44 @@ function isUnsetResponse(stdout: string): boolean {
 }
 
 /**
- * Read the `plugins` config slice via `openclaw config get plugins --json`.
+ * Read one object-valued config slice via
+ * `openclaw config get <path> --json`, tolerating "not set".
  *
  * @param runner - Command runner.
- * @returns The parsed slice (`{}` when unset).
+ * @param path - Config dot path, e.g. `plugins`.
+ * @param schema - Validates the slice (any `{ parse }`, e.g. a zod schema).
+ * @returns The parsed slice, or `schema.parse({})` when the path is unset.
+ * @throws CommandFailedError for any other `config get` failure.
  */
-export async function readPluginsConfig(
+export async function readConfigSlice<T>(
   runner: CommandRunner,
-): Promise<PluginsConfig> {
-  const args = configGetArgs('plugins');
+  path: string,
+  schema: { parse: (value: unknown) => T },
+): Promise<T> {
+  const args = configGetArgs(path);
   const result = await runner(OPENCLAW_BIN, args);
   if (result.exitCode !== 0) {
-    if (isUnsetResponse(result.stdout)) return {};
+    if (isUnsetResponse(result.stdout)) return schema.parse({});
     throw new CommandFailedError(formatCommand(OPENCLAW_BIN, args), result);
   }
-  return pluginsConfigSchema.parse(
+  return schema.parse(
     parseJson(
       result.stdout,
       `Unexpected non-JSON output from ${formatCommand(OPENCLAW_BIN, args)}`,
     ),
   );
 }
+
+/**
+ * Read the `plugins` config slice via `openclaw config get plugins --json`.
+ *
+ * @param runner - Command runner.
+ * @returns The parsed slice (`{}` when unset).
+ */
+export const readPluginsConfig = (
+  runner: CommandRunner,
+): Promise<PluginsConfig> =>
+  readConfigSlice(runner, 'plugins', pluginsConfigSchema);
 
 /**
  * Resolve a version, range, or dist-tag to one exact published version.

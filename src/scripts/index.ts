@@ -6,6 +6,19 @@
  */
 
 export {
+  argFlag,
+  argOptional,
+  type ArgSpec,
+  argValue,
+  type ArgValueOptions,
+  type FlagSpec,
+  type OptionalSpec,
+  type ParsedArgs,
+  parseRunnableArgs,
+  positionalArgs,
+  type ValueSpec,
+} from './args.js';
+export {
   appendJsonl,
   ensureDir,
   getArg,
@@ -26,6 +39,12 @@ export {
   type GoogleAuthOptions,
   type ServiceAccountFileConfig,
 } from './google-auth.js';
+export {
+  exponentialBackoff,
+  retryAsync,
+  type RetryPolicy,
+  retrySync,
+} from './retry.js';
 export { runScript } from './run-script.js';
 export {
   type RetryOptions,

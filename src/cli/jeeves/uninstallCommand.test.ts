@@ -18,6 +18,13 @@ import type * as PluginDepsModule from './plugins/pluginDeps.js';
 import { type CommandTestPorts, W } from './plugins/workflowTestKit.js';
 import { registerUninstallCommand } from './uninstallCommand.js';
 
+const skillsMock = vi.hoisted(() =>
+  vi.fn(() => Promise.resolve({ exitCode: 0, changed: false })),
+);
+vi.mock('./skills/skillsCommand.js', () => ({
+  runSkillsCommand: skillsMock,
+}));
+
 const state = vi.hoisted((): CommandTestPorts => ({}));
 
 vi.mock('./plugins/pluginDeps.js', async (importOriginal) => {
@@ -85,6 +92,7 @@ describe('jeeves uninstall', () => {
 
   it('removes managed blocks and the Jeeves plugins without any flag', async () => {
     await run();
+    expect(skillsMock).toHaveBeenLastCalledWith('uninstall', { dryRun: false });
     expect(readFileSync(join(ws, 'SOUL.md'), 'utf-8')).toBe('Mine.\n');
     expect(mutations()).toEqual([
       `openclaw plugins uninstall ${W} --force`,
@@ -95,6 +103,7 @@ describe('jeeves uninstall', () => {
 
   it('dry run shows the plugin removal and changes nothing', async () => {
     await run('--dry-run');
+    expect(skillsMock).toHaveBeenLastCalledWith('uninstall', { dryRun: true });
     expect(readFileSync(join(ws, 'SOUL.md'), 'utf-8')).toBe(soul);
     expect(mutations()).toEqual([]);
     expect(out).toContain(`[dry-run] openclaw plugins uninstall ${W} --force`);

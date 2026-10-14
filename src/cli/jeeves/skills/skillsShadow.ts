@@ -1,0 +1,119 @@
+/**
+ * Find skills from other OpenClaw skill sources that share a name with one
+ * of this package's shipped skills, for `jeeves skills status`.
+ *
+ * @remarks
+ * OpenClaw loads file-backed skills from these sources, highest precedence
+ * first (OpenClaw docs, `tools/skills.md`): workspace `skills/`, workspace
+ * `.agents/skills/`, `~/.agents/skills`, `<state dir>/skills` (managed),
+ * `<state dir>/agents/<id>/agent/workshop-skills`, bundled skills, and
+ * last `skills.load.extraDirs` (which includes this package's folders).
+ * Every source above `extraDirs` outranks a shipped skill, so a
+ * same-named skill there shadows it. Another `extraDirs` entry shares the
+ * lowest tier, so a same-named skill there is a name collision, and so
+ * do plugin skills, read from `<state dir>/plugin-skills/`, the index of
+ * enabled plugins' skill folders that OpenClaw generates. Bundled and
+ * Custodian skills ship inside OpenClaw and are not scanned.
+ *
+ * Skills are found with `skillsFolders.ts`'s `discoverSkillNames`, the
+ * same discovery that lists this package's own skills.
+ *
+ * Read-only and never throws: a missing or unreadable source yields no
+ * skills.
+ *
+ * @module
+ */
+
+import os from 'node:os';
+import path from 'node:path';
+
+import { resolveOpenClawConfigDir } from '../plugins/legacyExtensions.js';
+import { discoverSkillNames, readEntries } from './skillsFolders.js';
+
+/** One skill source to check for same-named skills. */
+export interface ShadowSource {
+  /** Human-readable label, e.g. `workspace skills/`. */
+  label: string;
+  /** Root directory to scan. */
+  dir: string;
+}
+
+/** Inputs to {@link defaultShadowSources}. */
+export interface ShadowSourceInput {
+  /** Workspace root. */
+  workspace: string;
+  /** Current `skills.load.extraDirs`. */
+  extraDirs: readonly string[];
+  /** Whether an `extraDirs` entry is one of this package's folders. */
+  isOwnEntry: (entry: string) => boolean;
+  /** Environment (default `process.env`). */
+  env?: NodeJS.ProcessEnv;
+  /** Home directory (default `os.homedir()`). */
+  home?: string;
+}
+
+/**
+ * The skill sources that can shadow or collide with this package's skills.
+ *
+ * @param input - Workspace, wiring and environment.
+ * @returns Sources in OpenClaw's precedence order, highest first.
+ */
+export function defaultShadowSources(input: ShadowSourceInput): ShadowSource[] {
+  const env = input.env ?? process.env;
+  const home = input.home ?? os.homedir();
+  const stateDir = resolveOpenClawConfigDir(env, home);
+  const agentsDir = path.join(stateDir, 'agents');
+  const workshop = readEntries(agentsDir)
+    .filter((e) => e.isDirectory())
+    .map((e) => ({
+      label: `workshop skills (agent ${e.name})`,
+      dir: path.join(agentsDir, e.name, 'agent', 'workshop-skills'),
+    }));
+  const otherExtraDirs = input.extraDirs
+    .filter((entry) => !input.isOwnEntry(entry))
+    .map((entry) => ({ label: `extraDirs entry ${entry}`, dir: entry }));
+
+  return [
+    {
+      label: 'workspace skills/',
+      dir: path.join(input.workspace, 'skills'),
+    },
+    {
+      label: 'workspace .agents/skills/',
+      dir: path.join(input.workspace, '.agents', 'skills'),
+    },
+    { label: '~/.agents/skills', dir: path.join(home, '.agents', 'skills') },
+    {
+      label: `managed skills (${path.join(stateDir, 'skills')})`,
+      dir: path.join(stateDir, 'skills'),
+    },
+    ...workshop,
+    ...otherExtraDirs,
+    {
+      label: `plugin skills (${path.join(stateDir, 'plugin-skills')})`,
+      dir: path.join(stateDir, 'plugin-skills'),
+    },
+  ];
+}
+
+/**
+ * Map each shipped skill name to the sources that also provide it.
+ *
+ * @param shipped - Skill names this package ships.
+ * @param sources - Sources to scan.
+ * @returns Skill name to source labels, for skills found elsewhere only.
+ */
+export function findShadows(
+  shipped: readonly string[],
+  sources: readonly ShadowSource[],
+): Record<string, string[]> {
+  const wanted = new Set(shipped);
+  const shadows: Record<string, string[]> = {};
+  for (const source of sources) {
+    for (const name of discoverSkillNames(source.dir)) {
+      if (!wanted.has(name)) continue;
+      (shadows[name] ??= []).push(source.label);
+    }
+  }
+  return shadows;
+}

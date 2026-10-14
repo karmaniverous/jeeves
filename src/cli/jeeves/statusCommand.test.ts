@@ -33,6 +33,13 @@ vi.mock('../../discovery/getServiceUrl.js', () => ({
 
 import { fetchWithTimeout } from '../../plugin/http.js';
 
+const skillsMock = vi.hoisted(() =>
+  vi.fn(() => Promise.resolve({ exitCode: 0, changed: false })),
+);
+vi.mock('./skills/skillsCommand.js', () => ({
+  runSkillsCommand: skillsMock,
+}));
+
 type Probe = Partial<Response> | Error;
 
 /** Route probes by component name; unlisted components are down. */
@@ -94,6 +101,21 @@ describe('registerStatusCommand', () => {
     ]);
     return consoleSpy.mock.calls.map((c) => String(c[0])).join('\n');
   }
+
+  it('includes the skills status and never fails on it', async () => {
+    mockProbes({
+      runner: healthy('1.0.0'),
+      watcher: healthy('1.2.3'),
+      server: healthy('3.0.0'),
+      meta: healthy('0.9.0'),
+    });
+    skillsMock.mockResolvedValueOnce({ exitCode: 1, changed: false });
+
+    const output = await runStatus();
+    expect(output).toContain('Skills');
+    expect(skillsMock).toHaveBeenCalledWith('status', {});
+    expect(process.exitCode).toBeUndefined();
+  });
 
   it('reports all components healthy with versions and memory hygiene', async () => {
     mockProbes({

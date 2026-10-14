@@ -24,6 +24,8 @@ import {
   registerComponentProxies,
 } from './discoverComponents.js';
 import { registerInstallCommand } from './installCommand.js';
+import { registerPatchOpenClawCommand } from './openclawPatch/patchOpenclawCommand.js';
+import { registerSkillsCommand } from './skills/skillsCli.js';
 import { registerStatusCommand } from './statusCommand.js';
 import { registerUninstallCommand } from './uninstallCommand.js';
 import { registerUpdateCommand } from './updateCommand.js';
@@ -40,6 +42,8 @@ registerUpdateCommand(cli);
 registerUninstallCommand(cli);
 registerStatusCommand(cli);
 registerConfigCommand(cli);
+registerPatchOpenClawCommand(cli);
+registerSkillsCommand(cli);
 
 // Dynamic discovery: register proxy subcommands for installed components
 const discoveredComponents = discoverComponentPackages();

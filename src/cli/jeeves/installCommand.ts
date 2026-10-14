@@ -20,6 +20,13 @@
  * restarts the gateway. Idempotent: re-running replaces managed blocks in
  * place and skips plugins that are already current.
  *
+ * After plugins are applied, runs the `patch-openclaw` dist patch step
+ * (#121) unless `--content-only` or `--skip-patch` is given. If the
+ * patch step reports a failure, the command still finishes (content and
+ * plugins stay written) and exits non-zero. The restart notice folds in
+ * both plugin changes needing a restart and a live (non-dry-run) dist
+ * patch, printed once.
+ *
  * @module
  */
 
@@ -35,7 +42,18 @@ import {
   printLines,
   runHeaderLines,
 } from './cliOutput.js';
-import { installPlatformContent } from './installPlatformContent.js';
+import { readBootstrapLimits } from './content/bootstrapLimits.js';
+import {
+  bootstrapReportLines,
+  DEFAULT_BOOTSTRAP_LIMITS,
+  hasBootstrapProblems,
+  measureBootstrapFiles,
+} from './content/bootstrapReport.js';
+import {
+  installPlatformContent,
+  projectPlatformContent,
+} from './installPlatformContent.js';
+import { emptyApplyReport } from './plugins/applyReport.js';
 import { executePlan } from './plugins/executePlan.js';
 import {
   addPluginOptions,
@@ -48,6 +66,12 @@ import {
   parsePluginSpecs,
 } from './plugins/pluginSpec.js';
 import { prepareInstall } from './plugins/workflows.js';
+import {
+  addPostPluginOptions,
+  runPostPluginSteps,
+  skipPatchFromCli,
+} from './postPluginSteps.js';
+import { skillsModeFromCli } from './skills/skillsCli.js';
 
 /**
  * Register the install subcommand on the parent CLI program.
@@ -65,14 +89,24 @@ export function registerInstallCommand(program: Command): void {
       'Plugin specs, e.g. watcher, watcher@1.2.3 (default: runner, watcher, server, meta at latest)',
     );
   addPluginOptions(command);
+  command;
+  addPostPluginOptions(
+    command,
+    'Skills: wire skills/ and skills-self-hosted/ (default on a fresh install)',
+  );
   command
     .option('--content-only', 'Render platform content only; skip plugins')
+    .option(
+      '--strict',
+      'Exit non-zero when a bootstrap file is at or over 90% of its OpenClaw limit',
+    )
     .option(
       '--dry-run',
       'Print planned file writes, plugin config and exact openclaw commands; change nothing',
     )
     .action(async (plugins, rawOpts) => {
       const dryRun = rawOpts.dryRun === true;
+      const skillsMode = skillsModeFromCli(rawOpts);
       const opts = pluginCliOptionsSchema.parse(rawOpts);
       // Validate specs and config input before writing anything.
       const targets = rawOpts.contentOnly
@@ -106,13 +140,39 @@ export function registerInstallCommand(program: Command): void {
       }
       console.log();
 
+      let applied = emptyApplyReport();
       if (targets.length > 0) {
-        const applied = await executePlan(prepared.plan, deps);
+        applied = await executePlan(prepared.plan, deps);
         console.log();
         printLines(installNotices(prepared, dryRun));
-        printLines(gatewayNotice(applied));
       }
 
+      const post =
+        rawOpts.contentOnly === true
+          ? { failed: false, distChanged: false }
+          : await runPostPluginSteps({
+              dryRun,
+              skipPatch: skipPatchFromCli(rawOpts),
+              ...(skillsMode ? { skillsMode } : {}),
+            });
+
+      console.log();
+      const bootstrap = measureBootstrapFiles(
+        getWorkspacePath(),
+        rawOpts.contentOnly === true
+          ? DEFAULT_BOOTSTRAP_LIMITS
+          : await readBootstrapLimits(deps.runner, getWorkspacePath()),
+        // A dry run wrote nothing, so measure what install would write.
+        dryRun ? projectPlatformContent(getWorkspacePath(), CORE_VERSION) : {},
+      );
+      printLines(bootstrapReportLines(bootstrap));
+      const bootstrapFailed =
+        rawOpts.strict === true && hasBootstrapProblems(bootstrap);
+
+      printLines(gatewayNotice(applied, post.distChanged));
+
       console.log(dryRun ? DRY_RUN_COMPLETE : '✅ Jeeves installed.');
+
+      if (post.failed || bootstrapFailed) process.exitCode = 1;
     });
 }

@@ -65,6 +65,32 @@ function ensureCoreConfig(coreConfigDir: string, dryRun: boolean): boolean {
 }
 
 /**
+ * The content each workspace file with a platform section would have
+ * after install: its current content with the managed block upserted.
+ * Pure apart from reading the current files; writes nothing.
+ *
+ * @param workspacePath - Workspace root.
+ * @param version - Version written into managed-block stamps.
+ * @returns Workspace-relative file name (e.g. `AGENTS.md`) to content.
+ */
+export function projectPlatformContent(
+  workspacePath: string,
+  version: string,
+): Record<string, string> {
+  const rendered = renderPlatformContent({ version });
+  const projected: Record<string, string> = {};
+  for (const id of Object.keys(rendered.sections) as PlatformSectionId[]) {
+    const file = rendered.sections[id].file;
+    const filePath = join(workspacePath, file);
+    const existing = existsSync(filePath)
+      ? readFileSync(filePath, 'utf-8')
+      : '';
+    projected[file] = upsertPlatformSection(id, existing, { version });
+  }
+  return projected;
+}
+
+/**
  * Render and write all static platform content.
  *
  * @param options - Target directories and stamp version.
@@ -74,19 +100,12 @@ export function installPlatformContent(
   options: InstallPlatformContentOptions,
 ): string[] {
   const { workspacePath, coreConfigDir, version, dryRun = false } = options;
-  const rendered = renderPlatformContent({ version });
   const written: string[] = [];
-  const put = (filePath: string, content: string) => {
-    if (!dryRun) writeWithDirs(filePath, content);
-  };
-
-  for (const id of Object.keys(rendered.sections) as PlatformSectionId[]) {
-    const filePath = join(workspacePath, rendered.sections[id].file);
-    const existing = existsSync(filePath)
-      ? readFileSync(filePath, 'utf-8')
-      : '';
-    put(filePath, upsertPlatformSection(id, existing, { version }));
-    written.push(`${rendered.sections[id].file} managed block`);
+  for (const [file, content] of Object.entries(
+    projectPlatformContent(workspacePath, version),
+  )) {
+    if (!dryRun) writeWithDirs(join(workspacePath, file), content);
+    written.push(`${file} managed block`);
   }
 
   if (ensureCoreConfig(coreConfigDir, dryRun)) {

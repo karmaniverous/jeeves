@@ -14,6 +14,12 @@
  * values fail before anything changes. Does not touch workspace content.
  * Only Jeeves OpenClaw plugin packages are accepted.
  *
+ * After plugins are applied, runs the `patch-openclaw` dist patch step
+ * (#121) unless `--skip-patch` is given. If the patch step reports
+ * a failure, the command still finishes (plugins stay updated) and exits
+ * non-zero. The restart notice folds in both plugin changes needing a
+ * restart and a live (non-dry-run) dist patch, printed once.
+ *
  * @module
  */
 
@@ -34,6 +40,12 @@ import {
 import { createPluginWorkflowDeps } from './plugins/pluginDeps.js';
 import { parsePluginSpecs } from './plugins/pluginSpec.js';
 import { installPlugins, selectUpdateTargets } from './plugins/workflows.js';
+import {
+  addPostPluginOptions,
+  runPostPluginSteps,
+  skipPatchFromCli,
+} from './postPluginSteps.js';
+import { skillsModeFromCli } from './skills/skillsCli.js';
 
 /**
  * Register the update subcommand on the parent CLI program.
@@ -51,6 +63,10 @@ export function registerUpdateCommand(program: Command): void {
       'Plugin specs, e.g. @karmaniverous/jeeves-runner-openclaw@1.0.1 or runner@^1 (default: every installed Jeeves plugin at latest)',
     );
   addPluginOptions(command);
+  addPostPluginOptions(
+    command,
+    'Skills: wire skills/ and skills-self-hosted/ (default: keep the current mode)',
+  );
   command
     .option(
       '--dry-run',
@@ -58,6 +74,7 @@ export function registerUpdateCommand(program: Command): void {
     )
     .action(async (packages, rawOpts) => {
       const dryRun = rawOpts.dryRun === true;
+      const skillsMode = skillsModeFromCli(rawOpts);
       const opts = pluginCliOptionsSchema.parse(rawOpts);
       const specs = parsePluginSpecs(packages);
       const installOptions = installOptionsFromCli(
@@ -69,7 +86,14 @@ export function registerUpdateCommand(program: Command): void {
       const prepared = await installPlugins(deps, targets, installOptions);
       console.log();
       printLines(installNotices(prepared, dryRun));
-      printLines(gatewayNotice(prepared.applied));
+
+      const post = await runPostPluginSteps({
+        dryRun,
+        skipPatch: skipPatchFromCli(rawOpts),
+        ...(skillsMode ? { skillsMode } : {}),
+      });
+
+      printLines(gatewayNotice(prepared.applied, post.distChanged));
       console.log(
         dryRun
           ? DRY_RUN_COMPLETE
@@ -77,5 +101,7 @@ export function registerUpdateCommand(program: Command): void {
             ? '✅ Plugins updated.'
             : '✅ Plugins already up to date.',
       );
+
+      if (post.failed) process.exitCode = 1;
     });
 }

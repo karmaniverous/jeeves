@@ -4,9 +4,9 @@ title: Managed Content System
 
 # Managed Content System
 
-Jeeves contributes a small amount of **static** content to each OpenClaw workspace: a managed block in SOUL.md and a managed block in AGENTS.md. Core ships no skills and no templates: the spec templates (`spec.md`, `spec-to-code-guide.md`) ship with the jeeves-design skill in jeeves-tools. This guide covers what that content is, how it is rendered, and how it coexists with the owner's own content.
+Jeeves contributes a small amount of **static** content to each OpenClaw workspace: a managed block in SOUL.md and a managed block in AGENTS.md. It writes no skills or templates into the workspace. Since 0.7.0 core ships platform skills in its package, wired by `jeeves skills` (see [Platform overview](platform-overview.md)); the spec templates (`spec.md`, `spec-to-code-guide.md`) ship with the jeeves-design skill in jeeves-tools. This guide covers what that content is, how it is rendered, and how it coexists with the owner's own content.
 
-Since v1 nothing rewrites workspace files at runtime. There is no timer, no TOOLS.md, no HEARTBEAT.md, and no cross-writer convergence. See [Migrating to v1](migrating-to-v1.md).
+Since v1 nothing rewrites workspace files at runtime. There is no timer, no TOOLS.md, no HEARTBEAT.md, and no cross-writer convergence. See [Migrating to v1](migrating-to-v1.md). 0.7.0 adds the bootstrap-file size report to `jeeves install`; see [Migrating to 0.7](migrating-to-0.7.md).
 
 ## The Managed Block
 
@@ -56,7 +56,8 @@ The content bodies are private to the `jeeves` CLI. Markdown sources live in `co
 - For a fixed version the output is deterministic apart from the render time in the stamp.
 - `jeeves install --dry-run` lists what it would write (each managed block and the core config if it is new) and writes nothing.
 - `jeeves uninstall` removes the blocks (plus any legacy TOOLS.md block) and the core `config.schema.json`. It leaves the core `config.json` in place. Nothing writes TOOLS.md any more.
-- Neither `jeeves install` nor `jeeves uninstall` touches `{workspace}/skills/` or `{configRoot}/jeeves-core/templates/`: install writes no skills or templates, and skill folders and templates written by v0.x are never deleted.
+- Neither `jeeves install` nor `jeeves uninstall` touches `{workspace}/skills/` or `{configRoot}/jeeves-core/templates/`: skill folders and templates written by v0.x are never deleted. Since 0.7.0 the platform skills load from the package via `skills.load.extraDirs` (`jeeves skills`), not from the workspace.
+- After writing, `jeeves install` reports each bootstrap file's size against OpenClaw's truncation limits, split into the Jeeves block and the owner's content; `--strict` exits non-zero at 90% of a limit.
 
 The generic, pure transforms stay in the library for any marker set: `renderManagedBlock`, `upsertManagedBlock`, `removeManagedBlock`, `parseManaged`, `formatBeginMarker`, `formatEndMarker`.
 
@@ -77,7 +78,7 @@ Each budget measures the full rendered block (markers, stamp, and title included
 | Content | Home |
 | --- | --- |
 | Platform identity and protocols | SOUL/AGENTS managed blocks (this package) |
-| Platform how-to and reference | Not shipped by core in v1 (no platform skills) |
+| Platform how-to and reference | Core's platform skills (`skills/`, `skills-self-hosted/`), loaded via `jeeves skills` |
 | Component rules that must always be in context | The component plugin's `before_prompt_build` hook (`registerPromptContext`) |
 | Component how-to | The component plugin's own skill (manifest `skills`) |
 | Live state (counts, health, versions) | The component's `*_status` tool |

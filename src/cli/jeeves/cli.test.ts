@@ -20,7 +20,10 @@ import {
 } from '../../constants/index.js';
 import { parseManaged } from '../../managed/parseManaged.js';
 import { useTempDir } from '../../test/tempDir.js';
-import { installPlatformContent } from './installPlatformContent.js';
+import {
+  installPlatformContent,
+  projectPlatformContent,
+} from './installPlatformContent.js';
 import { removeManagedBlockFromFile } from './uninstallHelpers.js';
 
 describe('installPlatformContent', () => {
@@ -107,6 +110,21 @@ describe('installPlatformContent', () => {
     });
     expect(existsSync(join(workspacePath, 'SOUL.md'))).toBe(false);
     expect(existsSync(coreConfigDir)).toBe(false);
+  });
+
+  it('projectPlatformContent returns exactly what install then writes, and writes nothing itself', () => {
+    writeFileSync(join(workspacePath, 'AGENTS.md'), 'Mine.\n');
+    const projected = projectPlatformContent(workspacePath, '1.0.0');
+    expect(read(workspacePath, 'AGENTS.md')).toBe('Mine.\n');
+    expect(existsSync(join(workspacePath, 'SOUL.md'))).toBe(false);
+
+    install();
+    for (const [file, content] of Object.entries(projected)) {
+      // Stamps carry a timestamp; compare with it masked.
+      const mask = (s: string) => s.replace(/\d{4}-\d\d-\d\dT[\d:.]+Z/g, 'T');
+      expect(mask(read(workspacePath, file))).toBe(mask(content));
+    }
+    expect(Object.keys(projected)).toContain('AGENTS.md');
   });
 
   it('writes no skills and leaves an existing skills/ folder untouched', () => {

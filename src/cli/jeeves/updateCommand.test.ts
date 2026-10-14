@@ -2,18 +2,22 @@
  * Tests for `jeeves update` wiring: fills in missing plugin config with the
  * same precedence as install, never overwrites existing values unless passed,
  * fails before any change on missing required config. Child processes are
- * faked; no OpenClaw is touched.
+ * faked; no OpenClaw is touched. The post-plugin steps are in
+ * `updateCommand.steps.test.ts`.
  */
 
-import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
-import { Command } from '@commander-js/extra-typings';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-import { useConsoleCapture, useUnsetEnv } from '../../test/cliHarness.js';
-import { useTempDir } from '../../test/tempDir.js';
-import { fakeRunner, fakeTempFiles, ok } from './plugins/fakePorts.js';
+import {
+  DEFAULT_POST_PLUGIN_RESULT,
+  serverConfigPath,
+  useCommandTest,
+  writeServerConfig,
+} from './commandTestHarness.js';
+import { fakeRunner, ok } from './plugins/fakePorts.js';
 import { MissingPluginConfigError } from './plugins/pluginConfigResolve.js';
 import type * as PluginDepsModule from './plugins/pluginDeps.js';
 import { ServerPluginKeyError } from './plugins/serverKeySync.js';
@@ -25,9 +29,15 @@ import {
   W,
   WPKG,
 } from './plugins/workflowTestKit.js';
+import type * as PostPluginModule from './postPluginSteps.js';
 import { registerUpdateCommand } from './updateCommand.js';
 
 const state = vi.hoisted((): CommandTestPorts => ({}));
+
+vi.mock('./postPluginSteps.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof PostPluginModule>()),
+  runPostPluginSteps: () => Promise.resolve(DEFAULT_POST_PLUGIN_RESULT),
+}));
 
 vi.mock('./plugins/pluginDeps.js', async (importOriginal) => {
   const actual = await importOriginal<typeof PluginDepsModule>();
@@ -44,10 +54,12 @@ vi.mock('./plugins/pluginDeps.js', async (importOriginal) => {
 const installed = JSON.stringify([npmRecord(W, WPKG, '0.16.0')]);
 
 describe('jeeves update (plugin config)', () => {
-  const tempDir = useTempDir('jeeves-update-');
-  const out = useConsoleCapture();
-  useUnsetEnv('JEEVES_CONFIG_ROOT');
-  let dir: string;
+  const { paths, out, run, mutations } = useCommandTest(state, {
+    prefix: 'jeeves-update-',
+    register: registerUpdateCommand,
+    command: 'update',
+    baseArgs: ({ dir }) => ['-w', dir],
+  });
 
   const script = (entries: Record<string, unknown>) => ({
     'openclaw --version': ok('OpenClaw 2026.9.6'),
@@ -56,23 +68,6 @@ describe('jeeves update (plugin config)', () => {
     [`npm view ${WPKG}`]: ok('"0.16.0"'),
     [`npm view ${WPKG}@0.16.0 jeeves.conversationHooks`]: ok(''),
   });
-
-  beforeEach(() => {
-    dir = tempDir();
-    state.temp = fakeTempFiles();
-  });
-
-  const run = async (...args: string[]) => {
-    const program = new Command().exitOverride();
-    registerUpdateCommand(program);
-    await program.parseAsync(['update', '-w', dir, ...args], {
-      from: 'user',
-    });
-  };
-  const mutations = () =>
-    (state.fake?.lines() ?? []).filter((l) =>
-      / plugins install | config set /.test(` ${l} `),
-    );
 
   it('fills in a missing default without touching existing values or reinstalling', async () => {
     state.fake = fakeRunner(
@@ -114,7 +109,7 @@ describe('jeeves update (plugin config)', () => {
   });
 
   it('takes configRoot from JEEVES_CONFIG_ROOT', async () => {
-    const root = join(dir, 'cfg');
+    const root = join(paths.dir, 'cfg');
     process.env['JEEVES_CONFIG_ROOT'] = root;
     state.fake = fakeRunner(script({ [W]: { enabled: true } }));
     await run();
@@ -135,7 +130,7 @@ describe('jeeves update (plugin config)', () => {
 
   it('dry run prints the config and changes nothing', async () => {
     state.fake = fakeRunner(script({ [W]: { enabled: true } }));
-    await run('-c', join(dir, 'cfg'), '--dry-run');
+    await run('-c', join(paths.dir, 'cfg'), '--dry-run');
     expect(mutations()).toEqual([]);
     expect(state.temp?.written).toEqual([]);
     expect(out).toContain(
@@ -156,15 +151,14 @@ describe('jeeves update (plugin config)', () => {
       [`npm view ${SPKG}`]: ok('"0.14.0"'),
       [`npm view ${SPKG}@0.14.0 jeeves.conversationHooks`]: ok(''),
     });
-    const serverFile = () => join(dir, 'cfg', 'jeeves-server', 'config.json');
+    const serverFile = () => serverConfigPath(join(paths.dir, 'cfg'));
     const writeServer = (value: unknown) => {
-      mkdirSync(join(dir, 'cfg', 'jeeves-server'), { recursive: true });
-      writeFileSync(serverFile(), JSON.stringify(value, null, 2) + '\n');
+      writeServerConfig(join(paths.dir, 'cfg'), value);
     };
 
     it("copies the plugin's key into a server config without one", async () => {
       writeServer({ port: 1934 });
-      const cfg = join(dir, 'cfg');
+      const cfg = join(paths.dir, 'cfg');
       state.fake = fakeRunner(
         serverScript({
           configRoot: cfg,
@@ -193,7 +187,7 @@ describe('jeeves update (plugin config)', () => {
       const before = readFileSync(serverFile(), 'utf-8');
       state.fake = fakeRunner(
         serverScript({
-          configRoot: join(dir, 'cfg'),
+          configRoot: join(paths.dir, 'cfg'),
           pluginKey: 'plugin-seed',
         }),
       );
@@ -206,7 +200,10 @@ describe('jeeves update (plugin config)', () => {
       writeServer({ keys: {} });
       const before = readFileSync(serverFile(), 'utf-8');
       state.fake = fakeRunner(
-        serverScript({ configRoot: join(dir, 'cfg'), apiUrl: 'http://h:1' }),
+        serverScript({
+          configRoot: join(paths.dir, 'cfg'),
+          apiUrl: 'http://h:1',
+        }),
       );
       await run('--dry-run', '--server-plugin-key', 'explicit-seed');
       expect(readFileSync(serverFile(), 'utf-8')).toBe(before);

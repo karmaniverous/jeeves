@@ -39,7 +39,7 @@ export const pluginCliOptionsSchema = pluginConfigCliOptionsSchema.extend({
 export type PluginCliOptions = z.infer<typeof pluginCliOptionsSchema>;
 
 /** Anything options can be added to (a Commander command). */
-interface OptionTarget {
+export interface OptionTarget {
   option(flags: string, description?: string): unknown;
 }
 

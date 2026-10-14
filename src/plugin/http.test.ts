@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { fetchJson, fetchWithTimeout, postJson } from './http.js';
+import {
+  DEFAULT_FETCH_TIMEOUT_MS,
+  fetchJson,
+  fetchWithTimeout,
+  postJson,
+} from './http.js';
 
 describe('fetchWithTimeout', () => {
   const originalFetch = globalThis.fetch;
@@ -103,7 +108,9 @@ describe('fetchJson', () => {
     const result = await fetchJson('http://localhost:1234/api');
 
     expect(result).toEqual({ data: 'hello' });
-    expect(fetch).toHaveBeenCalledWith('http://localhost:1234/api', undefined);
+    expect(fetch).toHaveBeenCalledWith('http://localhost:1234/api', {
+      signal: expect.any(AbortSignal) as AbortSignal,
+    });
   });
 
   it('throws on non-OK response', async () => {
@@ -132,7 +139,53 @@ describe('fetchJson', () => {
     };
     await fetchJson('http://localhost:1234/api', init);
 
-    expect(fetch).toHaveBeenCalledWith('http://localhost:1234/api', init);
+    expect(fetch).toHaveBeenCalledWith('http://localhost:1234/api', {
+      ...init,
+      signal: expect.any(AbortSignal) as AbortSignal,
+    });
+  });
+
+  it('uses the caller signal instead of the default timeout', async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(null),
+    } as Response);
+    const timeoutSpy = vi.spyOn(AbortSignal, 'timeout');
+    const signal = new AbortController().signal;
+
+    await fetchJson('http://localhost:1234/api', { signal }, { timeoutMs: 5 });
+
+    expect(fetch).toHaveBeenCalledWith('http://localhost:1234/api', { signal });
+    expect(timeoutSpy).not.toHaveBeenCalled();
+    timeoutSpy.mockRestore();
+  });
+
+  it('applies the default timeout', async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(null),
+    } as Response);
+    const timeoutSpy = vi.spyOn(AbortSignal, 'timeout');
+
+    await fetchJson('http://localhost:1234/api');
+
+    expect(timeoutSpy).toHaveBeenCalledWith(DEFAULT_FETCH_TIMEOUT_MS);
+    timeoutSpy.mockRestore();
+  });
+
+  it('rejects when a service never answers within timeoutMs', async () => {
+    vi.mocked(fetch).mockImplementation(
+      (_url: string | URL | Request, init?: RequestInit) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => {
+            reject(init.signal?.reason as Error);
+          });
+        }),
+    );
+
+    await expect(
+      fetchJson('http://localhost:1234/stalled', undefined, { timeoutMs: 20 }),
+    ).rejects.toThrow(/timed out|aborted/i);
   });
 });
 
@@ -163,7 +216,21 @@ describe('postJson', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: '{"key":"value"}',
+      signal: expect.any(AbortSignal) as AbortSignal,
     });
+  });
+
+  it('passes timeoutMs through', async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(null),
+    } as Response);
+    const timeoutSpy = vi.spyOn(AbortSignal, 'timeout');
+
+    await postJson('http://localhost:1234/api', {}, { timeoutMs: 1234 });
+
+    expect(timeoutSpy).toHaveBeenCalledWith(1234);
+    timeoutSpy.mockRestore();
   });
 
   it('throws on non-OK POST response', async () => {

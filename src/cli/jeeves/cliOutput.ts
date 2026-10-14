@@ -13,26 +13,36 @@ import type { PreparedInstall } from './plugins/workflows.js';
 
 /** Reminder printed after plugin changes that were not applied live. */
 export const RESTART_NOTICE =
-  'Plugin changes take effect on the next OpenClaw gateway start. Restart the gateway when convenient.';
+  'Changes take effect on the next OpenClaw gateway start. Restart the gateway when convenient.';
 
 /**
- * What to say about the gateway after plugin changes: nothing when nothing
- * changed, a live-apply line when OpenClaw reported every change applied
- * live, else {@link RESTART_NOTICE}.
+ * What to say about the gateway after plugin changes and the
+ * `patch-openclaw` dist patch step: nothing when neither changed anything,
+ * a live-apply line when OpenClaw reported every plugin change applied
+ * live and the dist was not changed, else {@link RESTART_NOTICE} (printed
+ * once, folding in both sources instead of duplicating the text).
  *
  * @param report - Live-apply report of the run.
+ * @param distChanged - Whether the OpenClaw dist patch step changed a file
+ *   on this (live, not dry-run) run; forces the restart notice even when
+ *   every plugin change was applied live.
  * @returns Zero or one line.
  */
-export function gatewayNotice(report: ApplyReport): string[] {
-  if (report.changes === 0) return [];
-  if (!allAppliedLive(report)) return [RESTART_NOTICE];
-  const generation =
-    report.generations.length > 0
-      ? ` (gateway generation ${String(Math.max(...report.generations))})`
-      : '';
-  return [
-    `Plugin changes were applied live by the running OpenClaw gateway${generation}; no restart needed.`,
-  ];
+export function gatewayNotice(
+  report: ApplyReport,
+  distChanged = false,
+): string[] {
+  if (report.changes === 0 && !distChanged) return [];
+  if (!distChanged && allAppliedLive(report)) {
+    const generation =
+      report.generations.length > 0
+        ? ` (gateway generation ${String(Math.max(...report.generations))})`
+        : '';
+    return [
+      `Plugin changes were applied live by the running OpenClaw gateway${generation}; no restart needed.`,
+    ];
+  }
+  return [RESTART_NOTICE];
 }
 
 /** Last line of every dry run. */

@@ -50,6 +50,8 @@ Periodic checks (email, calendar, mentions) belong in jeeves-runner scripts, not
 
 Any command that stops the gateway **stops the assistant**. Never run `openclaw gateway stop` or `openclaw gateway restart` without explicit owner approval. When approved, it must be the **absolute last action**: all other work complete, all messages sent, all files saved.
 
+After an OpenClaw upgrade, run `jeeves patch-openclaw`, then restart the gateway (owner approval, last action).
+
 ## Messaging
 
 **Same-channel replies:** don't use the `message` tool; it fires immediately, jumping ahead of streaming narration. Just write the reply. **Cross-channel sends:** use the `message` tool with an explicit `target`.
