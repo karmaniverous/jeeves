@@ -1,4 +1,10 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -49,6 +55,17 @@ describe('discoverSkillNames', () => {
     skill(path.join(root, 'a', 'b', 'c', 'd', 'e', 'f', 'seven'), 'seven');
 
     expect(discoverSkillNames(root)).toEqual(['outer', 'six']);
+  });
+
+  it('follows directory symlinks and junctions, as in plugin-skills/', () => {
+    const target = path.join(root, 'elsewhere', 'jeeves-watcher');
+    skill(target, 'jeeves-watcher');
+    const index = path.join(root, 'plugin-skills');
+    mkdirSync(index);
+    symlinkSync(target, path.join(index, 'jeeves-watcher'), 'junction');
+    writeFileSync(path.join(index, 'stray-file'), 'x');
+
+    expect(discoverSkillNames(index)).toEqual(['jeeves-watcher']);
   });
 
   it('yields nothing for a missing root', () => {

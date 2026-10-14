@@ -45,7 +45,7 @@ import {
   runPostPluginSteps,
   skipPatchFromCli,
 } from './postPluginSteps.js';
-import { skillsModeFromCli } from './skills/skillsCommand.js';
+import { skillsModeFromCli } from './skills/skillsCli.js';
 
 /**
  * Register the update subcommand on the parent CLI program.

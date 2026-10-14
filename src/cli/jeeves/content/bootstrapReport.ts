@@ -26,8 +26,6 @@ import {
   SOUL_MARKERS,
 } from '../../../constants/index.js';
 import { parseManaged } from '../../../managed/index.js';
-import type { CommandRunner } from '../plugins/commandRunner.js';
-import { configGetArgs, OPENCLAW_BIN } from '../plugins/openclawCommands.js';
 import { BOOTSTRAP_FILE_MAX_CHARS } from './budgets.js';
 
 /** OpenClaw's default total bootstrap cap (`bootstrapTotalMaxChars`). */
@@ -108,17 +106,22 @@ function managedSize(content: string, markers: ManagedMarkers): number {
  *
  * @param workspacePath - Workspace root.
  * @param limits - Limits in effect.
+ * @param projected - Content to measure instead of the file on disk, by
+ *   file name (a dry run passes what install would write).
  * @returns The report (absent files are skipped).
  */
 export function measureBootstrapFiles(
   workspacePath: string,
   limits: BootstrapLimits,
+  projected: Readonly<Partial<Record<string, string>>> = {},
 ): BootstrapReport {
   const files: BootstrapFileSize[] = [];
   for (const { name, markers } of BOOTSTRAP_FILES) {
     const path = join(workspacePath, name);
-    if (!existsSync(path)) continue;
-    const content = readFileSync(path, 'utf8');
+    const content =
+      projected[name] ??
+      (existsSync(path) ? readFileSync(path, 'utf8') : undefined);
+    if (content === undefined) continue;
     const chars = content.length;
     const managedChars = markers ? managedSize(content, markers) : 0;
     const limit =
@@ -152,44 +155,6 @@ export const DEFAULT_BOOTSTRAP_LIMITS: BootstrapLimits = {
   total: BOOTSTRAP_TOTAL_MAX_CHARS,
   defaulted: true,
 };
-
-/** Read one positive integer config value, or `undefined`. */
-async function readLimit(
-  runner: CommandRunner,
-  path: string,
-): Promise<number | undefined> {
-  try {
-    const result = await runner(OPENCLAW_BIN, configGetArgs(path));
-    if (result.exitCode !== 0) return undefined;
-    const value: unknown = JSON.parse(result.stdout);
-    return typeof value === 'number' && Number.isInteger(value) && value > 0
-      ? value
-      : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-/**
- * Read OpenClaw's bootstrap limits, falling back to the defaults.
- *
- * @param runner - Command runner.
- * @returns The limits and whether a default was used.
- */
-export async function readBootstrapLimits(
-  runner: CommandRunner,
-): Promise<BootstrapLimits> {
-  const perFile = await readLimit(runner, 'agents.defaults.bootstrapMaxChars');
-  const total = await readLimit(
-    runner,
-    'agents.defaults.bootstrapTotalMaxChars',
-  );
-  return {
-    perFile: perFile ?? BOOTSTRAP_FILE_MAX_CHARS,
-    total: total ?? BOOTSTRAP_TOTAL_MAX_CHARS,
-    defaulted: perFile === undefined || total === undefined,
-  };
-}
 
 /** Marker for a level. */
 const mark = (level: BootstrapLevel): string =>

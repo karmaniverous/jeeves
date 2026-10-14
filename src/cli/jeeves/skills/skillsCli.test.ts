@@ -1,6 +1,6 @@
 /**
  * The `jeeves skills` CLI layer: flag parsing, the dry-run footer and the
- * exit code. `runSkillsCommand` itself is covered in `skillsCommand.test.ts`.
+ * exit code. `runSkillsCommand` itself is covered in `skillsCommand*.test.ts`.
  */
 
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -12,7 +12,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { DRY_RUN_COMPLETE } from '../cliOutput.js';
 import { failed, fakeRunner, fakeTempFiles, ok } from '../plugins/fakePorts.js';
-import { registerSkillsCommand, skillsModeFromCli } from './skillsCommand.js';
+import { registerSkillsCommand, skillsModeFromCli } from './skillsCli.js';
 
 const GET = 'openclaw config get skills --json';
 

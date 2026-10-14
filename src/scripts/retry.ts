@@ -26,6 +26,19 @@ export const exponentialBackoff =
   (attempt: number): number =>
     baseMs * 2 ** (attempt - 1);
 
+/**
+ * Reject a policy whose `attempts` isn't a finite integer of at least 1:
+ * a fraction tries an unexpected number of times, and `NaN` or `Infinity`
+ * would retry forever.
+ */
+const assertAttempts = (policy: RetryPolicy): void => {
+  if (!Number.isInteger(policy.attempts) || policy.attempts < 1) {
+    throw new RangeError(
+      `RetryPolicy.attempts must be an integer >= 1 (got ${String(policy.attempts)})`,
+    );
+  }
+};
+
 /** The wait before the next try, or `undefined` to give up with `err`. */
 const nextDelay = (
   err: unknown,
@@ -43,12 +56,15 @@ const nextDelay = (
  * Run `fn` (given the 1-based attempt) until it resolves or the policy
  * gives up.
  *
+ * @throws RangeError when `policy.attempts` is not an integer of at least 1 (before
+ *   `fn` runs).
  * @throws The last error.
  */
 export async function retryAsync<T>(
   fn: (attempt: number) => Promise<T>,
   policy: RetryPolicy & { sleep?: (ms: number) => Promise<void> },
 ): Promise<T> {
+  assertAttempts(policy);
   for (let attempt = 1; ; attempt++) {
     try {
       return await fn(attempt);
@@ -63,12 +79,15 @@ export async function retryAsync<T>(
 /**
  * Run `fn` synchronously until it returns or the policy gives up.
  *
+ * @throws RangeError when `policy.attempts` is not an integer of at least 1 (before
+ *   `fn` runs).
  * @throws The last error.
  */
 export function retrySync<T>(
   fn: (attempt: number) => T,
   policy: RetryPolicy & { sleep: (ms: number) => void },
 ): T {
+  assertAttempts(policy);
   for (let attempt = 1; ; attempt++) {
     try {
       return fn(attempt);

@@ -81,3 +81,19 @@ describe('retrySync', () => {
     ).toThrow('always');
   });
 });
+
+describe('policy validation', () => {
+  it.each([0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY])(
+    'rejects attempts = %s before running fn',
+    async (attempts) => {
+      const fn = vi.fn(() => 'ok');
+      expect(() => retrySync(fn, { attempts, sleep: () => undefined })).toThrow(
+        RangeError,
+      );
+      await expect(
+        retryAsync(() => Promise.resolve(fn()), { attempts }),
+      ).rejects.toThrow(RangeError);
+      expect(fn).not.toHaveBeenCalled();
+    },
+  );
+});

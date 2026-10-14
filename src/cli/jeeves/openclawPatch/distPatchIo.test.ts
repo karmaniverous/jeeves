@@ -109,6 +109,22 @@ describe('assertWritable', () => {
       fs.chmodSync(target, 0o644);
     }
   });
+
+  // Windows ignores directory mode bits, and root bypasses them.
+  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
+    'fails when the directory is read-only, since the write renames a temp file',
+    () => {
+      const target = path.join(dir, 'sample-tool-AB.mjs');
+      fs.chmodSync(dir, 0o555);
+      try {
+        expect(() => {
+          assertWritable(target);
+        }).toThrow(`Dist directory is not writable: ${dir}`);
+      } finally {
+        fs.chmodSync(dir, 0o755);
+      }
+    },
+  );
 });
 
 describe('applyDistPlan', () => {

@@ -68,8 +68,12 @@ describe('defaultShadowSources', () => {
       path.join(state, 'skills'),
       path.join(state, 'agents', 'main', 'agent', 'workshop-skills'),
       '/other/skills',
+      path.join(state, 'plugin-skills'),
     ]);
     expect(sources[4].label).toBe('workshop skills (agent main)');
     expect(sources[5].label).toBe('extraDirs entry /other/skills');
+    expect(sources[6].label).toBe(
+      `plugin skills (${path.join(state, 'plugin-skills')})`,
+    );
   });
 });

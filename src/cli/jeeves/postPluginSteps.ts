@@ -18,8 +18,8 @@ import { z } from 'zod';
 import { runOpenClawPatches } from './openclawPatch/patchOpenclawCommand.js';
 import type { PatchRunReport } from './openclawPatch/patchRunner.js';
 import type { OptionTarget } from './plugins/pluginConfigCli.js';
+import { addSkillsModeOptions } from './skills/skillsCli.js';
 import {
-  addSkillsModeOptions,
   runSkillsCommand,
   type RunSkillsOptions,
   type SkillsCommandResult,

@@ -10,8 +10,10 @@
  * last `skills.load.extraDirs` (which includes this package's folders).
  * Every source above `extraDirs` outranks a shipped skill, so a
  * same-named skill there shadows it. Another `extraDirs` entry shares the
- * lowest tier, so a same-named skill there is a name collision. Bundled
- * and Custodian skills ship inside OpenClaw and are not scanned.
+ * lowest tier, so a same-named skill there is a name collision, and so
+ * do plugin skills, read from `<state dir>/plugin-skills/`, the index of
+ * enabled plugins' skill folders that OpenClaw generates. Bundled and
+ * Custodian skills ship inside OpenClaw and are not scanned.
  *
  * Skills are found with `skillsFolders.ts`'s `discoverSkillNames`, the
  * same discovery that lists this package's own skills.
@@ -87,6 +89,10 @@ export function defaultShadowSources(input: ShadowSourceInput): ShadowSource[] {
     },
     ...workshop,
     ...otherExtraDirs,
+    {
+      label: `plugin skills (${path.join(stateDir, 'plugin-skills')})`,
+      dir: path.join(stateDir, 'plugin-skills'),
+    },
   ];
 }
 

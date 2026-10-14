@@ -74,6 +74,20 @@ function skillName(skillDir: string): string {
 }
 
 /**
+ * Whether an entry is a directory, following symlinks and junctions
+ * (OpenClaw's `plugin-skills/` index is made of them).
+ */
+function isDirectoryEntry(entry: fs.Dirent, fullPath: string): boolean {
+  if (entry.isDirectory()) return true;
+  if (!entry.isSymbolicLink()) return false;
+  try {
+    return fs.statSync(fullPath).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Every skill name under a root, discovered as OpenClaw does.
  *
  * @param root - Skill root to scan.
@@ -83,8 +97,8 @@ export function discoverSkillNames(root: string): string[] {
   const names = new Set<string>();
   const walk = (dir: string, depth: number): void => {
     for (const entry of readEntries(dir)) {
-      if (!entry.isDirectory()) continue;
       const child = path.join(dir, entry.name);
+      if (!isDirectoryEntry(entry, child)) continue;
       if (fs.existsSync(path.join(child, 'SKILL.md'))) {
         names.add(skillName(child));
       } else if (depth < MAX_DEPTH) {

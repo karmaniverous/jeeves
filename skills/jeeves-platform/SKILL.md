@@ -52,7 +52,7 @@ Services find each other via config resolution:
 
 These are the only managed blocks core writes. OpenClaw (2026.9.6+) loads only AGENTS.md, SOUL.md, IDENTITY.md, USER.md, BOOTSTRAP.md, and MEMORY.md into the prompt. TOOLS.md and HEARTBEAT.md are not loaded, so nothing written there reaches the model: put agent-facing guidance in AGENTS.md.
 
-`jeeves install` is the only writer. Each run replaces the whole block and keeps your content outside the markers. Nothing rewrites the blocks at runtime (no plugin or service touches them), and there is no cleanup detection or escalation. `jeeves uninstall` removes both blocks (and any legacy TOOLS.md block). Skills are not written by core: each plugin ships its own skill.
+`jeeves install` is the only writer. Each run replaces the whole block and keeps your content outside the markers. Nothing rewrites the blocks at runtime (no plugin or service touches them), and there is no cleanup detection or escalation. `jeeves uninstall` removes both blocks (and any legacy TOOLS.md block). Core writes no skills into the workspace. Its platform skills load in place from the package via `skills.load.extraDirs` (`jeeves skills`), and each plugin ships its own skill.
 
 ## Workspace Configuration
 

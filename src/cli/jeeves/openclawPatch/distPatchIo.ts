@@ -49,21 +49,28 @@ export function findChunks(distDir: string, marker: string): DistChunk[] {
 }
 
 /**
- * Assert that a target dist file is writable before any patch attempts to
- * write it (Decision 70: fail up front, never retry with elevation).
+ * Assert that a target dist file can be replaced before any patch attempts
+ * to write it (Decision 70: fail up front, never retry with elevation).
+ *
+ * @remarks
+ * `atomicWrite` writes a temp file beside the target and renames it over
+ * the target, so both the file and its directory must be writable.
  *
  * @param filePath - Absolute path to the dist chunk about to be patched.
- * @throws When the file is not writable, naming the path and the current
- *   OS user.
+ * @throws When the file or its directory is not writable, naming the path
+ *   and the current OS user.
  */
 export function assertWritable(filePath: string): void {
-  try {
-    fs.accessSync(filePath, fs.constants.W_OK);
-  } catch {
-    throw new Error(
-      `Dist file is not writable: ${filePath} (current user: ${os.userInfo().username}). ` +
-        'Fix file permissions and re-run; patch-openclaw never retries with elevation.',
-    );
+  for (const target of [filePath, path.dirname(filePath)]) {
+    try {
+      fs.accessSync(target, fs.constants.W_OK);
+    } catch {
+      const what = target === filePath ? 'Dist file' : 'Dist directory';
+      throw new Error(
+        `${what} is not writable: ${target} (current user: ${os.userInfo().username}). ` +
+          'Fix permissions and re-run; patch-openclaw never retries with elevation.',
+      );
+    }
   }
 }
 

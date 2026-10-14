@@ -42,14 +42,17 @@ import {
   printLines,
   runHeaderLines,
 } from './cliOutput.js';
+import { readBootstrapLimits } from './content/bootstrapLimits.js';
 import {
   bootstrapReportLines,
   DEFAULT_BOOTSTRAP_LIMITS,
   hasBootstrapProblems,
   measureBootstrapFiles,
-  readBootstrapLimits,
 } from './content/bootstrapReport.js';
-import { installPlatformContent } from './installPlatformContent.js';
+import {
+  installPlatformContent,
+  projectPlatformContent,
+} from './installPlatformContent.js';
 import { emptyApplyReport } from './plugins/applyReport.js';
 import { executePlan } from './plugins/executePlan.js';
 import {
@@ -68,7 +71,7 @@ import {
   runPostPluginSteps,
   skipPatchFromCli,
 } from './postPluginSteps.js';
-import { skillsModeFromCli } from './skills/skillsCommand.js';
+import { skillsModeFromCli } from './skills/skillsCli.js';
 
 /**
  * Register the install subcommand on the parent CLI program.
@@ -158,7 +161,9 @@ export function registerInstallCommand(program: Command): void {
         getWorkspacePath(),
         rawOpts.contentOnly === true
           ? DEFAULT_BOOTSTRAP_LIMITS
-          : await readBootstrapLimits(deps.runner),
+          : await readBootstrapLimits(deps.runner, getWorkspacePath()),
+        // A dry run wrote nothing, so measure what install would write.
+        dryRun ? projectPlatformContent(getWorkspacePath(), CORE_VERSION) : {},
       );
       printLines(bootstrapReportLines(bootstrap));
       const bootstrapFailed =

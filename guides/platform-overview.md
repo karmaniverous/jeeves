@@ -138,7 +138,7 @@ MEMORY.md is the assistant's curated long-term memory, loaded at every session s
 
 ## Skills
 
-Since 0.7.0, core ships platform skills in two folders: `skills/` (`jeeves-platform`, `jeeves-coding`, `jeeves-design`) for every instance and `skills-self-hosted/` (`jeeves-onboarding`) for instances not managed by jeeves-tools. `jeeves skills install [--managed|--self-hosted]` (also run by `jeeves install` and `update`) adds them to OpenClaw's `skills.load.extraDirs`, so they load in place from the installed package; nothing is copied into `{workspace}/skills/`, and a same-named skill from any higher-precedence source (workspace, managed or workshop skills) shadows the package's (`jeeves skills status` reports every source that has one). Component plugins ship their own skills in their packages via the plugin manifest.
+Since 0.7.0, core ships platform skills in two folders: `skills/` (`jeeves-platform`, `jeeves-coding`, `jeeves-design`) for every instance and `skills-self-hosted/` (`jeeves-onboarding`) for instances not managed by jeeves-tools. `jeeves skills install [--managed|--self-hosted]` (also run by `jeeves install` and `update`) adds them to OpenClaw's `skills.load.extraDirs`, so they load in place from the installed package; nothing is copied into `{workspace}/skills/`, and a same-named skill from any higher-precedence source (workspace, managed or workshop skills) shadows the package's, and one in another `extraDirs` entry or an enabled plugin collides with it (`jeeves skills status` reports every source that has one). Component plugins ship their own skills in their packages via the plugin manifest.
 
 ## Node.js Requirement
 

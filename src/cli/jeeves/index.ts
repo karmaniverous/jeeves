@@ -25,7 +25,7 @@ import {
 } from './discoverComponents.js';
 import { registerInstallCommand } from './installCommand.js';
 import { registerPatchOpenClawCommand } from './openclawPatch/patchOpenclawCommand.js';
-import { registerSkillsCommand } from './skills/skillsCommand.js';
+import { registerSkillsCommand } from './skills/skillsCli.js';
 import { registerStatusCommand } from './statusCommand.js';
 import { registerUninstallCommand } from './uninstallCommand.js';
 import { registerUpdateCommand } from './updateCommand.js';

@@ -9,17 +9,13 @@ import { describe, expect, it } from 'vitest';
 
 import { AGENTS_MARKERS } from '../../../constants/index.js';
 import { useTempDir } from '../../../test/tempDir.js';
-import { failed, fakeRunner, ok } from '../plugins/fakePorts.js';
 import {
-  BOOTSTRAP_TOTAL_MAX_CHARS,
   bootstrapReportLines,
   hasBootstrapProblems,
   levelOf,
   measureBootstrapFiles,
-  readBootstrapLimits,
   USER_FILE_MAX_CHARS,
 } from './bootstrapReport.js';
-import { BOOTSTRAP_FILE_MAX_CHARS } from './budgets.js';
 
 const limits = { perFile: 1_000, total: 3_000, defaulted: false };
 
@@ -54,6 +50,21 @@ describe('measureBootstrapFiles', () => {
     expect(agents.level).toBe('ok');
   });
 
+  it('measures projected content instead of the file on disk, including files not yet written', () => {
+    const ws = tempDir();
+    writeFileSync(join(ws, 'SOUL.md'), 'old');
+
+    const report = measureBootstrapFiles(ws, limits, {
+      'SOUL.md': 'x'.repeat(1_200),
+      'AGENTS.md': 'y'.repeat(10),
+    });
+
+    expect(report.files.map((f) => [f.name, f.chars, f.level])).toEqual([
+      ['AGENTS.md', 10, 'ok'],
+      ['SOUL.md', 1_200, 'over'],
+    ]);
+  });
+
   it('skips absent files, caps USER.md and flags warnings and overruns', () => {
     const ws = tempDir();
     writeFileSync(join(ws, 'SOUL.md'), 'x'.repeat(950));
@@ -83,37 +94,5 @@ describe('measureBootstrapFiles', () => {
     const ws = tempDir();
     writeFileSync(join(ws, 'AGENTS.md'), 'short');
     expect(hasBootstrapProblems(measureBootstrapFiles(ws, limits))).toBe(false);
-  });
-});
-
-describe('readBootstrapLimits', () => {
-  it('reads both limits from OpenClaw config', async () => {
-    const fake = fakeRunner({
-      'openclaw config get agents.defaults.bootstrapMaxChars': ok('15000'),
-      'openclaw config get agents.defaults.bootstrapTotalMaxChars': ok('50000'),
-    });
-    await expect(readBootstrapLimits(fake.runner)).resolves.toEqual({
-      perFile: 15_000,
-      total: 50_000,
-      defaulted: false,
-    });
-  });
-
-  it('falls back to the defaults and says so', async () => {
-    const fake = fakeRunner({ 'openclaw config get': failed() });
-    const result = await readBootstrapLimits(fake.runner);
-    expect(result).toEqual({
-      perFile: BOOTSTRAP_FILE_MAX_CHARS,
-      total: BOOTSTRAP_TOTAL_MAX_CHARS,
-      defaulted: true,
-    });
-    expect(
-      bootstrapReportLines({
-        files: [],
-        totalChars: 0,
-        totalLevel: 'ok',
-        limits: result,
-      }).at(-1),
-    ).toMatch(/using the defaults/);
   });
 });
