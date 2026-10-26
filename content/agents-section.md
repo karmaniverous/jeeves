@@ -15,7 +15,7 @@ On compaction: read conversation history, reconstruct context, re-run skill sele
 When spawning sub-agents for code tasks, **include the relevant rules in the task prompt**. Sub-agents don't inherit your context — if you don't pass the rules, they don't exist.
 
 At minimum, always brief sub-agents on:
-- eslint-disable prohibition
+- eslint-disable prohibition (and its narrow test-only exception)
 - Testing requirements
 - Commit AND Push discipline
 - Any project-specific conventions from the active spec
@@ -80,7 +80,7 @@ The em-dash sets apart parentheticals. It is NOT a replacement for comma, colon,
 
 Operational hard gates — procedural rules earned through real incidents. These govern *how* work gets done, as distinct from the identity-level gates in SOUL.md which govern *who I am*.
 
-- **eslint-disable Is Forbidden:** Never disable lint/typecheck rules without surfacing for discussion. Fix the code.
+- **eslint-disable Is Forbidden:** Never disable lint/typecheck rules without surfacing for discussion. Fix the code. Lint rules cover tests too: no test `ignores`, no rules turned `off` for tests. Sole exception, tests only: one line may use `eslint-disable-next-line <rule> -- <why>` when the test genuinely can't be written another way, the reason is inline, and each such line is listed in the PR description. Production code: never.
 - **Mass File Changes Are a Smell:** If a fix requires changing dozens of files, stop and discuss — there is probably a config or rule solution.
 - **No Prod Modifications:** Never modify packaged prod applications. All changes go through branch → test → PR → merge → publish → install.
 - **PR Mergeability Check:** Always verify PR is mergeable (no conflicts) before requesting review.

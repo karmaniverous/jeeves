@@ -118,8 +118,8 @@ If any step fails, fix it before committing. Do NOT create the PR and "note" the
 - **Run `ncu --peer`** (npm-check-updates, installed globally) before any PR. Review the output. Update safe patches/minors. **Flag major version bumps for discussion** — never auto-apply `ncu -u` without reading what changed. Peer dep conflicts must be resolved, not ignored.
 - When spawning sub-agents, include `ncu --peer` in the quality gate commands: `ncu --peer && npm run lint && npm run typecheck && npm run build && npm test`. The sub-agent should report `ncu` output and only apply updates that don't involve major bumps or peer conflicts.
 - **Resolve ALL script warnings.** It is NOT acceptable to release code with outstanding warnings. They exist for a reason — fix them.
-- **Typecheck/lint rules apply to ALL authored code**, including configs at project root (`eslint.config.ts`, `rollup.config.ts`, `vitest.config.ts`, etc.). Only generated code (e.g. typedoc output) should be excepted from code quality checks.
-- **Never disable lint/typecheck rules** without surfacing it for discussion first. Disabled rules are a major code smell. If a rule must be disabled, document the rationale inline at the point of suppression.
+- **Typecheck/lint rules apply to ALL authored code**, including tests (no test `ignores`, no rules turned `off` for tests) and configs at project root (`eslint.config.ts`, `rollup.config.ts`, `vitest.config.ts`, etc.). Only generated code (e.g. typedoc output) should be excepted from code quality checks.
+- **Never disable lint/typecheck rules** without surfacing it for discussion first. Disabled rules are a major code smell. If a rule must be disabled, document the rationale inline at the point of suppression. The one standing exception is narrow and test-only: see the hard gate below.
 - **Multiple tsconfigs are a code smell.** Sometimes needed, but often they paper over poor configuration choices. Fix root causes rather than adding tsconfig variants.
 - **In a TS repo, all scripts should be authored in TS** (not JS). Prefer execution with `tsx`.
 - **Clean-room verify before claiming "all green."** Run `rimraf node_modules && npm install && npm run build` (or equivalent) to catch issues masked by cached state. If someone reports an error you can't reproduce, assume your cache is lying — not that they're wrong.
@@ -140,7 +140,10 @@ If any step fails, fix it before committing. Do NOT create the PR and "note" the
 
 ## eslint-disable is a HARD GATE
 
-Never disable lint/typecheck rules without surfacing it for discussion first. Fix the code, don't suppress the warning. For test mocks, use properly typed partial objects (`Partial<RealType>`, typed `MockReply` interfaces) instead of `any`. Tests are code.
+Never disable lint/typecheck rules without surfacing it for discussion first. Fix the code, don't suppress the warning. For test mocks, use properly typed partial objects (`Partial<RealType>`, typed `MockReply` interfaces) instead of `any`. Tests are code: lint rules apply to them too, so no test `ignores` and no rules turned `off` for tests.
+
+- **Production code:** `eslint-disable` is forbidden.
+- **Tests:** a single line may carry `eslint-disable-next-line <rule> -- <why>` only when all three hold: the test genuinely can't be written another way, the reason is given inline after `--`, and each such line is listed in the PR description. Never a file-wide or block `eslint-disable`.
 
 ## Git Merge Policy
 
