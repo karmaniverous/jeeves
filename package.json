@@ -38,6 +38,8 @@
     "eslint-plugin-prettier": "^5.5.7",
     "eslint-plugin-simple-import-sort": "^14.0.0",
     "eslint-plugin-tsdoc": "^0.5.4",
+    "fastify": "^5.12.7",
+    "fastify-type-provider-zod": "^7.0.0",
     "fs-extra": "^11.4.1",
     "git-cliff": "^2.14.2",
     "knip": "^6.41.0",

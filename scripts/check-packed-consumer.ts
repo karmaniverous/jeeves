@@ -63,6 +63,17 @@ const stages: Stage[] = [
     label: 'fastify',
     peers: ['fastify', 'fastify-type-provider-zod'],
     entries: ['/fastify'],
+    probe: [
+      `const { default: Fastify } = await import('fastify');`,
+      `const { defineCatalog, standardEntries } = await import('${pkg.name}/catalog');`,
+      `const { registerCatalogRoutes } = await import('${pkg.name}/fastify');`,
+      `const app = Fastify();`,
+      `const [status] = standardEntries('probe', { auth: { config: 'none' } });`,
+      `await registerCatalogRoutes(app, defineCatalog([status]), { status: () => Promise.resolve({ status: 200, body: { name: 'probe', version: '1', uptime: 0, status: 'healthy', health: {} } }) });`,
+      `const res = await app.inject('/status');`,
+      `if (res.statusCode !== 200 || res.json().name !== 'probe') throw new Error('route failed: ' + res.body);`,
+      `await app.close();`,
+    ].join('\n'),
   },
 ];
 
@@ -121,6 +132,32 @@ const INSTALL_FLAGS = [
   '--ignore-scripts',
   '--loglevel=error',
 ];
+
+/**
+ * Type-check the consumer with `skipLibCheck: false`, returning only errors
+ * in this package's declarations or the consumer's own file. Errors inside
+ * third-party declarations (e.g. a peer's transitive dependency built for
+ * another `@types/node`) are not this package's to fix.
+ *
+ * @param cwd - Consumer project.
+ * @returns Error lines.
+ */
+function ownTypeErrors(cwd: string): string[] {
+  let output = '';
+  try {
+    node([tsc, '-p', '.', '--pretty', 'false'], cwd);
+  } catch (error) {
+    output = (error as { stdout?: string }).stdout ?? '';
+  }
+  const ours = `node_modules/${pkg.name}/`;
+  return output
+    .split(/\r?\n/)
+    .filter((line) => / error TS\d+:/.test(line))
+    .filter((line) => {
+      const file = line.replace(/\\/g, '/');
+      return !file.includes('node_modules/') || file.includes(ours);
+    });
+}
 
 /** Fail with a message. */
 function fail(message: string): never {
@@ -210,11 +247,11 @@ for (const stage of stages) {
       )
       .join(''),
   );
-  try {
-    node([tsc, '-p', '.'], consumer);
-  } catch {
-    fail(`${stage.label}: type check of ${specifiers.join(', ')} failed`);
-  }
+  const typeErrors = ownTypeErrors(consumer);
+  if (typeErrors.length > 0)
+    fail(
+      `${stage.label}: type check of ${specifiers.join(', ')} failed:\n${typeErrors.join('\n')}`,
+    );
   try {
     node(
       [
