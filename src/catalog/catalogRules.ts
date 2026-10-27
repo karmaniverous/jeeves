@@ -2,9 +2,8 @@
  * The catalog definition rules (spec 5.2, rules 1-8).
  *
  * @remarks
- * Each check returns violation messages, empty when the entry passes.
- * Schemas are inspected through Zod's core `_zod.def`, never `instanceof`,
- * so schemas built with a component's own copy of Zod are read correctly.
+ * One function per rule, each returning violation messages (empty when the
+ * entry passes); {@link checkEntry} and {@link checkUniqueness} combine them.
  *
  * @module
  */
@@ -12,26 +11,18 @@
 import { z } from 'zod';
 
 import { isQueryArray, queryArrayItem } from './queryArray.js';
+import {
+  defOf,
+  isJsonContentType,
+  pathParams,
+  REQUEST_SLOTS,
+  type RequestSlot,
+  shapeOf,
+} from './schemaHelpers.js';
 import type { CatalogEntry } from './types.js';
 
-/** A Zod schema's core definition, as far as these rules read it. */
-interface Def {
-  type: string;
-  innerType?: z.core.$ZodType;
-  in?: z.core.$ZodType;
-  coerce?: boolean;
-  entries?: Record<string, unknown>;
-  values?: unknown[];
-  shape?: Record<string, z.core.$ZodType>;
-}
-
-/**
- * A schema's core definition.
- *
- * @param schema - Any Zod schema.
- * @returns Its definition.
- */
-const defOf = (schema: z.core.$ZodType): Def => schema._zod.def;
+/** Object shapes of an entry's request slots that are objects. */
+type SlotShapes = Partial<Record<RequestSlot, Record<string, z.core.$ZodType>>>;
 
 /** Wrappers that don't change what a query value must look like. */
 const WRAPPERS = new Set([
@@ -44,34 +35,8 @@ const WRAPPERS = new Set([
   'catch',
 ]);
 
-/** The three request slots, in merge order. */
-export const REQUEST_SLOTS = ['params', 'query', 'body'] as const;
-
 /**
- * Whether a content type is JSON (`application/json` or `+json`).
- *
- * @param contentType - Content type, or undefined for the JSON default.
- * @returns True for JSON.
- */
-export function isJsonContentType(contentType: string | undefined): boolean {
-  return contentType === undefined || /(^|[/+])json\b/i.test(contentType);
-}
-
-/**
- * Object shape of a slot schema, or undefined when it isn't an object.
- *
- * @param schema - Slot schema.
- * @returns Its shape.
- */
-export function shapeOf(
-  schema: z.core.$ZodType,
-): Record<string, z.core.$ZodType> | undefined {
-  const def = defOf(schema);
-  return def.type === 'object' ? def.shape : undefined;
-}
-
-/**
- * Rule 6: whether a query field accepts string input.
+ * Rule 6 predicate: whether a query field accepts string input.
  *
  * @param schema - Query field schema.
  * @returns True when Fastify's string (or string-array) value can satisfy it.
@@ -109,95 +74,151 @@ function converts(schema: z.core.$ZodType, io: 'input' | 'output'): boolean {
 }
 
 /**
- * Path parameter names in a Fastify path: each `:name`, plus `*` for a
- * wildcard.
+ * Rule 1 (per entry): camelCase name.
  *
- * @param path - Route path.
- * @returns Parameter names.
+ * @param entry - The entry.
+ * @returns Violations, without the entry prefix.
  */
-export function pathParams(path: string): string[] {
-  const names = [...path.matchAll(/:([A-Za-z0-9_]+)/g)].map((m) => m[1]);
-  return path.includes('*') ? [...names, '*'] : names;
+function checkName(entry: CatalogEntry): string[] {
+  return /^[a-z][a-zA-Z0-9]*$/.test(entry.name)
+    ? []
+    : ['name must be camelCase (^[a-z][a-zA-Z0-9]*$)'];
 }
 
 /**
- * Rules 3-8 for one entry.
+ * Rule 3: request slots are Zod objects.
  *
  * @param entry - The entry.
- * @returns Violation messages.
+ * @returns The object shapes found, and violations.
  */
-export function checkEntry(entry: CatalogEntry): string[] {
-  const out: string[] = [];
-  const at = `entry "${entry.name}"`;
-
-  if (!/^[a-z][a-zA-Z0-9]*$/.test(entry.name))
-    out.push(`${at}: name must be camelCase (^[a-z][a-zA-Z0-9]*$)`);
-
-  // Rule 3: object slots.
-  const shapes: Partial<
-    Record<(typeof REQUEST_SLOTS)[number], Record<string, z.core.$ZodType>>
-  > = {};
+function checkObjectSlots(entry: CatalogEntry): {
+  shapes: SlotShapes;
+  violations: string[];
+} {
+  const shapes: SlotShapes = {};
+  const violations: string[] = [];
   for (const slot of REQUEST_SLOTS) {
     const schema = entry[slot];
     if (!schema) continue;
     const shape = shapeOf(schema);
     if (shape) shapes[slot] = shape;
-    else out.push(`${at}: ${slot} must be a Zod object`);
+    else violations.push(`${slot} must be a Zod object`);
   }
+  return { shapes, violations };
+}
 
-  // Rule 4: no field in more than one slot.
+/**
+ * Rule 4: no field in more than one slot.
+ *
+ * @param shapes - Slot shapes.
+ * @returns Violations.
+ */
+function checkFieldCollisions(shapes: SlotShapes): string[] {
+  const violations: string[] = [];
   const seen = new Map<string, string>();
   for (const slot of REQUEST_SLOTS) {
     for (const field of Object.keys(shapes[slot] ?? {})) {
       const first = seen.get(field);
       if (first)
-        out.push(
-          `${at}: field "${field}" appears in both ${first} and ${slot}`,
+        violations.push(
+          `field "${field}" appears in both ${first} and ${slot}`,
         );
       else seen.set(field, slot);
     }
   }
+  return violations;
+}
 
-  // Rule 5: params keys equal the path's parameters.
-  const expected = [...pathParams(entry.path)].sort();
+/**
+ * Rule 5: `params` keys equal the path's parameters.
+ *
+ * @param entry - The entry.
+ * @param shapes - Slot shapes.
+ * @returns Violations.
+ */
+function checkPathParams(entry: CatalogEntry, shapes: SlotShapes): string[] {
+  const expected = pathParams(entry.path).sort();
   const actual = Object.keys(shapes.params ?? {}).sort();
-  if (expected.join('\0') !== actual.join('\0'))
-    out.push(
-      `${at}: params keys [${actual.join(', ')}] must equal the path parameters [${expected.join(', ')}]`,
+  return expected.join('\0') === actual.join('\0')
+    ? []
+    : [
+        `params keys [${actual.join(', ')}] must equal the path parameters [${expected.join(', ')}]`,
+      ];
+}
+
+/**
+ * Rule 6: query fields accept string input.
+ *
+ * @param shapes - Slot shapes.
+ * @returns Violations.
+ */
+function checkQueryFields(shapes: SlotShapes): string[] {
+  return Object.entries(shapes.query ?? {})
+    .filter(([, schema]) => !acceptsQueryString(schema))
+    .map(
+      ([field]) =>
+        `query field "${field}" must accept string input (string, string enum or literal, z.coerce.*, z.stringbool() or queryArray(...))`,
     );
+}
 
-  // Rule 6: query fields accept strings.
-  for (const [field, schema] of Object.entries(shapes.query ?? {}))
-    if (!acceptsQueryString(schema))
-      out.push(
-        `${at}: query field "${field}" must accept string input (string, string enum or literal, z.coerce.*, z.stringbool() or queryArray(...))`,
-      );
-
-  // Rule 7: request schemas convert both ways; JSON responses as output.
+/**
+ * Rule 7: object request slots convert in both modes; JSON responses in
+ * output mode.
+ *
+ * @param entry - The entry.
+ * @param shapes - Slot shapes (non-object slots are rule 3's concern).
+ * @returns Violations.
+ */
+function checkConvertible(entry: CatalogEntry, shapes: SlotShapes): string[] {
+  const violations: string[] = [];
   for (const slot of REQUEST_SLOTS) {
     const schema = entry[slot];
     if (!schema || !shapes[slot]) continue;
     for (const io of ['input', 'output'] as const)
       if (!converts(schema, io))
-        out.push(`${at}: ${slot} does not convert to JSON Schema (io: ${io})`);
+        violations.push(`${slot} does not convert to JSON Schema (io: ${io})`);
   }
-  const json = isJsonContentType(entry.contentType);
-  if (json && !converts(entry.response, 'output'))
-    out.push(`${at}: response does not convert to JSON Schema (io: output)`);
+  if (
+    isJsonContentType(entry.contentType) &&
+    !converts(entry.response, 'output')
+  )
+    violations.push('response does not convert to JSON Schema (io: output)');
+  return violations;
+}
 
-  // Rule 8: non-JSON responses are bytes or text.
-  if (!json) {
-    const def = defOf(entry.response);
-    const bytes =
-      def.type === 'custom' &&
-      entry.response.safeParse(new Uint8Array()).success;
-    if (def.type !== 'string' && !bytes)
-      out.push(
-        `${at}: a non-JSON response must be z.instanceof(Uint8Array) or z.string()`,
-      );
-  }
+/**
+ * Rule 8: a non-JSON response is bytes or text.
+ *
+ * @param entry - The entry.
+ * @returns Violations.
+ */
+function checkNonJsonResponse(entry: CatalogEntry): string[] {
+  if (isJsonContentType(entry.contentType)) return [];
+  const { type } = defOf(entry.response);
+  const bytes =
+    type === 'custom' && entry.response.safeParse(new Uint8Array()).success;
+  return type === 'string' || bytes
+    ? []
+    : ['a non-JSON response must be z.instanceof(Uint8Array) or z.string()'];
+}
 
-  return out;
+/**
+ * The per-entry rules (1 and 3-8) for one entry.
+ *
+ * @param entry - The entry.
+ * @returns Violation messages, each prefixed with the entry name.
+ */
+export function checkEntry(entry: CatalogEntry): string[] {
+  const { shapes, violations: slotViolations } = checkObjectSlots(entry);
+  return [
+    ...checkName(entry),
+    ...slotViolations,
+    ...checkFieldCollisions(shapes),
+    ...checkPathParams(entry, shapes),
+    ...checkQueryFields(shapes),
+    ...checkConvertible(entry, shapes),
+    ...checkNonJsonResponse(entry),
+  ].map((v) => `entry "${entry.name}": ${v}`);
 }
 
 /**

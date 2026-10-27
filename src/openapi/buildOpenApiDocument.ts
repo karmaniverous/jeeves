@@ -12,8 +12,8 @@ import {
   type ZodOpenApiPathsObject,
 } from 'zod-openapi';
 
-import { isJsonContentType } from '../catalog/catalogRules.js';
 import { errorBodySchema } from '../catalog/errorBody.js';
+import { isJsonContentType } from '../catalog/schemaHelpers.js';
 import type {
   AuthScheme,
   AuthSpec,

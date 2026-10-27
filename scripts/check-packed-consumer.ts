@@ -32,6 +32,7 @@ import { dirname, join, resolve } from 'node:path';
 const repo = resolve(import.meta.dirname, '..');
 const pkg = JSON.parse(readFileSync(join(repo, 'package.json'), 'utf8')) as {
   name: string;
+  exports: Record<string, { types: string; import: string }>;
   peerDependencies: Record<string, string>;
   devDependencies: Record<string, string>;
 };
@@ -71,8 +72,8 @@ const optionalPeers = stages.flatMap((s) => s.peers);
 /** Files the tarball must contain. */
 const requiredFiles = [
   'package.json',
-  ...['index', 'catalog/index', 'openapi/index', 'fastify/index'].flatMap(
-    (n) => [`dist/${n}.js`, `dist/${n}.d.ts`],
+  ...Object.values(pkg.exports).flatMap((e) =>
+    [e.import, e.types].map((p) => p.replace(/^\.\//, '')),
   ),
   'dist/cli/jeeves/index.js',
 ];
@@ -111,6 +112,15 @@ function npm(args: string[], cwd: string): string {
         stdio: ['ignore', 'pipe', 'inherit'],
       });
 }
+
+/** Quiet, script-free npm install flags. */
+const INSTALL_FLAGS = [
+  'install',
+  '--no-audit',
+  '--no-fund',
+  '--ignore-scripts',
+  '--loglevel=error',
+];
 
 /** Fail with a message. */
 function fail(message: string): never {
@@ -164,16 +174,7 @@ writeFileSync(
     include: ['check.ts'],
   }),
 );
-npm(
-  [
-    'install',
-    '--no-audit',
-    '--no-fund',
-    '--ignore-scripts',
-    '--loglevel=error',
-  ],
-  consumer,
-);
+npm(INSTALL_FLAGS, consumer);
 
 const tsc = join(repo, 'node_modules', 'typescript', 'bin', 'tsc');
 const proven: string[] = [];
@@ -182,11 +183,7 @@ for (const stage of stages) {
   if (stage.peers.length > 0) {
     npm(
       [
-        'install',
-        '--no-audit',
-        '--no-fund',
-        '--ignore-scripts',
-        '--loglevel=error',
+        ...INSTALL_FLAGS,
         ...stage.peers.map((p) => `${p}@${pkg.peerDependencies[p]}`),
       ],
       consumer,
