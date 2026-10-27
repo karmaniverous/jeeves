@@ -44,7 +44,17 @@ export interface ToolDescriptor {
 
 /** Options for tool registration. */
 export interface ToolRegistrationOptions {
-  /** Whether the tool is optional (non-fatal if registration fails). */
+  /**
+   * Register the tool as optional. OpenClaw documents optional tools as
+   * opt-in: hidden from the model until the user allowlists them
+   * (`tools.allow` or the agent's tool list).
+   *
+   * @remarks
+   * This documented meaning hasn't been reconciled with the fleet's
+   * observed behaviour, where optional plugin tools appear without an
+   * allowlist entry. Don't change any plugin's `optional` setting without
+   * a live test on a gateway.
+   */
   optional?: boolean;
 }
 
@@ -81,7 +91,8 @@ export interface PluginApi {
   };
 
   /**
-   * Resolve a path relative to the OpenClaw workspace.
+   * Resolve a path relative to the plugin root (the plugin's install
+   * directory), not the agent workspace: use `resolveWorkspacePath` for that.
    *
    * @remarks
    * Present on newer OpenClaw builds; optional for backwards compatibility.
@@ -124,4 +135,12 @@ export interface PluginApi {
    * @param options - Registration options.
    */
   registerTool(tool: ToolDescriptor, options?: ToolRegistrationOptions): void;
+}
+
+/**
+ * The subset of OpenClaw hook and tool-factory contexts core reads.
+ */
+export interface PluginContext {
+  /** The agent workspace directory, when the host supplies it. */
+  workspaceDir?: string;
 }

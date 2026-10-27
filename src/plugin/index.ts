@@ -52,6 +52,7 @@ export {
 } from './skillFrontmatter.js';
 export type {
   PluginApi,
+  PluginContext,
   ToolDescriptor,
   ToolRegistrationOptions,
   ToolResult,

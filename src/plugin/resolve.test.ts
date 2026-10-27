@@ -1,42 +1,111 @@
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   resolveOptionalPluginSetting,
   resolvePluginSetting,
-  resolveWorkspacePath,
 } from './resolve.js';
 import type { PluginApi } from './types.js';
 
 describe('resolveWorkspacePath', () => {
-  it('prefers config workspace over resolvePath', () => {
-    const api: PluginApi = {
-      resolvePath: () => '/from/resolve-path',
-      config: { agents: { defaults: { workspace: '/from/config' } } },
-      registerTool: vi.fn(),
-    };
-    expect(resolveWorkspacePath(api)).toBe('/from/config');
+  /** A fresh module, so the once-per-process warning flag is reset. */
+  const load = async () => {
+    vi.resetModules();
+    return (await import('./resolve.js')).resolveWorkspacePath;
+  };
+
+  const apiWith = (
+    workspace?: string,
+    warn = vi.fn<(message: string) => void>(),
+  ): PluginApi & { warn: typeof warn } => ({
+    ...(workspace === undefined
+      ? {}
+      : { config: { agents: { defaults: { workspace } } } }),
+    resolvePath: () => '/plugin/root',
+    logger: { warn },
+    registerTool: vi.fn(),
+    warn,
   });
 
-  it('falls back to resolvePath when config workspace is absent', () => {
-    const api: PluginApi = {
-      resolvePath: () => '/from/resolve-path',
-      registerTool: vi.fn(),
-    };
-    expect(resolveWorkspacePath(api)).toBe('/from/resolve-path');
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
-  it('falls back to resolvePath when config workspace is empty', () => {
-    const api: PluginApi = {
-      resolvePath: () => '/from/resolve-path',
-      config: { agents: { defaults: { workspace: '   ' } } },
-      registerTool: vi.fn(),
-    };
-    expect(resolveWorkspacePath(api)).toBe('/from/resolve-path');
+  it('returns the configured workspace first, ~ expanded', async () => {
+    const resolve = await load();
+    expect(resolve(apiWith('/from/config'), { workspaceDir: '/ctx' })).toBe(
+      '/from/config',
+    );
+    expect(resolve(apiWith('~/ws'))).toBe(join(homedir(), 'ws'));
+    expect(resolve(apiWith('~'))).toBe(homedir());
   });
 
-  it('falls back to process.cwd when nothing is configured', () => {
-    const api: PluginApi = { registerTool: vi.fn() };
-    expect(resolveWorkspacePath(api)).toBe(process.cwd());
+  it('uses ctx.workspaceDir when config is absent or blank', async () => {
+    const resolve = await load();
+    expect(resolve(apiWith(), { workspaceDir: '/ctx' })).toBe('/ctx');
+    expect(resolve(apiWith('   '), { workspaceDir: '/ctx' })).toBe('/ctx');
+  });
+
+  it('defaults to <OPENCLAW_STATE_DIR>/workspace', async () => {
+    vi.stubEnv('OPENCLAW_STATE_DIR', '/state');
+    vi.stubEnv('OPENCLAW_PROFILE', 'work');
+    expect((await load())(apiWith(), { workspaceDir: ' ' })).toBe(
+      join('/state', 'workspace'),
+    );
+  });
+
+  it('defaults to ~/.openclaw-<profile>/workspace for a non-default profile', async () => {
+    vi.stubEnv('OPENCLAW_STATE_DIR', '');
+    vi.stubEnv('OPENCLAW_PROFILE', 'work');
+    expect((await load())(apiWith())).toBe(
+      join(homedir(), '.openclaw-work', 'workspace'),
+    );
+  });
+
+  it.each(['', 'default'])(
+    'defaults to ~/.openclaw/workspace for profile %j',
+    async (profile) => {
+      vi.stubEnv('OPENCLAW_STATE_DIR', '');
+      vi.stubEnv('OPENCLAW_PROFILE', profile);
+      expect((await load())(apiWith())).toBe(
+        join(homedir(), '.openclaw', 'workspace'),
+      );
+    },
+  );
+
+  it('never returns the plugin root', async () => {
+    vi.stubEnv('OPENCLAW_STATE_DIR', '');
+    expect((await load())(apiWith())).not.toBe('/plugin/root');
+  });
+
+  it('warns once per process, only when falling back to the default', async () => {
+    vi.stubEnv('OPENCLAW_STATE_DIR', '/state');
+    const resolve = await load();
+    const api = apiWith();
+    resolve(apiWith('/configured'));
+    resolve(api, { workspaceDir: '/ctx' });
+    expect(api.warn).not.toHaveBeenCalled();
+    resolve(api);
+    resolve(api);
+    expect(api.warn).toHaveBeenCalledTimes(1);
+    expect(api.warn).toHaveBeenCalledWith(
+      `workspace not configured; using ${join('/state', 'workspace')}`,
+    );
+  });
+
+  it('never throws, with no logger or a failing logger', async () => {
+    const resolve = await load();
+    expect(() => resolve({ registerTool: vi.fn() })).not.toThrow();
+    const failing = await load();
+    const api = apiWith(
+      undefined,
+      vi.fn(() => {
+        throw new Error('logger down');
+      }),
+    );
+    expect(() => failing(api)).not.toThrow();
   });
 });
 

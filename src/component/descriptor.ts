@@ -47,8 +47,9 @@ export const jeevesComponentDescriptorSchema = z.object({
     (val) =>
       val !== null &&
       typeof val === 'object' &&
-      typeof (val as ZodType).parse === 'function',
-    { message: 'configSchema must be a Zod schema' },
+      typeof (val as ZodType).parse === 'function' &&
+      typeof (val as ZodType).safeParse === 'function',
+    { message: 'configSchema must be a Zod schema (with parse and safeParse)' },
   ),
 
   /** Config file name (e.g., 'jeeves-watcher.config.json'). */
@@ -109,6 +110,19 @@ export const jeevesComponentDescriptorSchema = z.object({
   customCliCommands: z
     .function({ input: [z.custom<Command>()], output: z.void() })
     .optional(),
+
+  /**
+   * Always-on rules text. Lives in the component's `core` package; the
+   * plugin passes it to `registerPromptContext` (core never registers it).
+   */
+  promptRules: z.string().optional(),
+
+  /**
+   * Contents of the component's `SKILL.md`. Lives in the component's
+   * `core` package; the plugin's build writes it into its skills folder
+   * (core never registers it).
+   */
+  skill: z.string().optional(),
 
   /** Extension point: return additional plugin tool descriptors. */
   customPluginTools: z

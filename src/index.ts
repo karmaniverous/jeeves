@@ -129,6 +129,7 @@ export {
   onPluginDispose,
   type PluginApi,
   type PluginApiUrlResolver,
+  type PluginContext,
   type PluginLifecycleApi,
   type PluginToolsetOptions,
   pluginToolsetOptionsSchema,
