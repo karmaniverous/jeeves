@@ -41,11 +41,23 @@ interface Stage {
   label: string;
   peers: string[];
   entries: string[];
+  /** Extra ESM code run after the imports, proving the entry point works. */
+  probe?: string;
 }
 
 const stages: Stage[] = [
   { label: 'no optional peers', peers: [], entries: ['', '/catalog'] },
-  { label: 'zod-openapi', peers: ['zod-openapi'], entries: ['/openapi'] },
+  {
+    label: 'zod-openapi',
+    peers: ['zod-openapi'],
+    entries: ['/openapi'],
+    probe: [
+      `const { defineCatalog, standardEntries } = await import('${pkg.name}/catalog');`,
+      `const { buildOpenApiDocument } = await import('${pkg.name}/openapi');`,
+      `const doc = buildOpenApiDocument(defineCatalog(standardEntries('probe', { auth: { config: 'none' } })), { title: 'probe', version: '1.0.0' });`,
+      `if (!doc.paths['/config/apply'].post) throw new Error('no operation');`,
+    ].join('\n'),
+  },
   {
     label: 'fastify',
     peers: ['fastify', 'fastify-type-provider-zod'],
@@ -211,7 +223,10 @@ for (const stage of stages) {
       [
         '--input-type=module',
         '-e',
-        specifiers.map((s) => `await import('${s}');`).join(' '),
+        [
+          ...specifiers.map((s) => `await import('${s}');`),
+          stage.probe ?? '',
+        ].join('\n'),
       ],
       consumer,
     );
