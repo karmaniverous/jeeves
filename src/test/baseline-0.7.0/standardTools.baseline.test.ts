@@ -114,6 +114,33 @@ async function abortsAt(
   return { pendingBefore, result: await pending };
 }
 
+/**
+ * Parameters in 0.7.0 form. Since 0.8.0 the standard tools' parameters are
+ * generated from the standard entries with Zod's `toJSONSchema` (spec 5.7),
+ * which adds keywords the hand-written 0.7.0 schemas lacked: a top-level
+ * `additionalProperties: false`, and `propertyNames` / `additionalProperties`
+ * on the record-typed `config` patch. `config_apply` also gains the
+ * optional `replace` boolean. Removing exactly those leaves names, types,
+ * descriptions and `required` to compare byte for byte with the 0.7.0
+ * snapshot.
+ *
+ * @param parameters - A tool's parameters.
+ * @returns The parameters without the 0.8.0 additions.
+ */
+function as070(parameters: Record<string, unknown>): Record<string, unknown> {
+  const rest = { ...parameters };
+  delete rest.additionalProperties;
+  const properties = { ...(rest.properties as Record<string, unknown>) };
+  delete properties.replace;
+  if (properties.config) {
+    const config = { ...(properties.config as Record<string, unknown>) };
+    delete config.propertyNames;
+    delete config.additionalProperties;
+    properties.config = config;
+  }
+  return { ...rest, properties };
+}
+
 describe('0.7.0 baseline: standard plugin tools', () => {
   beforeEach(() => {
     vi.unstubAllGlobals();
@@ -130,7 +157,7 @@ describe('0.7.0 baseline: standard plugin tools', () => {
       ({ name, description, parameters }) => ({
         name,
         description,
-        parameters,
+        parameters: as070(parameters),
       }),
     );
     await expect(JSON.stringify(shape, null, 2) + '\n').toMatchFileSnapshot(

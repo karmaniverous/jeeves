@@ -25,16 +25,21 @@ export {
   toToolName,
 } from './catalogTool.js';
 export {
+  attachCredential,
+  type ClientAuth,
+  type Credential,
+  credentialOf,
+  type Secret,
+} from './clientAuth.js';
+export {
   CatalogClientError,
   type CatalogClientErrorDetails,
 } from './clientError.js';
 export {
   type CatalogClient,
   type CatalogClientOptions,
-  type ClientAuth,
   type ClientResponse,
   createCatalogClient,
-  type Secret,
 } from './createCatalogClient.js';
 export { CatalogDefinitionError, defineCatalog } from './defineCatalog.js';
 export { type ErrorBody, errorBodySchema } from './errorBody.js';

@@ -46,7 +46,7 @@ const anyHealth = z.looseObject({});
 /** `GET /config` query. */
 export const configQuerySchema = z.object({
   /** JSONPath expression; omit for the full config. */
-  path: z.string().optional(),
+  path: z.string().describe('JSONPath expression (optional)').optional(),
 });
 
 /**
@@ -67,9 +67,12 @@ export const configQueryResponseSchema = z.union([
 /** `POST /config/apply` body. */
 export const configApplyBodySchema = z.object({
   /** Config patch, deep-merged into the config file. */
-  patch: z.record(z.string(), z.unknown()),
+  patch: z.record(z.string(), z.unknown()).describe('Config patch to apply'),
   /** Replace the whole config instead of merging. */
-  replace: z.boolean().optional(),
+  replace: z
+    .boolean()
+    .describe('Replace the whole config instead of merging')
+    .optional(),
 });
 
 /** `POST /config/apply` success response. */

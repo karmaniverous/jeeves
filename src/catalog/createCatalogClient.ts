@@ -11,59 +11,17 @@ import type { PluginApiUrlResolver } from '../plugin/pluginApiUrl.js';
 import {
   buildCatalogRequest,
   type CatalogInput,
-  type CatalogRequest,
 } from './buildCatalogRequest.js';
+import {
+  attachCredential,
+  type ClientAuth,
+  credentialOf,
+} from './clientAuth.js';
 import { CatalogClientError } from './clientError.js';
 import { errorBodySchema } from './errorBody.js';
 import { type CatalogResponse, httpTransport } from './httpTransport.js';
 import { isJsonContentType, isTextContentType } from './schemaHelpers.js';
-import type {
-  AuthScheme,
-  Catalog,
-  CatalogEntry,
-  IsJsonEntry,
-} from './types.js';
-
-/**
- * A credential value, or a resolver read on every request (as a plugin reads
- * its key at call time). A resolver returning `undefined` attaches nothing.
- */
-export type Secret =
-  string | (() => string | undefined | Promise<string | undefined>);
-
-/** How the client presents its credential. */
-export type ClientAuth =
-  | {
-      /** `Authorization: Bearer <value>`. */
-      bearer: Secret;
-    }
-  | {
-      /** A request header. */
-      header: {
-        /** Header name. */
-        name: string;
-        /** Header value. */
-        value: Secret;
-      };
-    }
-  | {
-      /** A query parameter. */
-      query: {
-        /** Parameter name. */
-        name: string;
-        /** Parameter value. */
-        value: Secret;
-      };
-    }
-  | {
-      /** A cookie. */
-      cookie: {
-        /** Cookie name. */
-        name: string;
-        /** Cookie value. */
-        value: Secret;
-      };
-    };
+import type { Catalog, CatalogEntry, IsJsonEntry } from './types.js';
 
 /** Options for {@link createCatalogClient}. */
 export interface CatalogClientOptions {
@@ -91,56 +49,6 @@ export type CatalogClient<C extends Catalog> = {
     input: CatalogInput<E>,
   ) => Promise<ClientResponse<E>>;
 };
-
-/** The `in` kind and name of a client credential, and its secret. */
-interface Credential {
-  kind: AuthScheme['in'];
-  name: string;
-  value: Secret;
-}
-
-/**
- * Normalise a {@link ClientAuth}.
- *
- * @param auth - Client credential.
- * @returns Kind, name and secret.
- */
-function credentialOf(auth: ClientAuth): Credential {
-  if ('bearer' in auth)
-    return { kind: 'bearer', name: 'authorization', value: auth.bearer };
-  if ('header' in auth) return { kind: 'header', ...auth.header };
-  if ('query' in auth) return { kind: 'query', ...auth.query };
-  return { kind: 'cookie', ...auth.cookie };
-}
-
-/**
- * Attach a credential to a request when the entry accepts its kind.
- *
- * @param entry - Catalog entry.
- * @param request - Built request (mutated).
- * @param credential - Normalised credential.
- */
-async function attach(
-  entry: CatalogEntry,
-  request: CatalogRequest,
-  credential: Credential | undefined,
-): Promise<void> {
-  if (!credential || entry.auth === 'none') return;
-  if (!entry.auth.schemes.some((s) => s.in === credential.kind)) return;
-  const value =
-    typeof credential.value === 'function'
-      ? await credential.value()
-      : credential.value;
-  if (value === undefined) return;
-  if (credential.kind === 'bearer')
-    request.headers.authorization = `Bearer ${value}`;
-  else if (credential.kind === 'header')
-    request.headers[credential.name.toLowerCase()] = value;
-  else if (credential.kind === 'query')
-    request.query.push([credential.name, value]);
-  else
-    request.headers.cookie = `${credential.name}=${encodeURIComponent(value)}`;
-}
 
 /**
  * Read a response as the entry's result, or throw.
@@ -207,7 +115,7 @@ export function createCatalogClient<C extends Catalog>(
 
   const call = async (entry: CatalogEntry, input: unknown) => {
     const request = buildCatalogRequest(entry, input as never);
-    await attach(entry, request, credential);
+    await attachCredential(entry, request, credential);
     let res: CatalogResponse;
     try {
       res = await transport(request, AbortSignal.timeout(timeoutMs));

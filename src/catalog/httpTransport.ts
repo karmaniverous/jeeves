@@ -48,7 +48,10 @@ export interface HttpTransportOptions {
  * @returns The URL string.
  */
 function urlOf(baseUrl: string, request: CatalogRequest): string {
-  const qs = new URLSearchParams(request.query).toString();
+  // encodeURIComponent (space as %20), as the 0.7.0 tools encoded queries.
+  const qs = request.query
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+    .join('&');
   return `${baseUrl.replace(/\/+$/, '')}${request.path}${qs ? `?${qs}` : ''}`;
 }
 

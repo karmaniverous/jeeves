@@ -30,6 +30,7 @@ export {
 } from './http.js';
 export { onPluginDispose } from './lifecycle.js';
 export {
+  type CatalogToolSelection,
   type PluginApiUrlResolver,
   type PluginToolsetOptions,
   pluginToolsetOptionsSchema,

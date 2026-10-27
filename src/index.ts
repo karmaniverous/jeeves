@@ -114,6 +114,7 @@ export {
   type MemoryHygieneResult,
 } from './memory/index.js';
 export {
+  type CatalogToolSelection,
   connectionFail,
   CONVERSATION_HOOK_NAMES,
   createPluginToolset,

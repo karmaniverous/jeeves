@@ -191,7 +191,7 @@ describe('createCatalogClient with a fetch spy', () => {
     [
       'query',
       { query: { name: 'key', value: () => 'k 2' } },
-      { url: 'http://svc/guarded?key=k+2', headers: {} },
+      { url: 'http://svc/guarded?key=k%202', headers: {} },
     ],
     [
       'cookie',

@@ -15,16 +15,24 @@
  * Components add domain-specific tools separately.
  */
 
+import { credentialOf } from '../catalog/clientAuth.js';
+import { standardEntries } from '../catalog/standardEntries.js';
+import type { Catalog, CatalogEntry } from '../catalog/types.js';
 import type { JeevesComponentDescriptor } from '../component/descriptor.js';
 import { createServiceManager } from '../service/createServiceManager.js';
 import { getErrorMessage } from '../utils.js';
-import { fetchJson, fetchWithTimeout, postJson } from './http.js';
 import {
+  catalogPluginTool,
+  type CatalogPluginToolOptions,
+} from './catalogPluginTool.js';
+import { DEFAULT_FETCH_TIMEOUT_MS } from './http.js';
+import {
+  type CatalogToolSelection,
   type PluginToolsetOptions,
   pluginToolsetOptionsSchema,
   resolvePluginApiUrl,
 } from './pluginApiUrl.js';
-import { connectionFail, fail, ok } from './results.js';
+import { fail, ok } from './results.js';
 import type { ToolDescriptor, ToolResult } from './types.js';
 
 /** Timeout for HTTP probes in milliseconds. */
@@ -40,100 +48,56 @@ const PROBE_TIMEOUT_MS = 5000;
  *   `http://127.0.0.1:<defaultPort>`.
  * @returns Array of tool descriptors to register.
  */
-export function createPluginToolset(
+export function createPluginToolset<C extends Catalog = Catalog>(
   descriptor: JeevesComponentDescriptor,
-  options: PluginToolsetOptions,
+  options: PluginToolsetOptions<C>,
 ): ToolDescriptor[] {
   const { name, defaultPort } = descriptor;
-  const { apiUrl } = pluginToolsetOptionsSchema.parse(options);
+  const parsed = pluginToolsetOptionsSchema.parse(
+    options,
+  ) as PluginToolsetOptions<C>;
+  const { apiUrl } = parsed;
   const resolveBaseUrl = (): string => resolvePluginApiUrl(apiUrl, defaultPort);
   const svcManager = createServiceManager(descriptor);
 
-  const statusTool: ToolDescriptor = {
-    name: `${name}_status`,
+  const pluginId = `jeeves-${name}-openclaw`;
+  const credential =
+    // Without a catalog the standard entries are open ('none'), so the
+    // credential attaches nowhere, as in 0.7.0.
+    parsed.auth ? credentialOf(parsed.auth) : undefined;
+  const catalog = parsed.catalog;
+  const standard = catalog
+    ? (['status', 'config', 'configApply'] as const).map((n) =>
+        catalog.byName(n),
+      )
+    : standardEntries(name, { auth: { config: 'none' } });
+  const toolFor = (
+    entry: CatalogEntry,
+    settings: Omit<
+      CatalogPluginToolOptions,
+      'prefix' | 'resolveBaseUrl' | 'pluginId' | 'credential' | 'timeoutMs'
+    > & { timeoutMs?: number },
+  ): ToolDescriptor =>
+    catalogPluginTool(entry, {
+      timeoutMs: DEFAULT_FETCH_TIMEOUT_MS,
+      ...settings,
+      prefix: name,
+      resolveBaseUrl,
+      pluginId,
+      ...(credential ? { credential } : {}),
+    });
+
+  const statusTool = toolFor(standard[0], {
     description: `Get ${name} service health, version, and uptime.`,
-    parameters: {
-      type: 'object',
-      properties: {},
-    },
-    execute: async (): Promise<ToolResult> => {
-      const baseUrl = resolveBaseUrl();
-      try {
-        const res = await fetchWithTimeout(
-          `${baseUrl}/status`,
-          PROBE_TIMEOUT_MS,
-        );
-        if (!res.ok) {
-          return fail(`HTTP ${String(res.status)}: ${await res.text()}`);
-        }
-        const data = await res.json();
-        return ok(data);
-      } catch (err: unknown) {
-        return connectionFail(err, baseUrl, `jeeves-${name}-openclaw`);
-      }
-    },
-  };
-
-  const configTool: ToolDescriptor = {
-    name: `${name}_config`,
+    timeoutMs: PROBE_TIMEOUT_MS,
+  });
+  const configTool = toolFor(standard[1], {
     description: `Query ${name} running configuration. Optional JSONPath filter.`,
-    parameters: {
-      type: 'object',
-      properties: {
-        path: {
-          type: 'string',
-          description: 'JSONPath expression (optional)',
-        },
-      },
-    },
-    execute: async (
-      _id: string,
-      params: Record<string, unknown>,
-    ): Promise<ToolResult> => {
-      const path = params.path as string | undefined;
-      const qs = path ? `?path=${encodeURIComponent(path)}` : '';
-      const baseUrl = resolveBaseUrl();
-      try {
-        const result = await fetchJson(`${baseUrl}/config${qs}`);
-        return ok(result);
-      } catch (err: unknown) {
-        return connectionFail(err, baseUrl, `jeeves-${name}-openclaw`);
-      }
-    },
-  };
-
-  const configApplyTool: ToolDescriptor = {
-    name: `${name}_config_apply`,
+  });
+  const configApplyTool = toolFor(standard[2], {
     description: `Apply a config patch to the running ${name} service.`,
-    parameters: {
-      type: 'object',
-      properties: {
-        config: {
-          type: 'object',
-          description: 'Config patch to apply',
-        },
-      },
-      required: ['config'],
-    },
-    execute: async (
-      _id: string,
-      params: Record<string, unknown>,
-    ): Promise<ToolResult> => {
-      const config = params.config as Record<string, unknown> | undefined;
-      if (!config) {
-        return fail('Missing required parameter: config');
-      }
-      const baseUrl = resolveBaseUrl();
-      try {
-        const result = await postJson(`${baseUrl}/config/apply`, {
-          patch: config,
-        });
-        return ok(result);
-      } catch (err: unknown) {
-        return connectionFail(err, baseUrl, `jeeves-${name}-openclaw`);
-      }
-    },
-  };
+    inputAliases: { patch: 'config' },
+  });
 
   const serviceTool: ToolDescriptor = {
     name: `${name}_service`,
@@ -204,5 +168,59 @@ export function createPluginToolset(
     },
   };
 
-  return [statusTool, configTool, configApplyTool, serviceTool];
+  const catalogTools = parsed.tools
+    ? catalogToolsFor(catalog, parsed.tools, toolFor)
+    : [];
+  const customTools =
+    parsed.api && descriptor.customPluginTools
+      ? (descriptor.customPluginTools(parsed.api) as ToolDescriptor[])
+      : [];
+
+  const all = [
+    statusTool,
+    configTool,
+    configApplyTool,
+    serviceTool,
+    ...catalogTools,
+    ...customTools,
+  ];
+  const seen = new Set<string>();
+  for (const tool of all) {
+    if (seen.has(tool.name))
+      throw new Error(`Duplicate tool name: ${tool.name}`);
+    seen.add(tool.name);
+  }
+  return all;
+}
+
+/**
+ * Tools for the selected catalog entries, in catalog order.
+ *
+ * @param catalog - The catalog (required when `tools` is set).
+ * @param selection - Entry name to `true` or settings.
+ * @param toolFor - Builds one tool.
+ * @returns The tools.
+ * @throws Error when `catalog` is missing or a selected name isn't an entry.
+ */
+function catalogToolsFor(
+  catalog: Catalog | undefined,
+  selection: Partial<Record<string, true | CatalogToolSelection>>,
+  toolFor: (
+    entry: CatalogEntry,
+    settings: CatalogToolSelection,
+  ) => ToolDescriptor,
+): ToolDescriptor[] {
+  if (!catalog) throw new Error('createPluginToolset: tools requires catalog');
+  const names = new Set(catalog.entries.map((e) => e.name));
+  for (const key of Object.keys(selection))
+    if (!names.has(key))
+      throw new Error(
+        `createPluginToolset: tools names unknown entry "${key}"`,
+      );
+  return catalog.entries
+    .filter((e) => e.name in selection)
+    .map((e) => {
+      const settings = selection[e.name];
+      return toolFor(e, settings === true || !settings ? {} : settings);
+    });
 }

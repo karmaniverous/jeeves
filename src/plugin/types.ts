@@ -38,6 +38,11 @@ export interface ToolDescriptor {
   description: string;
   /** JSON Schema for the tool's parameters. */
   parameters: Record<string, unknown>;
+  /**
+   * `'direct-only'`: the tool stays model-visible when OpenClaw's Tool
+   * Search defers other tools.
+   */
+  catalogMode?: 'direct-only';
   /** Execute the tool with the given parameters. */
   execute: (id: string, params: Record<string, unknown>) => Promise<ToolResult>;
 }
