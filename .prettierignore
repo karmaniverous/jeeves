@@ -12,3 +12,7 @@ content/*.md
 # reformat would be undone by the next release. Its output (verbatim commit
 # bodies, compact list spacing) is not Prettier-shaped.
 CHANGELOG.md
+
+# 0.7.0 baseline snapshots (dev-plan step 0): byte-exact files written by
+# toMatchFileSnapshot. Reformatting one makes its baseline test fail.
+src/test/baseline-0.7.0/*.json

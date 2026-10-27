@@ -9,8 +9,24 @@
  * @packageDocumentation
  */
 
+export {
+  buildCatalogRequest,
+  type CatalogInput,
+  type CatalogRequest,
+  type SlotInput,
+} from './buildCatalogRequest.js';
+export {
+  CatalogClientError,
+  type CatalogClientErrorDetails,
+} from './clientError.js';
 export { CatalogDefinitionError, defineCatalog } from './defineCatalog.js';
 export { type ErrorBody, errorBodySchema } from './errorBody.js';
+export {
+  type CatalogResponse,
+  type CatalogTransport,
+  httpTransport,
+  type HttpTransportOptions,
+} from './httpTransport.js';
 export { queryArray } from './queryArray.js';
 export { standardEntries } from './standardEntries.js';
 export type {

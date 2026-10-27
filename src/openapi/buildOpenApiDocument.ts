@@ -13,7 +13,7 @@ import {
 } from 'zod-openapi';
 
 import { errorBodySchema } from '../catalog/errorBody.js';
-import { isJsonContentType } from '../catalog/schemaHelpers.js';
+import { isJsonContentType, PATH_PARAM } from '../catalog/schemaHelpers.js';
 import type {
   AuthScheme,
   AuthSpec,
@@ -84,7 +84,7 @@ function securityOf(auth: AuthSpec): Record<string, string[]>[] {
  * @returns OpenAPI path template.
  */
 export function toOpenApiPath(path: string): string {
-  return path.replace(/:([A-Za-z0-9_]+)/g, '{$1}').replace('*', '{*}');
+  return path.replace(PATH_PARAM, '{$1}').replace('*', '{*}');
 }
 
 /**

@@ -66,6 +66,9 @@ export function shapeOf(
   return def.type === 'object' ? def.shape : undefined;
 }
 
+/** A `:name` path parameter segment; group 1 is the name. */
+export const PATH_PARAM = /:([A-Za-z0-9_]+)/g;
+
 /**
  * Path parameter names in a Fastify path: each `:name`, plus `*` for a
  * wildcard.
@@ -74,6 +77,6 @@ export function shapeOf(
  * @returns Parameter names.
  */
 export function pathParams(path: string): string[] {
-  const names = [...path.matchAll(/:([A-Za-z0-9_]+)/g)].map((m) => m[1]);
+  const names = [...path.matchAll(PATH_PARAM)].map((m) => m[1]);
   return path.includes('*') ? [...names, '*'] : names;
 }
