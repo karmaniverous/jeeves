@@ -11,7 +11,7 @@
  * @module
  */
 
-import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
@@ -21,6 +21,7 @@ import {
   SOUL_MARKERS,
   WORKSPACE_FILES,
 } from '../../constants/index.js';
+import { atomicWrite } from '../../managed/fileOps.js';
 import { removeManagedBlock } from '../../managed/managedBlock.js';
 
 /**
@@ -40,7 +41,7 @@ export function removeManagedBlockFromFile(
   const content = readFileSync(filePath, 'utf-8');
   const updated = removeManagedBlock(content, markers);
   if (updated === content) return false;
-  if (!dryRun) writeFileSync(filePath, updated, 'utf-8');
+  if (!dryRun) atomicWrite(filePath, updated);
   return true;
 }
 

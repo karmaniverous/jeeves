@@ -37,6 +37,32 @@ export class OpenClawNotFoundError extends Error {
   }
 }
 
+/** What a step prints when it skips because OpenClaw isn't installed. */
+export const OPENCLAW_NOT_INSTALLED = 'OpenClaw not installed; skipped';
+
+/**
+ * Whether a failed OpenClaw call means OpenClaw isn't installed (#143): the
+ * CLI couldn't start (anything but a {@link CommandFailedError}, as in
+ * {@link assertOpenClawAvailable}) and no OpenClaw dist directory resolves.
+ *
+ * @param error - The error from an OpenClaw call.
+ * @param resolveDist - Resolves the OpenClaw dist directory; throws when
+ *   none exists.
+ * @returns `true` when OpenClaw is not installed.
+ */
+export function isOpenClawMissing(
+  error: unknown,
+  resolveDist: () => string,
+): boolean {
+  if (error instanceof CommandFailedError) return false;
+  try {
+    resolveDist();
+    return false;
+  } catch {
+    return true;
+  }
+}
+
 /** Prefix of OpenClaw's `config get` message for an unset path. */
 const UNSET_MESSAGE = 'Config path is valid but unset';
 
