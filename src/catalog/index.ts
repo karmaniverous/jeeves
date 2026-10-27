@@ -19,6 +19,14 @@ export {
   CatalogClientError,
   type CatalogClientErrorDetails,
 } from './clientError.js';
+export {
+  type CatalogClient,
+  type CatalogClientOptions,
+  type ClientAuth,
+  type ClientResponse,
+  createCatalogClient,
+  type Secret,
+} from './createCatalogClient.js';
 export { CatalogDefinitionError, defineCatalog } from './defineCatalog.js';
 export { type ErrorBody, errorBodySchema } from './errorBody.js';
 export {
@@ -35,4 +43,5 @@ export type {
   Catalog,
   CatalogEntry,
   EntryKind,
+  IsJsonEntry,
 } from './types.js';

@@ -9,7 +9,7 @@ import type { z } from 'zod';
 
 import type { ErrorBody } from '../catalog/errorBody.js';
 import type { RequestSlot } from '../catalog/schemaHelpers.js';
-import type { Catalog, CatalogEntry } from '../catalog/types.js';
+import type { Catalog, CatalogEntry, IsJsonEntry } from '../catalog/types.js';
 
 /** Successful HTTP status codes a handler may return. */
 export type SuccessStatus = 200 | 201 | 202 | 203 | 204 | 205 | 206;
@@ -83,11 +83,9 @@ export type HandlerResult<E extends CatalogEntry> =
       /** Success status. */
       status: SuccessStatus;
       /** Response body. */
-      body: E['contentType'] extends string
-        ? E['contentType'] extends `${string}json${string}`
-          ? z.input<E['response']>
-          : Uint8Array | string | NodeJS.ReadableStream
-        : z.input<E['response']>;
+      body: IsJsonEntry<E> extends true
+        ? z.input<E['response']>
+        : Uint8Array | string | NodeJS.ReadableStream;
       /** Extra response headers. */
       headers?: ResponseHeaders;
     }

@@ -121,3 +121,14 @@ export interface Catalog<
         }
       >;
 }
+
+/**
+ * Whether an entry responds with JSON: no `contentType`, or one containing
+ * `json` (the type-level counterpart of the runtime JSON check).
+ */
+export type IsJsonEntry<E extends CatalogEntry> =
+  E['contentType'] extends string
+    ? E['contentType'] extends `${string}json${string}`
+      ? true
+      : false
+    : true;
