@@ -1,0 +1,63 @@
+[
+  {
+    "name": "acme_status",
+    "description": "Get acme service health, version, and uptime.",
+    "parameters": {
+      "type": "object",
+      "properties": {}
+    }
+  },
+  {
+    "name": "acme_config",
+    "description": "Query acme running configuration. Optional JSONPath filter.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "JSONPath expression (optional)"
+        }
+      }
+    }
+  },
+  {
+    "name": "acme_config_apply",
+    "description": "Apply a config patch to the running acme service.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "config": {
+          "type": "object",
+          "description": "Config patch to apply"
+        }
+      },
+      "required": [
+        "config"
+      ]
+    }
+  },
+  {
+    "name": "acme_service",
+    "description": "Manage the acme system service. Actions: install, uninstall, start, stop, restart, status.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "install",
+            "uninstall",
+            "start",
+            "stop",
+            "restart",
+            "status"
+          ],
+          "description": "Service action to perform"
+        }
+      },
+      "required": [
+        "action"
+      ]
+    }
+  }
+]

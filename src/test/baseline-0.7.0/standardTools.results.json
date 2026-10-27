@@ -1,0 +1,196 @@
+{
+  "status": {
+    "success": {
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\n  \"status\": \"ok\"\n}"
+          }
+        ]
+      },
+      "requests": [
+        {
+          "url": "http://svc.test:1936/status",
+          "method": "GET",
+          "body": null
+        }
+      ]
+    },
+    "httpError": {
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Error: HTTP 503: unavailable"
+          }
+        ],
+        "isError": true
+      },
+      "requests": [
+        {
+          "url": "http://svc.test:1936/status",
+          "method": "GET",
+          "body": null
+        }
+      ]
+    },
+    "unreachable": {
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Service not reachable at http://svc.test:1936.\nEither start the service, or if it runs on a different port,\nset plugins.entries.jeeves-acme-openclaw.config.apiUrl in openclaw.json."
+          }
+        ],
+        "isError": true
+      },
+      "requests": [
+        {
+          "url": "http://svc.test:1936/status",
+          "method": "GET",
+          "body": null
+        }
+      ]
+    }
+  },
+  "config": {
+    "success": {
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\n  \"a\": 1\n}"
+          }
+        ]
+      },
+      "requests": [
+        {
+          "url": "http://svc.test:1936/config",
+          "method": "GET",
+          "body": null
+        }
+      ]
+    },
+    "withPath": {
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\n  \"result\": [\n    1\n  ],\n  \"count\": 1\n}"
+          }
+        ]
+      },
+      "requests": [
+        {
+          "url": "http://svc.test:1936/config?path=%24.a%20b",
+          "method": "GET",
+          "body": null
+        }
+      ]
+    },
+    "httpError": {
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Error: HTTP 400: bad path"
+          }
+        ],
+        "isError": true
+      },
+      "requests": [
+        {
+          "url": "http://svc.test:1936/config",
+          "method": "GET",
+          "body": null
+        }
+      ]
+    },
+    "unreachable": {
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Service not reachable at http://svc.test:1936.\nEither start the service, or if it runs on a different port,\nset plugins.entries.jeeves-acme-openclaw.config.apiUrl in openclaw.json."
+          }
+        ],
+        "isError": true
+      },
+      "requests": [
+        {
+          "url": "http://svc.test:1936/config",
+          "method": "GET",
+          "body": null
+        }
+      ]
+    }
+  },
+  "configApply": {
+    "success": {
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\n  \"applied\": true,\n  \"config\": {\n    \"a\": 2\n  }\n}"
+          }
+        ]
+      },
+      "requests": [
+        {
+          "url": "http://svc.test:1936/config/apply",
+          "method": "POST",
+          "body": "{\"patch\":{\"a\":2}}"
+        }
+      ]
+    },
+    "httpError": {
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Error: HTTP 400: invalid"
+          }
+        ],
+        "isError": true
+      },
+      "requests": [
+        {
+          "url": "http://svc.test:1936/config/apply",
+          "method": "POST",
+          "body": "{\"patch\":{\"a\":2}}"
+        }
+      ]
+    },
+    "missingConfig": {
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Error: Missing required parameter: config"
+          }
+        ],
+        "isError": true
+      },
+      "requests": []
+    },
+    "unreachable": {
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Service not reachable at http://svc.test:1936.\nEither start the service, or if it runs on a different port,\nset plugins.entries.jeeves-acme-openclaw.config.apiUrl in openclaw.json."
+          }
+        ],
+        "isError": true
+      },
+      "requests": [
+        {
+          "url": "http://svc.test:1936/config/apply",
+          "method": "POST",
+          "body": "{\"patch\":{\"a\":2}}"
+        }
+      ]
+    }
+  }
+}
