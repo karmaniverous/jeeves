@@ -51,6 +51,32 @@ describe('findUndeclaredTypeImports', () => {
     expect(findUndeclaredTypeImports(['zod'], {})).toEqual(['zod']);
   });
 
+  describe('optional peers', () => {
+    const withOptional = {
+      ...declared,
+      peerDependencies: { ...declared.peerDependencies, fastify: '^5' },
+      peerDependenciesMeta: { fastify: { optional: true } },
+    };
+
+    it('rejects an optional peer the entry point does not allow', () => {
+      expect(findUndeclaredTypeImports(['fastify'], withOptional)).toEqual([
+        'fastify',
+      ]);
+    });
+
+    it('accepts an optional peer the entry point allows', () => {
+      expect(
+        findUndeclaredTypeImports(['fastify'], withOptional, ['fastify']),
+      ).toEqual([]);
+    });
+
+    it('keeps non-optional peers declared everywhere', () => {
+      expect(findUndeclaredTypeImports(['commander'], withOptional)).toEqual(
+        [],
+      );
+    });
+  });
+
   it('passes for the real package.json and its type-level imports', () => {
     expect(
       findUndeclaredTypeImports(['@commander-js/extra-typings', 'zod'], pkg),
@@ -65,9 +91,16 @@ describe('collectBundleImports', () => {
 });
 
 describe('dtsDependencyGuardPlugin', () => {
-  const run = (bundle: OutputBundle) => {
+  const run = (bundle: OutputBundle, allowOptionalPeers?: string[]) => {
     const error = vi.fn();
-    const plugin = dtsDependencyGuardPlugin({ dependencies: { zod: '^4' } });
+    const plugin = dtsDependencyGuardPlugin(
+      {
+        dependencies: { zod: '^4' },
+        peerDependencies: { fastify: '^5' },
+        peerDependenciesMeta: { fastify: { optional: true } },
+      },
+      { allowOptionalPeers },
+    );
     const hook = plugin.generateBundle as (
       this: PluginContext,
       options: unknown,
@@ -79,6 +112,13 @@ describe('dtsDependencyGuardPlugin', () => {
 
   it('does nothing when all type imports are declared', () => {
     expect(run(bundleOf(['zod']))).not.toHaveBeenCalled();
+  });
+
+  it('allows an optional peer only where the entry point permits it', () => {
+    expect(run(bundleOf(['fastify']))).toHaveBeenCalledWith(
+      expect.stringContaining('fastify'),
+    );
+    expect(run(bundleOf(['fastify']), ['fastify'])).not.toHaveBeenCalled();
   });
 
   it('fails the build on undeclared type imports', () => {

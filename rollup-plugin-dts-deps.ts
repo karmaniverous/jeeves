@@ -6,6 +6,7 @@ import type { OutputBundle, Plugin } from 'rollup';
 export interface DeclaredDependencies {
   dependencies?: Record<string, string>;
   peerDependencies?: Record<string, string>;
+  peerDependenciesMeta?: Record<string, { optional?: boolean }>;
 }
 
 /**
@@ -23,17 +24,29 @@ export function packageNameOf(specifier: string): string {
  * Find bare-module imports that consumers could not resolve from the
  * published package's declared runtime dependencies.
  *
+ * @remarks
+ * An optional peer (`peerDependenciesMeta[name].optional`) counts as
+ * declared only for an entry point that lists it in `allowOptionalPeers`:
+ * consumers of any other entry point may not have it installed.
+ *
  * @param imports - Module specifiers imported by the emitted declarations.
- * @param pkg - Declared `dependencies` / `peerDependencies`.
+ * @param pkg - Declared `dependencies` / `peerDependencies` /
+ *   `peerDependenciesMeta`.
+ * @param allowOptionalPeers - Optional peers this entry point may import.
  * @returns Sorted, de-duplicated package names that are undeclared.
  */
 export function findUndeclaredTypeImports(
   imports: Iterable<string>,
   pkg: DeclaredDependencies,
+  allowOptionalPeers: readonly string[] = [],
 ): string[] {
+  const isOptional = (name: string): boolean =>
+    pkg.peerDependenciesMeta?.[name]?.optional === true;
   const declared = new Set([
     ...Object.keys(pkg.dependencies ?? {}),
-    ...Object.keys(pkg.peerDependencies ?? {}),
+    ...Object.keys(pkg.peerDependencies ?? {}).filter(
+      (name) => !isOptional(name) || allowOptionalPeers.includes(name),
+    ),
   ]);
   const undeclared = new Set<string>();
   for (const specifier of imports) {
@@ -62,22 +75,29 @@ export function collectBundleImports(bundle: OutputBundle): string[] {
  * Rollup plugin (for the `.d.ts` bundle) that fails the build when the
  * emitted declarations import a package that is not a declared
  * `dependency` or `peerDependency` (e.g. a devDependency-only package,
- * which nested consumer installs cannot resolve).
+ * which nested consumer installs cannot resolve), or an optional peer the
+ * entry point is not allowed to import.
  *
  * @param pkg - Declared dependencies from `package.json`.
+ * @param options - `allowOptionalPeers`: optional peers this entry point's
+ *   declarations may import.
  * @returns Rollup plugin.
  */
-export function dtsDependencyGuardPlugin(pkg: DeclaredDependencies): Plugin {
+export function dtsDependencyGuardPlugin(
+  pkg: DeclaredDependencies,
+  options: { allowOptionalPeers?: readonly string[] } = {},
+): Plugin {
   return {
     name: 'dts-dependency-guard',
     generateBundle(_options, bundle) {
       const undeclared = findUndeclaredTypeImports(
         collectBundleImports(bundle),
         pkg,
+        options.allowOptionalPeers,
       );
       if (undeclared.length > 0) {
         this.error(
-          `Published types import packages missing from dependencies/peerDependencies: ${undeclared.join(', ')}`,
+          `Published types import packages missing from dependencies/peerDependencies, or optional peers not allowed in this entry point: ${undeclared.join(', ')}`,
         );
       }
     },

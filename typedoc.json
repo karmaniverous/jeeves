@@ -1,5 +1,10 @@
 {
-  "entryPoints": ["./src/index.ts"],
+  "entryPoints": [
+    "./src/index.ts",
+    "./src/catalog/index.ts",
+    "./src/openapi/index.ts",
+    "./src/fastify/index.ts"
+  ],
   "highlightLanguages": [
     "bash",
     "console",

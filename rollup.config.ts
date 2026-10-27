@@ -69,39 +69,69 @@ const commonInputOptions: InputOptions = {
   plugins: [aliasPlugin({ entries: commonAliases }), ...commonPlugins],
 };
 
+/**
+ * Library entry points (spec 5.1): output name (under `dist/`) to source,
+ * plus the optional peers each entry point's declarations may import. The
+ * root and `catalog` entry points may import none, so consumers that don't
+ * adopt the catalog never need Fastify or the OpenAPI libraries.
+ */
+const libraryEntries = {
+  index: { input: 'src/index.ts', optionalPeers: [] },
+  'catalog/index': { input: 'src/catalog/index.ts', optionalPeers: [] },
+  'openapi/index': {
+    input: 'src/openapi/index.ts',
+    optionalPeers: ['zod-openapi'],
+  },
+  'fastify/index': {
+    input: 'src/fastify/index.ts',
+    optionalPeers: ['fastify', 'fastify-type-provider-zod'],
+  },
+} satisfies Record<string, { input: string; optionalPeers: string[] }>;
+
 /** Discover CLI commands under src/cli. */
 const cliCommands = (await fs.readdir('src/cli').catch(() => [])) as string[];
 
 /**
- * Build the library (ESM only).
+ * Build the library (ESM only): one bundle per entry point, with modules
+ * shared between entry points emitted once under `chunks/`.
  */
 export const buildLibrary = (dest: string): RollupOptions => ({
   ...commonInputOptions,
+  input: Object.fromEntries(
+    Object.entries(libraryEntries).map(([name, { input }]) => [name, input]),
+  ),
   output: [
     {
       dir: dest,
       extend: true,
       format: 'esm',
+      entryFileNames: '[name].js',
+      chunkFileNames: 'chunks/[name]-[hash].js',
     },
   ],
 });
 
 /**
- * Build bundled .d.ts at dest/index.d.ts.
+ * Build one bundled .d.ts per entry point at dest/<name>.d.ts, each guarded
+ * against importing undeclared packages or optional peers it may not use.
  */
-export const buildTypes = (dest: string): RollupOptions => ({
-  input: 'src/index.ts',
-  output: [{ file: `${dest}/index.d.ts`, format: 'esm' }],
-  plugins: [dtsPlugin(), dtsDependencyGuardPlugin(pkg)],
-});
+export const buildTypes = (dest: string): RollupOptions[] =>
+  Object.entries(libraryEntries).map(([name, { input, optionalPeers }]) => ({
+    input,
+    output: [{ file: `${dest}/${name}.d.ts`, format: 'esm' }],
+    plugins: [
+      dtsPlugin(),
+      dtsDependencyGuardPlugin(pkg, { allowOptionalPeers: optionalPeers }),
+    ],
+  }));
 
 /** Assemble complete config: library, types, and CLI outputs. */
 const config: RollupOptions[] = [
   // Library output (ESM)
   buildLibrary(outputPath),
 
-  // Type definitions output (single .d.ts)
-  buildTypes(outputPath),
+  // Type definitions output (one .d.ts per entry point)
+  ...buildTypes(outputPath),
 
   // CLI output.
   ...cliCommands.map<RollupOptions>((c) => ({
