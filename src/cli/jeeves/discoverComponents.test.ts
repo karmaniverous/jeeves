@@ -1,55 +1,225 @@
+import { join, resolve } from 'node:path';
+
 import { Command } from '@commander-js/extra-typings';
-import { describe, expect, it } from 'vitest';
+import spawn from 'cross-spawn';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  componentBin,
+  componentCandidates,
+  defaultDiscoveryPorts,
   discoverComponentPackages,
+  type DiscoveryPorts,
   registerComponentProxies,
+  runBin,
 } from './discoverComponents';
 
-describe('discoverComponentPackages', { timeout: 15_000 }, () => {
-  it('should return an array', () => {
-    const result = discoverComponentPackages();
-    expect(Array.isArray(result)).toBe(true);
+const ROOT = resolve('/global/node_modules');
+
+/** Ports over a fake global install. */
+function ports(
+  packages: Record<string, object | Error>,
+  overrides: Partial<DiscoveryPorts> = {},
+): DiscoveryPorts {
+  return {
+    listGlobal: () =>
+      JSON.stringify({
+        dependencies: Object.fromEntries(
+          Object.keys(packages).map((p) => [p, { version: '1.0.0' }]),
+        ),
+      }),
+    globalRoot: () => ROOT,
+    readPackageJson: (dir) => {
+      const name = Object.keys(packages).find((p) => join(ROOT, p) === dir);
+      const pkg = name === undefined ? undefined : packages[name];
+      if (pkg === undefined || pkg instanceof Error)
+        throw pkg ?? new Error('ENOENT');
+      return pkg;
+    },
+    ...overrides,
+  };
+}
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  process.exitCode = undefined;
+});
+
+describe('componentCandidates', () => {
+  it('keeps scoped jeeves-<name> packages with valid names, not -openclaw', () => {
+    expect(
+      componentCandidates([
+        '@karmaniverous/jeeves-watcher',
+        '@karmaniverous/jeeves-watcher-openclaw',
+        '@karmaniverous/jeeves-tools',
+        '@karmaniverous/jeeves-my-thing',
+        '@karmaniverous/jeeves',
+        '@karmaniverous/jeeves-Bad',
+        '@karmaniverous/jeeves-9lives',
+        '@other/jeeves-runner',
+        '@someone-else/jeeves-runner',
+        'jeeves-runner',
+      ]),
+    ).toEqual(['watcher', 'tools', 'my-thing']);
+  });
+});
+
+describe('componentBin', () => {
+  it('prefers jeeves-<name>, else the only entry, else none', () => {
+    expect(componentBin('x', { bin: 'cli.js' })).toBe('cli.js');
+    expect(
+      componentBin('x', { bin: { other: 'o.js', 'jeeves-x': 'x.js' } }),
+    ).toBe('x.js');
+    expect(componentBin('x', { bin: { only: 'only.js' } })).toBe('only.js');
+    expect(
+      componentBin('x', { bin: { a: 'a.js', b: 'b.js' } }),
+    ).toBeUndefined();
+    expect(componentBin('x', {})).toBeUndefined();
+  });
+});
+
+describe('discoverComponentPackages', () => {
+  const bin = (name: string) => ({
+    bin: { [`jeeves-${name}`]: 'dist/cli.js' },
   });
 
-  it('should return strings for any discovered packages', () => {
-    const result = discoverComponentPackages();
-    for (const name of result) {
-      expect(typeof name).toBe('string');
-      expect(name.length).toBeGreaterThan(0);
-    }
+  it('registers the four services and marked packages, with absolute bins', () => {
+    const found = discoverComponentPackages(
+      ports({
+        '@karmaniverous/jeeves-runner': bin('runner'),
+        '@karmaniverous/jeeves-watcher': bin('watcher'),
+        '@karmaniverous/jeeves-server': bin('server'),
+        '@karmaniverous/jeeves-meta': bin('meta'),
+        '@karmaniverous/jeeves-my-thing': {
+          ...bin('my-thing'),
+          jeeves: { component: true },
+        },
+        '@karmaniverous/jeeves-tools': bin('tools'),
+        '@karmaniverous/jeeves-watcher-openclaw': {
+          ...bin('watcher-openclaw'),
+          jeeves: { component: true },
+        },
+        '@karmaniverous/jeeves-unmarked': {
+          ...bin('unmarked'),
+          jeeves: { component: 'yes' },
+        },
+      }),
+    );
+    expect(found.map((c) => c.name)).toEqual([
+      'runner',
+      'watcher',
+      'server',
+      'meta',
+      'my-thing',
+    ]);
+    expect(found[4].bin).toBe(
+      resolve(ROOT, '@karmaniverous/jeeves-my-thing', 'dist/cli.js'),
+    );
   });
 
-  it('should not include openclaw packages', () => {
-    const result = discoverComponentPackages();
-    for (const name of result) {
-      expect(name).not.toContain('openclaw');
-    }
+  it('skips unreadable packages and packages without a usable bin', () => {
+    expect(
+      discoverComponentPackages(
+        ports({
+          '@karmaniverous/jeeves-runner': new Error('EACCES'),
+          '@karmaniverous/jeeves-meta': { bin: { a: 'a', b: 'b' } },
+          '@karmaniverous/jeeves-server': bin('server'),
+        }),
+      ).map((c) => c.name),
+    ).toEqual(['server']);
+  });
+
+  it('returns none when npm fails or prints no dependencies', () => {
+    const fail = () => {
+      throw new Error('npm missing');
+    };
+    expect(discoverComponentPackages(ports({}, { listGlobal: fail }))).toEqual(
+      [],
+    );
+    expect(
+      discoverComponentPackages(
+        ports(
+          { '@karmaniverous/jeeves-runner': bin('runner') },
+          { globalRoot: fail },
+        ),
+      ),
+    ).toEqual([]);
+    expect(
+      discoverComponentPackages(ports({}, { listGlobal: () => '{}' })),
+    ).toEqual([]);
+  });
+
+  it('does not ask for the global root when there are no candidates', () => {
+    const globalRoot = vi.fn(() => ROOT);
+    discoverComponentPackages(ports({ lodash: {} }, { globalRoot }));
+    expect(globalRoot).not.toHaveBeenCalled();
+  });
+});
+
+describe('defaultDiscoveryPorts', { timeout: 30_000 }, () => {
+  it('reads package.json from a directory', () => {
+    expect(defaultDiscoveryPorts.readPackageJson(process.cwd())).toMatchObject({
+      name: '@karmaniverous/jeeves',
+    });
+  });
+
+  it('asks the real npm for the global list and root', () => {
+    expect(JSON.parse(defaultDiscoveryPorts.listGlobal())).toBeTypeOf('object');
+    expect(defaultDiscoveryPorts.globalRoot()).toMatch(/node_modules$/);
+    expect(Array.isArray(discoverComponentPackages())).toBe(true);
   });
 });
 
 describe('registerComponentProxies', () => {
-  it('should register proxy commands for each component', () => {
-    const program = new Command();
-    registerComponentProxies(program, ['watcher', 'runner']);
+  const component = { name: 'watcher', bin: '/g/watcher/cli.js' };
 
-    const cmdNames = program.commands.map((c) => c.name());
-    expect(cmdNames).toContain('watcher');
-    expect(cmdNames).toContain('runner');
+  it('registers one described command per component', () => {
+    const program = new Command();
+    registerComponentProxies(program, [component, { name: 'meta', bin: 'm' }]);
+    expect(program.commands.map((c) => [c.name(), c.description()])).toEqual([
+      ['watcher', 'Proxy to jeeves-watcher CLI'],
+      ['meta', 'Proxy to jeeves-meta CLI'],
+    ]);
   });
 
-  it('should register zero commands when no components found', () => {
-    const program = new Command();
-    registerComponentProxies(program, []);
-    expect(program.commands).toHaveLength(0);
+  it('forwards every argument, including --help, and the exit code', async () => {
+    const run = vi.fn(() => 3);
+    const program = new Command().exitOverride();
+    registerComponentProxies(program, [component], run);
+    await program.parseAsync(
+      ['watcher', 'search', 'q', '--limit', '5', '--help'],
+      { from: 'user' },
+    );
+    expect(run).toHaveBeenCalledWith('/g/watcher/cli.js', [
+      'search',
+      'q',
+      '--limit',
+      '5',
+      '--help',
+    ]);
+    expect(process.exitCode).toBe(3);
   });
 
-  it('should set correct description', () => {
-    const program = new Command();
-    registerComponentProxies(program, ['meta']);
+  it('leaves the exit code alone on success or a signal', async () => {
+    for (const status of [0, null]) {
+      const program = new Command();
+      registerComponentProxies(program, [component], () => status);
+      await program.parseAsync(['watcher'], { from: 'user' });
+      expect(process.exitCode).toBeUndefined();
+    }
+  });
+});
 
-    const metaCmd = program.commands.find((c) => c.name() === 'meta');
-    expect(metaCmd).toBeDefined();
-    expect(metaCmd!.description()).toContain('jeeves-meta');
+describe('runBin', () => {
+  it('runs the bin with this Node, no shell, stdio inherited', () => {
+    const sync = vi
+      .spyOn(spawn, 'sync')
+      .mockReturnValue({ status: 7 } as ReturnType<typeof spawn.sync>);
+    expect(runBin('/g/cli.js', ['a b', '--x'])).toBe(7);
+    expect(sync).toHaveBeenCalledWith(
+      process.execPath,
+      ['/g/cli.js', 'a b', '--x'],
+      { stdio: 'inherit', shell: false },
+    );
   });
 });
