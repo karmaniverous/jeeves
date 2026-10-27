@@ -101,6 +101,9 @@ describe('jeeves install (plugin config)', () => {
     expect(existsSync(join(cfg, 'jeeves-core', 'config.json'))).toBe(true);
     expect(state.fake.calls).toEqual([]);
     expect(out.some((l) => l.includes('Restart the gateway'))).toBe(false);
+    expect(out).toContain(
+      '  (bootstrap limits not read (--content-only); using the defaults)',
+    );
     expect(out.at(-1)).toBe('✅ Jeeves installed.');
   });
 

@@ -10,14 +10,21 @@ import { describe, expect, it } from 'vitest';
 import { AGENTS_MARKERS } from '../../../constants/index.js';
 import { useTempDir } from '../../../test/tempDir.js';
 import {
+  type BootstrapLimits,
+  bootstrapLimitsNotice,
   bootstrapReportLines,
+  DEFAULT_BOOTSTRAP_LIMITS,
   hasBootstrapProblems,
   levelOf,
   measureBootstrapFiles,
   USER_FILE_MAX_CHARS,
 } from './bootstrapReport.js';
 
-const limits = { perFile: 1_000, total: 3_000, defaulted: false };
+const limits: BootstrapLimits = {
+  perFile: 1_000,
+  total: 3_000,
+  source: { perFile: 'config', total: 'config' },
+};
 
 describe('levelOf', () => {
   it('is ok below 90%, warn from 90% up to the limit, over past it', () => {
@@ -94,5 +101,60 @@ describe('measureBootstrapFiles', () => {
     const ws = tempDir();
     writeFileSync(join(ws, 'AGENTS.md'), 'short');
     expect(hasBootstrapProblems(measureBootstrapFiles(ws, limits))).toBe(false);
+  });
+});
+
+describe('bootstrapLimitsNotice', () => {
+  it.each([
+    ['config', 'config', undefined],
+    [
+      'failed',
+      'failed',
+      "could not read OpenClaw's bootstrap limits; using the defaults",
+    ],
+    [
+      'unset',
+      'unset',
+      "OpenClaw's bootstrap limits are not set; using OpenClaw's defaults",
+    ],
+    [
+      'not-read',
+      'not-read',
+      'bootstrap limits not read (--content-only); using the defaults',
+    ],
+    [
+      'config',
+      'unset',
+      "OpenClaw's bootstrap limits are not set; using OpenClaw's defaults",
+    ],
+    [
+      'unset',
+      'not-read',
+      'bootstrap limits not read (--content-only); using the defaults',
+    ],
+    [
+      'not-read',
+      'failed',
+      "could not read OpenClaw's bootstrap limits; using the defaults",
+    ],
+  ] as const)('perFile %s, total %s', (perFile, total, notice) => {
+    expect(bootstrapLimitsNotice({ perFile, total })).toBe(notice);
+  });
+
+  it('prints no notice line for config limits', () => {
+    const lines = bootstrapReportLines({
+      files: [],
+      totalChars: 0,
+      totalLevel: 'ok',
+      limits,
+    });
+    expect(lines.at(-1)).toMatch(/^ {2}total: /);
+  });
+
+  it('marks the --content-only defaults not-read', () => {
+    expect(DEFAULT_BOOTSTRAP_LIMITS.source).toEqual({
+      perFile: 'not-read',
+      total: 'not-read',
+    });
   });
 });

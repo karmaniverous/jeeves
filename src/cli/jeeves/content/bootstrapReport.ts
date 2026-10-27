@@ -50,14 +50,57 @@ const BOOTSTRAP_FILES: ReadonlyArray<{
   { name: 'MEMORY.md' },
 ];
 
-/** Limits in effect, and where they came from. */
+/**
+ * Where a limit came from (#139):
+ * - `config`: set in OpenClaw's config;
+ * - `unset`: config read, but the limit isn't set (OpenClaw's default);
+ * - `failed`: config couldn't be read (the default);
+ * - `not-read`: config deliberately not read, e.g. `--content-only`.
+ */
+export type BootstrapLimitSource = 'config' | 'unset' | 'failed' | 'not-read';
+
+/** Limits in effect, and where each came from. */
 export interface BootstrapLimits {
   /** Per-file limit. */
   perFile: number;
   /** Total limit across all injected files. */
   total: number;
-  /** Whether either value fell back to OpenClaw's default. */
-  defaulted: boolean;
+  /** Source of each limit. */
+  source: {
+    /** Source of `perFile`. */
+    perFile: BootstrapLimitSource;
+    /** Source of `total`. */
+    total: BootstrapLimitSource;
+  };
+}
+
+/** The notice for each source; `config` prints none. */
+const SOURCE_NOTICES: Record<
+  Exclude<BootstrapLimitSource, 'config'>,
+  string
+> = {
+  failed: "could not read OpenClaw's bootstrap limits; using the defaults",
+  unset: "OpenClaw's bootstrap limits are not set; using OpenClaw's defaults",
+  'not-read': 'bootstrap limits not read (--content-only); using the defaults',
+};
+
+/** Notice precedence when the two limits differ. */
+const NOTICE_ORDER = ['failed', 'not-read', 'unset'] as const;
+
+/**
+ * The notice for a pair of limit sources, or `undefined` when both came
+ * from config.
+ *
+ * @param source - Source of each limit.
+ * @returns The notice text.
+ */
+export function bootstrapLimitsNotice(
+  source: BootstrapLimits['source'],
+): string | undefined {
+  const found = NOTICE_ORDER.find(
+    (s) => source.perFile === s || source.total === s,
+  );
+  return found && SOURCE_NOTICES[found];
 }
 
 /** Severity of one measurement. */
@@ -147,14 +190,25 @@ export function measureBootstrapFiles(
 }
 
 /**
- * OpenClaw's default limits, marked as defaulted (used without reading
- * config, e.g. for `--content-only`, which must not touch OpenClaw).
+ * OpenClaw's default limits with the given source.
+ *
+ * @param source - Why the defaults apply.
+ * @returns The limits.
  */
-export const DEFAULT_BOOTSTRAP_LIMITS: BootstrapLimits = {
+export const defaultBootstrapLimits = (
+  source: Exclude<BootstrapLimitSource, 'config'>,
+): BootstrapLimits => ({
   perFile: BOOTSTRAP_FILE_MAX_CHARS,
   total: BOOTSTRAP_TOTAL_MAX_CHARS,
-  defaulted: true,
-};
+  source: { perFile: source, total: source },
+});
+
+/**
+ * OpenClaw's default limits, not read from config (`--content-only`, which
+ * must not touch OpenClaw).
+ */
+export const DEFAULT_BOOTSTRAP_LIMITS: BootstrapLimits =
+  defaultBootstrapLimits('not-read');
 
 /** Marker for a level. */
 const mark = (level: BootstrapLevel): string =>
@@ -188,11 +242,8 @@ export function bootstrapReportLines(report: BootstrapReport): string[] {
   lines.push(
     `  total: ${String(report.totalChars)} / ${String(report.limits.total)} (${pct(report.totalChars, report.limits.total)}): ${mark(report.totalLevel)}`,
   );
-  if (report.limits.defaulted) {
-    lines.push(
-      "  (could not read OpenClaw's bootstrap limits; using the defaults)",
-    );
-  }
+  const notice = bootstrapLimitsNotice(report.limits.source);
+  if (notice) lines.push(`  (${notice})`);
   return lines;
 }
 
