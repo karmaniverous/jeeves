@@ -54,6 +54,17 @@ export function isJsonContentType(contentType: string | undefined): boolean {
 }
 
 /**
+ * Whether a content type is text (`text/*`), returned as a string rather
+ * than bytes.
+ *
+ * @param contentType - A non-JSON content type.
+ * @returns True for `text/*`.
+ */
+export function isTextContentType(contentType: string): boolean {
+  return contentType.startsWith('text/');
+}
+
+/**
  * Object shape of a slot schema, or undefined when it isn't an object.
  *
  * @param schema - Slot schema.

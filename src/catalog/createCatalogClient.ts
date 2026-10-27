@@ -16,7 +16,7 @@ import {
 import { CatalogClientError } from './clientError.js';
 import { errorBodySchema } from './errorBody.js';
 import { type CatalogResponse, httpTransport } from './httpTransport.js';
-import { isJsonContentType } from './schemaHelpers.js';
+import { isJsonContentType, isTextContentType } from './schemaHelpers.js';
 import type {
   AuthScheme,
   Catalog,
@@ -174,7 +174,7 @@ async function readResponse(
     );
   }
   if (!isJsonContentType(entry.contentType))
-    return (entry.contentType as string).startsWith('text/')
+    return isTextContentType(entry.contentType as string)
       ? res.text()
       : res.bytes();
   const parsed = entry.response.safeParse(await res.json());

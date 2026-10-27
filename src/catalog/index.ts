@@ -16,6 +16,15 @@ export {
   type SlotInput,
 } from './buildCatalogRequest.js';
 export {
+  type CatalogToolAnnotations,
+  type CatalogToolDefinition,
+  catalogToolDefinition,
+  type CatalogToolOptions,
+  toolInputToRequest,
+  toolResultFromResponse,
+  toToolName,
+} from './catalogTool.js';
+export {
   CatalogClientError,
   type CatalogClientErrorDetails,
 } from './clientError.js';
