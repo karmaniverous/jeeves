@@ -1,8 +1,17 @@
+import type * as ChildProcess from 'node:child_process';
 import { join, resolve } from 'node:path';
 
 import { Command } from '@commander-js/extra-typings';
 import spawn from 'cross-spawn';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+
+const execSyncMock = vi.hoisted(() =>
+  vi.fn<(command: string, options?: object) => string>(),
+);
+vi.mock('node:child_process', async (importOriginal) => ({
+  ...(await importOriginal<typeof ChildProcess>()),
+  execSync: execSyncMock,
+}));
 
 import {
   componentBin,
@@ -42,6 +51,7 @@ function ports(
 
 afterEach(() => {
   vi.restoreAllMocks();
+  execSyncMock.mockReset();
   process.exitCode = undefined;
 });
 
@@ -156,17 +166,23 @@ describe('discoverComponentPackages', () => {
   });
 });
 
-describe('defaultDiscoveryPorts', { timeout: 30_000 }, () => {
+describe('defaultDiscoveryPorts', () => {
   it('reads package.json from a directory', () => {
     expect(defaultDiscoveryPorts.readPackageJson(process.cwd())).toMatchObject({
       name: '@karmaniverous/jeeves',
     });
   });
 
-  it('asks the real npm for the global list and root', () => {
-    expect(JSON.parse(defaultDiscoveryPorts.listGlobal())).toBeTypeOf('object');
-    expect(defaultDiscoveryPorts.globalRoot()).toMatch(/node_modules$/);
-    expect(Array.isArray(discoverComponentPackages())).toBe(true);
+  it('asks npm for the global list and root, with a timeout', () => {
+    execSyncMock.mockReturnValueOnce('{"dependencies":{}}');
+    expect(defaultDiscoveryPorts.listGlobal()).toBe('{"dependencies":{}}');
+    execSyncMock.mockReturnValueOnce('/g/node_modules\n');
+    expect(defaultDiscoveryPorts.globalRoot()).toBe('/g/node_modules');
+    expect(execSyncMock.mock.calls.map((c) => c[0])).toEqual([
+      'npm ls -g --json --depth=0',
+      'npm root -g',
+    ]);
+    expect(execSyncMock.mock.calls[0][1]).toMatchObject({ timeout: 10_000 });
   });
 });
 
