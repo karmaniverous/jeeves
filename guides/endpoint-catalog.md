@@ -65,7 +65,7 @@ export const catalog = defineCatalog([
 ]);
 ```
 
-Each entry has a camelCase `name`, a `method`, a Fastify-syntax `path` (`:param`, or `*` for the rest of the path), a `description`, optional `params`/`query`/`body` Zod objects, a `response` schema, an `auth` description and a `kind` (`read`, `write` or `destructive`). Non-JSON entries set `contentType` and respond with `z.instanceof(Uint8Array)` or `z.string()`. Content types are lowercase and contain `json` only when they are JSON (`application/json` or a `+json` suffix).
+Each entry has a camelCase `name`, a `method`, a Fastify-syntax `path` (`:param`, or `*` for the rest of the path), a `description`, optional `params`/`query`/`body` Zod objects, a `response` schema, an `auth` description and a `kind` (`read`, `write` or `destructive`). Non-JSON entries set `contentType` and respond with `z.instanceof(Uint8Array)` or `z.string()`. A content type's media type is lowercase (parameters such as `charset=UTF-8` may not be), and it contains `json`, in lowercase, exactly when it is JSON: a `json` subtype or a `+json` suffix, such as `application/json`, `application/problem+json` or `application/json-seq`.
 
 `defineCatalog` checks the rules MCP and the tools rely on, and throws `CatalogDefinitionError` listing every violation:
 
@@ -163,6 +163,8 @@ registerOpenApiRoute(app, openApiDocument);
 - **Auth hook order.** The routes are registered in an encapsulated Fastify plugin, so add your auth hook to the root app **before** `registerCatalogRoutes`. Test it: each protected entry without credentials gets 401; each `'none'` entry doesn't.
 - **Invalid requests** get 400 with `{ error: 'Request validation failed', issues }`. Pass `formatValidationError` to return your own body (the watcher keeps its `code` field).
 - **Responses are checked** against the entry's `response` schema (and the error schema for 4xx/5xx). With `responseValidation: 'strict'`, the default, a mismatch is logged at `error` and replaced with 500 `{ error: 'Response validation failed' }`. Zod also drops object keys a schema doesn't name, so **name every field, or use `z.looseObject`**. While migrating, pass `responseValidation: 'log'`: a mismatch is logged at `warn` and the handler's body is sent unchanged. Add a test that each serialised response equals the handler's body, then switch to `'strict'`.
+- **Other errors** a handler throws go to your app's own error handler, and its reply is sent as you wrote it: objects as JSON, strings unchanged, without the catalog's response check.
+- **Registration errors** (for example a route your app already declared) reject the `registerCatalogRoutes` promise.
 
 ## 6. Client
 
