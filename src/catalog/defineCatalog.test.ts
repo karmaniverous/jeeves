@@ -60,6 +60,18 @@ describe('defineCatalog', () => {
       /duplicate route GET \/things\/:id \(also "getThing"\)/,
     ],
     [
+      'rule 2: same route under other parameter names',
+      [
+        entry(),
+        entry({
+          name: 'other',
+          path: '/things/:key',
+          params: z.object({ key: z.string() }),
+        }),
+      ],
+      /duplicate route GET \/things\/:key \(also "getThing"\)/,
+    ],
+    [
       'rule 3: non-object body',
       [entry({ method: 'POST', body: z.string() as never })],
       /body must be a Zod object/,

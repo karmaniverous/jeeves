@@ -14,6 +14,7 @@ import { isQueryArray, queryArrayItem } from './queryArray.js';
 import {
   defOf,
   isJsonContentType,
+  PATH_PARAM,
   pathParams,
   REQUEST_SLOTS,
   type RequestSlot,
@@ -235,13 +236,14 @@ export function checkUniqueness(entries: readonly CatalogEntry[]): string[] {
     if (names.has(entry.name))
       out.push(`entry "${entry.name}": duplicate name`);
     names.add(entry.name);
-    const route = `${entry.method} ${entry.path}`;
-    const other = routes.get(route);
+    // Parameter names don't distinguish routes (to Fastify or OpenAPI).
+    const key = `${entry.method} ${entry.path.replace(PATH_PARAM, ':')}`;
+    const other = routes.get(key);
     if (other)
       out.push(
-        `entry "${entry.name}": duplicate route ${route} (also "${other}")`,
+        `entry "${entry.name}": duplicate route ${entry.method} ${entry.path} (also "${other}")`,
       );
-    else routes.set(route, entry.name);
+    else routes.set(key, entry.name);
   }
   return out;
 }
