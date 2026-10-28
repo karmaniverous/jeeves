@@ -159,6 +159,18 @@ describe('registerCatalogRoutes', () => {
     });
   });
 
+  it('rejects, not crashes, when a route cannot be registered', async () => {
+    const app = Fastify({ logger: false });
+    app.get('/broken', () => 'taken');
+    const catalog = defineCatalog([testCatalog.byName('broken')]);
+    await expect(
+      registerCatalogRoutes(app, catalog, {
+        broken: () => Promise.reject(new Error('boom')),
+      }),
+    ).rejects.toThrow(/already declared/);
+    await app.close().catch(() => undefined);
+  });
+
   describe('app error replies', () => {
     it.each([
       [{ message: 'app shape' }, 409],

@@ -207,34 +207,40 @@ export async function registerCatalogRoutes<C extends Catalog>(
     CatalogHandler<CatalogEntry>
   >;
 
-  await app.register((scope, _options, done) => {
-    scope.setValidatorCompiler(validatorCompiler);
-    scope.setSerializerCompiler(({ schema, method, url, httpStatus }) =>
-      serializerFor(schema as z.ZodType, mode, (issues) => {
-        scope.log.warn(
-          { method, url, httpStatus, issues },
-          'Response validation failed (log mode): sent unparsed',
+  // A promise-returning plugin whose body runs in the executor, so a
+  // registration error (e.g. a duplicate route) rejects this promise instead
+  // of escaping as an uncaught exception.
+  await app.register(
+    (scope) =>
+      new Promise<void>((resolve) => {
+        scope.setValidatorCompiler(validatorCompiler);
+        scope.setSerializerCompiler(({ schema, method, url, httpStatus }) =>
+          serializerFor(schema as z.ZodType, mode, (issues) => {
+            scope.log.warn(
+              { method, url, httpStatus, issues },
+              'Response validation failed (log mode): sent unparsed',
+            );
+          }),
         );
-      }),
-    );
-    scope.setErrorHandler(errorHandlerFor(format));
+        scope.setErrorHandler(errorHandlerFor(format));
 
-    for (const entry of catalog.entries) {
-      const handler = byName[entry.name];
-      scope.route({
-        method: entry.method,
-        url: entry.path,
-        schema: routeSchema(entry),
-        handler: async (request, reply) => {
-          const input = {
-            params: request.params,
-            query: request.query,
-            body: request.body ?? {},
-          } as RequestInput<CatalogEntry>;
-          return send(entry, await handler(input, request), reply);
-        },
-      });
-    }
-    done();
-  });
+        for (const entry of catalog.entries) {
+          const handler = byName[entry.name];
+          scope.route({
+            method: entry.method,
+            url: entry.path,
+            schema: routeSchema(entry),
+            handler: async (request, reply) => {
+              const input = {
+                params: request.params,
+                query: request.query,
+                body: request.body ?? {},
+              } as RequestInput<CatalogEntry>;
+              return send(entry, await handler(input, request), reply);
+            },
+          });
+        }
+        resolve();
+      }),
+  );
 }
