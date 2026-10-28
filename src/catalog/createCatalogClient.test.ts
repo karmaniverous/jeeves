@@ -375,4 +375,16 @@ describe('createCatalogClient with a fetch spy', () => {
     expectTypeOf(client.render).returns.resolves.toEqualTypeOf<Uint8Array>();
     expect(Object.keys(client)).toEqual(testCatalog.entries.map((e) => e.name));
   });
+
+  it('makes input optional only when no field is required', () => {
+    const client = createCatalogClient(testCatalog, { baseUrl: 'http://svc' });
+    expectTypeOf(client.readme).toBeCallableWith();
+    expectTypeOf<Parameters<typeof client.readme>['length']>().toEqualTypeOf<
+      0 | 1
+    >();
+    expectTypeOf<
+      Parameters<typeof client.getThing>['length']
+    >().toEqualTypeOf<1>();
+    expect(typeof client.readme).toBe('function');
+  });
 });

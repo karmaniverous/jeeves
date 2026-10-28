@@ -46,7 +46,10 @@ export type ClientResponse<E extends CatalogEntry> =
 /** One method per catalog entry, keyed by entry name. */
 export type CatalogClient<C extends Catalog> = {
   [E in C['entries'][number] as E['name']]: (
-    input: CatalogInput<E>,
+    // Optional when the entry has no required input field.
+    ...input: Record<never, never> extends CatalogInput<E>
+      ? [input?: CatalogInput<E>]
+      : [input: CatalogInput<E>]
   ) => Promise<ClientResponse<E>>;
 };
 
