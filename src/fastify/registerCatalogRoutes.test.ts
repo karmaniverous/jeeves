@@ -360,27 +360,29 @@ describe('registerCatalogRoutes', () => {
 
   it('types handlers by entry name: missing or extra keys fail', () => {
     type H = CatalogHandlers<typeof deleteOnly>;
+    // Exactly one key per entry name: no extra handler names.
     expectTypeOf<keyof H>().toEqualTypeOf<'deleteThing'>();
-    // @ts-expect-error missing handler
-    const missing: H = {};
-    const extra: H = {
+    // ...and none optional: an empty object isn't a full handler set.
+    expectTypeOf<Record<string, never>>().not.toExtend<H>();
+    const full: H = {
       deleteThing: () =>
         Promise.resolve({ status: 200, body: { deleted: true } }),
-      // @ts-expect-error extra handler
-      other: () => Promise.resolve({ status: 200, body: {} }),
     };
-    expect([missing, extra]).toHaveLength(2);
+    expect(Object.keys(full)).toEqual(['deleteThing']);
     expectTypeOf<Parameters<H['deleteThing']>[0]['params']>().toEqualTypeOf<{
       id: string;
     }>();
   });
 
   it('types a wrong success body as an error', () => {
-    const handlers: CatalogHandlers<typeof deleteOnly> = {
-      // @ts-expect-error body does not match the response schema
-      deleteThing: () => Promise.resolve({ status: 200, body: { nope: 1 } }),
-    };
-    expect(handlers).toBeDefined();
+    type Handler = CatalogHandlers<typeof deleteOnly>['deleteThing'];
+    expectTypeOf<
+      () => Promise<{ status: 200; body: { nope: number } }>
+    >().not.toExtend<Handler>();
+    expectTypeOf<
+      () => Promise<{ status: 200; body: { deleted: boolean } }>
+    >().toExtend<Handler>();
+    expect(deleteOnly.entries).toHaveLength(1);
   });
 });
 

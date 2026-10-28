@@ -108,8 +108,13 @@ describe('buildCatalogRequest', () => {
       name: string;
       size?: number | undefined;
     }>();
-    // @ts-expect-error id is required
-    expect(() => buildCatalogRequest(getThing, {})).toThrow(CatalogClientError);
+    // id is required: an empty input isn't a valid input type.
+    expectTypeOf<Record<string, never>>().not.toExtend<
+      CatalogInput<typeof getThing>
+    >();
+    expect(() => buildCatalogRequest(getThing, {} as never)).toThrow(
+      CatalogClientError,
+    );
   });
 });
 
