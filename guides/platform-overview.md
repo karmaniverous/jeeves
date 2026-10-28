@@ -35,6 +35,7 @@ Knowledge synthesis engine that discovers `.meta/` directories in the filesystem
 Shared library and CLI that provides the substrate all components build on:
 
 - **Plugin SDK** — canonical types (`PluginApi`, `ToolResult`, `ToolDescriptor`), result formatters (`ok`/`fail`/`connectionFail`), HTTP helpers (`fetchJson`/`postJson`), resolution utilities (`resolveWorkspacePath`/`resolvePluginSetting`), the `before_prompt_build` prompt-context helper (`registerPromptContext`), and lifecycle disposal (`onPluginDispose`)
+- **Endpoint catalog** (0.8.0, opt-in): @karmaniverous/jeeves/catalog describes a component's HTTP API once; @karmaniverous/jeeves/fastify registers its routes with validation, @karmaniverous/jeeves/openapi writes its OpenAPI document, and the same catalog drives a typed client and the plugin tools. See [Adopting the Endpoint Catalog](endpoint-catalog.md).
 - **Service SDK** — service CLI, service manager, and transport-agnostic config query/apply and status handlers
 - **Service discovery** — URL and bind-address resolution
 - **Managed-block primitives** — pure `renderManagedBlock` / `upsertManagedBlock` / `removeManagedBlock` / `parseManaged`, `atomicWrite` and `withFileLock`
