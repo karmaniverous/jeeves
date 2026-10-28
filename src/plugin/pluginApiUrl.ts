@@ -13,6 +13,16 @@ import type { ClientAuth } from '../catalog/clientAuth.js';
 import type { Catalog } from '../catalog/types.js';
 import type { PluginApi } from './types.js';
 
+/** How one catalog entry is exposed as a plugin tool (the `tools` values). */
+const catalogToolSelectionSchema = z.object({
+  /** Description override; default the entry's. */
+  description: z.string().optional(),
+  /** Tool parameter names for entry fields, keyed by entry field. */
+  inputAliases: z.record(z.string(), z.string()).optional(),
+  /** `'direct-only'`: always model-visible, even under Tool Search. */
+  catalogMode: z.literal('direct-only').optional(),
+});
+
 /**
  * Lazy `apiUrl` resolver, evaluated on every tool call (so a plugin can
  * read its config at call time, like `configRoot`).
@@ -46,20 +56,7 @@ export const pluginToolsetOptionsSchema = z.object({
     .optional(),
   /** Catalog entries to expose as tools, keyed by entry name. */
   tools: z
-    .record(
-      z.string(),
-      z.union([
-        z.literal(true),
-        z.object({
-          /** Description override; default the entry's. */
-          description: z.string().optional(),
-          /** Tool parameter names for entry fields, keyed by entry field. */
-          inputAliases: z.record(z.string(), z.string()).optional(),
-          /** `'direct-only'`: always model-visible, even under Tool Search. */
-          catalogMode: z.literal('direct-only').optional(),
-        }),
-      ]),
-    )
+    .record(z.string(), z.union([z.literal(true), catalogToolSelectionSchema]))
     .optional(),
   /** Credential for catalog-built tools. */
   auth: z
@@ -76,14 +73,7 @@ export const pluginToolsetOptionsSchema = z.object({
 });
 
 /** How one catalog entry is exposed as a plugin tool. */
-export interface CatalogToolSelection {
-  /** Description override; default the entry's. */
-  description?: string;
-  /** Tool parameter names for entry fields, keyed by entry field. */
-  inputAliases?: Record<string, string>;
-  /** `'direct-only'`: always model-visible, even under Tool Search. */
-  catalogMode?: 'direct-only';
-}
+export type CatalogToolSelection = z.infer<typeof catalogToolSelectionSchema>;
 
 /** Options for {@link createPluginToolset}. */
 export interface PluginToolsetOptions<C extends Catalog = Catalog> {
