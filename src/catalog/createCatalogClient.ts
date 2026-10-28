@@ -115,17 +115,20 @@ export function createCatalogClient<C extends Catalog>(
 
   const call = async (entry: CatalogEntry, input: unknown) => {
     const request = buildCatalogRequest(entry, input as never);
-    await attachCredential(entry, request, credential);
-    let res: CatalogResponse;
     try {
-      res = await transport(request, AbortSignal.timeout(timeoutMs));
+      await attachCredential(entry, request, credential);
+      const res = await transport(request, AbortSignal.timeout(timeoutMs));
+      return await readResponse(entry, res);
     } catch (cause) {
+      // HTTP-status and schema errors pass through; anything else (a failed
+      // credential resolver, a network error, a timeout while the body is
+      // still arriving, malformed JSON) is a status-0 client error (5.4).
+      if (cause instanceof CatalogClientError) throw cause;
       throw new CatalogClientError(`${entry.name} request failed`, {
         status: 0,
         cause,
       });
     }
-    return readResponse(entry, res);
   };
 
   return Object.fromEntries(

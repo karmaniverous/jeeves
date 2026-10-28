@@ -283,6 +283,58 @@ describe('createCatalogClient with a fetch spy', () => {
     });
   });
 
+  it('wraps a malformed 2xx JSON body as status 0', async () => {
+    const error = await failure(
+      createCatalogClient(catalog, {
+        baseUrl: 'http://svc',
+        fetch: spy('{not json'),
+      }).open({}),
+    );
+    expect(error.status).toBe(0);
+    expect(error.cause).toBeInstanceOf(SyntaxError);
+  });
+
+  it('wraps a timeout while the body is still arriving as status 0', async () => {
+    const slowBody = vi.fn(
+      (_input: Parameters<typeof fetch>[0], init?: RequestInit) =>
+        Promise.resolve(
+          new Response(
+            new ReadableStream({
+              start(controller) {
+                controller.enqueue(new TextEncoder().encode('{"ok":'));
+                init?.signal?.addEventListener('abort', () => {
+                  controller.error(init.signal?.reason);
+                });
+              },
+            }),
+            { status: 200 },
+          ),
+        ),
+    );
+    const error = await failure(
+      createCatalogClient(catalog, {
+        baseUrl: 'http://svc',
+        fetch: slowBody,
+        timeoutMs: 20,
+      }).open({}),
+    );
+    expect(error.status).toBe(0);
+    expect((error.cause as Error).name).toBe('TimeoutError');
+  });
+
+  it('wraps a failing credential resolver as status 0', async () => {
+    const boom = new Error('vault down');
+    const error = await failure(
+      createCatalogClient(catalog, {
+        baseUrl: 'http://svc',
+        auth: { bearer: () => Promise.reject(boom) },
+        fetch: spy(),
+      }).bearerOnly({}),
+    );
+    expect(error.status).toBe(0);
+    expect(error.cause).toBe(boom);
+  });
+
   it('aborts after timeoutMs, default 120000', async () => {
     const timeout = vi.spyOn(AbortSignal, 'timeout');
     const hang = vi.fn(
