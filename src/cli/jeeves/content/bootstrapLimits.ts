@@ -21,6 +21,7 @@ import path from 'node:path';
 
 import { z } from 'zod';
 
+import { expandHome } from '../../../expandHome.js';
 import type { CommandRunner } from '../plugins/commandRunner.js';
 import { configGetArgs, OPENCLAW_BIN } from '../plugins/openclawCommands.js';
 import {
@@ -56,9 +57,7 @@ export type AgentsLimitsConfig = z.infer<typeof agentsSchema>;
 
 /** Expand `~`, resolve, and normalise a path for comparison. */
 function canonical(p: string, home: string): string {
-  const expanded =
-    p === '~' || /^~[/\\]/.test(p) ? path.join(home, p.slice(1)) : p;
-  const resolved = path.resolve(expanded).replace(/[/\\]+$/, '');
+  const resolved = path.resolve(expandHome(p, home)).replace(/[/\\]+$/, '');
   return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
 }
 

@@ -10,22 +10,11 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
+import { expandHome } from '../expandHome.js';
 import type { PluginApi, PluginContext } from './types.js';
 
 /** Whether the "workspace not configured" warning has been logged. */
 let warnedUnconfigured = false;
-
-/**
- * Expand a leading `~` to the home directory.
- *
- * @param path - Path.
- * @returns The expanded path.
- */
-function expandHome(path: string): string {
-  return path === '~' || /^~[/\\]/.test(path)
-    ? join(homedir(), path.slice(1))
-    : path;
-}
 
 /**
  * OpenClaw's default workspace for this process: `<state dir>/workspace`,

@@ -244,6 +244,16 @@ describe('writeOpenApiDocument and checkOpenApiDrift', () => {
     expect(diff).not.toContain('+ extra');
   });
 
+  it('lists lines only the generated document has', () => {
+    const file = join(dir, 'shorter.json');
+    const generated = JSON.stringify(doc, null, 2).split('\n');
+    writeFileSync(file, generated.slice(0, -2).join('\n'));
+    const { diff } = checkOpenApiDrift(catalog, info, file);
+    const last = generated.at(-1) ?? '';
+    expect(diff).toContain(`+ ${last}`);
+    expect(diff).not.toContain(`- ${last}`);
+  });
+
   it('caps a large diff', () => {
     const file = join(dir, 'empty.json');
     writeFileSync(file, '\n'.repeat(200));
