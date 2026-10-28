@@ -168,7 +168,14 @@ function errorHandlerFor(
       request.log.error({ issues: error.issues }, 'Response validation failed');
       return reply.status(500).send(RESPONSE_FAILED);
     }
-    reply.serializer((payload: unknown) => JSON.stringify(payload));
+    // Strings go out as the app sent them; objects as JSON, typed as such
+    // unless the app set a content type.
+    reply.serializer((payload: unknown) => {
+      if (typeof payload === 'string') return payload;
+      if (!reply.hasHeader('content-type'))
+        void reply.type('application/json; charset=utf-8');
+      return JSON.stringify(payload);
+    });
     throw error;
   };
 }

@@ -189,6 +189,32 @@ describe('registerCatalogRoutes', () => {
         const res = await app.inject('/broken');
         expect(res.statusCode).toBe(status);
         expect(res.json()).toEqual(body);
+        expect(res.headers['content-type']).toMatch(/^application\/json/);
+        await app.close();
+      },
+    );
+
+    it.each([
+      ['a JSON string', 'application/json', '{"error":"pre"}'],
+      ['plain text', 'text/plain', 'app text'],
+      ['an untyped string', undefined, 'app text'],
+    ])(
+      'sends %s from the app error handler as is',
+      async (_label, type, payload) => {
+        const app = Fastify({ logger: false });
+        app.setErrorHandler((_error, _request, reply) => {
+          if (type) void reply.type(type);
+          return reply.status(500).send(payload);
+        });
+        const catalog = defineCatalog([testCatalog.byName('broken')]);
+        await registerCatalogRoutes(app, catalog, {
+          broken: () => Promise.reject(new Error('boom')),
+        });
+        const res = await app.inject('/broken');
+        expect(res.body).toBe(payload);
+        expect(res.headers['content-type']).toMatch(
+          new RegExp(`^${type ?? 'text/plain'}`),
+        );
         await app.close();
       },
     );
