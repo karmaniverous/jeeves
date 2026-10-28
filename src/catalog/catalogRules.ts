@@ -188,20 +188,26 @@ function checkConvertible(entry: CatalogEntry, shapes: SlotShapes): string[] {
 }
 
 /**
- * Rule 8: a non-JSON response is bytes or text. A content type is also
- * lowercase, and contains `json` only when it is JSON, so the type-level
- * `IsJsonEntry` agrees with the runtime check.
+ * Rule 8: a non-JSON response is bytes or text. A content type's media type
+ * is also lowercase (parameters such as `charset=UTF-8` may not be), and
+ * `json` appears in it, in lowercase, exactly when the runtime treats it as
+ * JSON, so the type-level `IsJsonEntry` agrees with the runtime check.
  *
  * @param entry - The entry.
  * @returns Violations.
  */
 function checkNonJsonResponse(entry: CatalogEntry): string[] {
   const { contentType } = entry;
-  if (contentType !== undefined && contentType !== contentType.toLowerCase())
-    return ['contentType must be lowercase'];
+  if (contentType !== undefined) {
+    const mediaType = contentType.split(';')[0];
+    if (mediaType !== mediaType.toLowerCase())
+      return ['contentType must be lowercase before any parameters'];
+    if (isJsonContentType(contentType) !== contentType.includes('json'))
+      return [
+        `contentType "${contentType}": IsJsonEntry and the runtime JSON check disagree (json names JSON, in lowercase)`,
+      ];
+  }
   if (isJsonContentType(contentType)) return [];
-  if (contentType?.includes('json'))
-    return [`contentType "${contentType}" names json but is not JSON`];
   const { type } = defOf(entry.response);
   const bytes =
     type === 'custom' && entry.response.safeParse(new Uint8Array()).success;

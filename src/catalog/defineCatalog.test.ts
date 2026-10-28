@@ -126,9 +126,14 @@ describe('defineCatalog', () => {
       /contentType must be lowercase/,
     ],
     [
+      'rule 8: JSON named in uppercase in a parameter',
+      [entry({ contentType: 'text/plain; x=a/JSON', response: z.string() })],
+      /names json but is not JSON|JSON check disagree/,
+    ],
+    [
       'rule 8: json in a non-JSON content type',
       [entry({ contentType: 'application/x-ndjson', response: z.string() })],
-      /names json but is not JSON/,
+      /JSON check disagree/,
     ],
     [
       'rule 8: non-JSON response not bytes or text',
@@ -197,6 +202,17 @@ describe('defineCatalog', () => {
           path: '/t/:id',
           contentType: 'text/markdown',
           response: z.string(),
+        }),
+        entry({
+          name: 'charset',
+          path: '/c/:id',
+          contentType: 'text/plain; charset=UTF-8',
+          response: z.string(),
+        }),
+        entry({
+          name: 'jsonSeq',
+          path: '/j/:id',
+          contentType: 'application/json-seq',
         }),
       ]),
     ).toEqual([]);
