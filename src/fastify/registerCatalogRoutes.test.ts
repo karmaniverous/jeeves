@@ -194,6 +194,24 @@ describe('registerCatalogRoutes', () => {
       },
     );
 
+    it('keeps a content type the app set on an object reply', async () => {
+      const app = Fastify({ logger: false });
+      app.setErrorHandler((_error, _request, reply) =>
+        reply
+          .type('application/problem+json')
+          .status(500)
+          .send({ title: 'boom' }),
+      );
+      const catalog = defineCatalog([testCatalog.byName('broken')]);
+      await registerCatalogRoutes(app, catalog, {
+        broken: () => Promise.reject(new Error('boom')),
+      });
+      const res = await app.inject('/broken');
+      expect(res.headers['content-type']).toBe('application/problem+json');
+      expect(res.json()).toEqual({ title: 'boom' });
+      await app.close();
+    });
+
     it.each([
       ['a JSON string', 'application/json', '{"error":"pre"}'],
       ['plain text', 'text/plain', 'app text'],
