@@ -8,10 +8,11 @@ import { z } from 'zod';
 
 import { invalidInputError } from './clientError.js';
 import {
+  acceptsUnnamedKeys,
+  defOf,
   PATH_PARAM,
   REQUEST_SLOTS,
   shapeOf,
-  unknownKeys,
 } from './schemaHelpers.js';
 import type { CatalogEntry } from './types.js';
 
@@ -45,8 +46,8 @@ export interface CatalogRequest {
  *
  * @param entry - Catalog entry.
  * @returns A Zod object over every request field. Unnamed keys follow the
- *   body: kept for `z.looseObject`, rejected for `z.strictObject`, else
- *   dropped.
+ *   body's catchall: kept for `z.looseObject`, checked for a typed
+ *   `.catchall(...)`, rejected for `z.strictObject`, else dropped.
  */
 export function mergedInputSchema(entry: CatalogEntry): z.ZodObject {
   const shape = Object.assign(
@@ -56,9 +57,9 @@ export function mergedInputSchema(entry: CatalogEntry): z.ZodObject {
       return schema ? shapeOf(schema) : {};
     }),
   ) as z.ZodRawShape;
-  const mode = entry.body ? unknownKeys(entry.body) : 'strip';
-  if (mode === 'loose') return z.looseObject(shape);
-  return mode === 'strict' ? z.strictObject(shape) : z.object(shape);
+  const merged = z.object(shape);
+  const catchall = entry.body ? defOf(entry.body).catchall : undefined;
+  return catchall ? merged.catchall(catchall) : merged;
 }
 
 /**
@@ -136,13 +137,13 @@ export function buildCatalogRequest<E extends CatalogEntry>(
   };
   if (entry.body) {
     const named = new Set(Object.keys(mergedInputSchema(entry).shape));
-    // A loose body also carries the input keys no slot names (5.4).
-    const unnamed =
-      unknownKeys(entry.body) === 'loose'
-        ? Object.entries(flat).filter(
-            ([key, value]) => !named.has(key) && value !== undefined,
-          )
-        : [];
+    // A body with a catchall also carries the input keys no slot names; the
+    // merged schema has already checked them against it.
+    const unnamed = acceptsUnnamedKeys(entry.body)
+      ? Object.entries(flat).filter(
+          ([key, value]) => !named.has(key) && value !== undefined,
+        )
+      : [];
     request.body = Object.fromEntries([
       ...slotFields(entry, 'body', flat),
       ...unnamed,

@@ -12,6 +12,7 @@ const catalog = defineCatalog(
       ['loose', z.looseObject({ a: z.string() })],
       ['plain', z.object({ a: z.string() })],
       ['strict', z.strictObject({ a: z.string() })],
+      ['typed', z.object({ a: z.string() }).catchall(z.number())],
     ] as const
   ).map(([name, body]) => ({
     name,
@@ -52,6 +53,20 @@ describe('loose request bodies', () => {
       catalogToolDefinition(catalog.byName('plain'), { prefix: 'acme' })
         .inputSchema,
     ).toHaveProperty('additionalProperties', false);
+  });
+
+  it('a typed catchall checks unnamed fields before sending them', () => {
+    const typed = catalog.byName('typed');
+    expect(() => buildCatalogRequest(typed, input)).toThrow(
+      /Invalid input for "typed": extra: /,
+    );
+    expect(buildCatalogRequest(typed, { ...input, extra: 2 }).body).toEqual({
+      a: 'v',
+      extra: 2,
+    });
+    expect(
+      catalogToolDefinition(typed, { prefix: 'acme' }).inputSchema,
+    ).toHaveProperty('additionalProperties', { type: 'number' });
   });
 
   it('a strict body still rejects unnamed fields', () => {

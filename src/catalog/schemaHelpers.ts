@@ -80,17 +80,15 @@ export function shapeOf(
 }
 
 /**
- * How an object schema treats keys its shape doesn't name.
+ * Whether an object schema accepts keys its shape doesn't name: a catchall
+ * other than `z.never()` (`z.looseObject` or a typed `.catchall(...)`).
  *
  * @param schema - Object schema.
- * @returns `loose` (kept), `strict` (rejected) or `strip` (dropped).
+ * @returns True when unnamed keys are kept.
  */
-export function unknownKeys(
-  schema: z.core.$ZodType,
-): 'loose' | 'strict' | 'strip' {
+export function acceptsUnnamedKeys(schema: z.core.$ZodType): boolean {
   const { catchall } = defOf(schema);
-  if (!catchall) return 'strip';
-  return defOf(catchall).type === 'never' ? 'strict' : 'loose';
+  return catchall !== undefined && defOf(catchall).type !== 'never';
 }
 
 /** A `:name` path parameter segment; group 1 is the name. */
