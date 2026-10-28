@@ -13,7 +13,11 @@ import {
 } from 'zod-openapi';
 
 import { errorBodySchema } from '../catalog/errorBody.js';
-import { isJsonContentType, PATH_PARAM } from '../catalog/schemaHelpers.js';
+import {
+  isJsonContentType,
+  isTextContentType,
+  PATH_PARAM,
+} from '../catalog/schemaHelpers.js';
 import type {
   AuthScheme,
   AuthSpec,
@@ -101,7 +105,7 @@ function successContent(entry: CatalogEntry): ZodOpenApiContentObject {
   const contentType = entry.contentType as string;
   return {
     [contentType]: {
-      schema: contentType.startsWith('text/')
+      schema: isTextContentType(contentType)
         ? { type: 'string' }
         : { type: 'string', format: 'binary' },
     },
