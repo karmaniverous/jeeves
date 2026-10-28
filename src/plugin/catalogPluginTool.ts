@@ -10,6 +10,7 @@ import {
   toolResultFromResponse,
 } from '../catalog/catalogTool.js';
 import { attachCredential, type Credential } from '../catalog/clientAuth.js';
+import { CatalogClientError } from '../catalog/clientError.js';
 import { httpTransport } from '../catalog/httpTransport.js';
 import type { CatalogEntry } from '../catalog/types.js';
 import { connectionFail, fail } from './results.js';
@@ -33,6 +34,22 @@ export interface CatalogPluginToolOptions {
   credential?: Credential;
   /** Plugin id, for `connectionFail`'s `apiUrl` guidance. */
   pluginId: string;
+}
+
+/**
+ * An input error with each issue's field and reason appended, so the model
+ * can correct its call (`replace: expected boolean, received string`).
+ *
+ * @param error - Error from building the request.
+ * @returns The error, or a message listing its issues.
+ */
+function withIssues(error: unknown): unknown {
+  if (!(error instanceof CatalogClientError) || !error.issues?.length)
+    return error;
+  const details = error.issues
+    .map((i) => `${i.path.join('.') || '(input)'}: ${i.message}`)
+    .join('; ');
+  return `${error.message}: ${details}`;
 }
 
 /**
@@ -72,7 +89,7 @@ export function catalogPluginTool(
       try {
         request = toolInputToRequest(entry, params, aliases);
       } catch (error) {
-        return fail(error);
+        return fail(withIssues(error));
       }
       const baseUrl = options.resolveBaseUrl();
       try {

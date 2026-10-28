@@ -127,6 +127,17 @@ describe('createPluginToolset', () => {
     expect(result.content[0].text).toContain('Missing');
   });
 
+  it('names the field and reason for invalid tool input', async () => {
+    const tools = createPluginToolset(makeTestDescriptor(), {});
+    const applyTool = tools.find((t) => t.name === 'watcher_config_apply');
+    const result = await applyTool!.execute('test-id', {
+      config: {},
+      replace: 'yes',
+    });
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toMatch(/replace: .*boolean/i);
+  });
+
   describe('service URL', () => {
     let fetchMock: ReturnType<typeof vi.fn>;
 

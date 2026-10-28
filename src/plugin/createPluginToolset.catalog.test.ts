@@ -188,7 +188,11 @@ describe('createPluginToolset with a catalog', () => {
     const result = await tool.acme_search.execute('1', { query: 3 });
     expect(result).toMatchObject({
       isError: true,
-      content: [{ text: 'Error: Invalid input for "search"' }],
+      content: [
+        {
+          text: 'Error: Invalid input for "search": query: Invalid input: expected string, received number',
+        },
+      ],
     });
     expect(fetchMock).not.toHaveBeenCalled();
   });
