@@ -147,7 +147,9 @@ function send(
 /**
  * The catalog scope's error handler: request-validation errors become a 400
  * with the formatted body, a strict response mismatch becomes core's 500,
- * and anything else is rethrown to the app's own error handler.
+ * and anything else is rethrown to the app's own error handler. Its reply
+ * is the app's (spec 5.5), so it is sent as plain JSON, bypassing the
+ * scope's response schemas.
  *
  * @param format - Validation error body formatter.
  * @returns The error handler.
@@ -166,6 +168,7 @@ function errorHandlerFor(
       request.log.error({ issues: error.issues }, 'Response validation failed');
       return reply.status(500).send(RESPONSE_FAILED);
     }
+    reply.serializer((payload: unknown) => JSON.stringify(payload));
     throw error;
   };
 }

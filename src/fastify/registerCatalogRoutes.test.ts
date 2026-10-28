@@ -159,6 +159,29 @@ describe('registerCatalogRoutes', () => {
     });
   });
 
+  describe('app error replies', () => {
+    it.each([
+      [{ message: 'app shape' }, 409],
+      [{ code: 'E_APP', detail: { n: 1 } }, 500],
+    ])(
+      'sends the app error handler reply unchanged: %j',
+      async (body, status) => {
+        const app = Fastify({ logger: false });
+        app.setErrorHandler((_error, _request, reply) =>
+          reply.status(status).send(body),
+        );
+        const catalog = defineCatalog([testCatalog.byName('broken')]);
+        await registerCatalogRoutes(app, catalog, {
+          broken: () => Promise.reject(new Error('boom')),
+        });
+        const res = await app.inject('/broken');
+        expect(res.statusCode).toBe(status);
+        expect(res.json()).toEqual(body);
+        await app.close();
+      },
+    );
+  });
+
   describe('response validation', () => {
     it('strict (default): logs at error and replies 500', async () => {
       const app = await buildTestApp();
