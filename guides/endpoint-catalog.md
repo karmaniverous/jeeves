@@ -65,11 +65,11 @@ export const catalog = defineCatalog([
 ]);
 ```
 
-Each entry has a camelCase `name`, a `method`, a Fastify-syntax `path` (`:param`, or `*` for the rest of the path), a `description`, optional `params`/`query`/`body` Zod objects, a `response` schema, an `auth` description and a `kind` (`read`, `write` or `destructive`). Non-JSON entries set `contentType` and respond with `z.instanceof(Uint8Array)` or `z.string()`.
+Each entry has a camelCase `name`, a `method`, a Fastify-syntax `path` (`:param`, or `*` for the rest of the path), a `description`, optional `params`/`query`/`body` Zod objects, a `response` schema, an `auth` description and a `kind` (`read`, `write` or `destructive`). Non-JSON entries set `contentType` and respond with `z.instanceof(Uint8Array)` or `z.string()`. Content types are lowercase and contain `json` only when they are JSON (`application/json` or a `+json` suffix).
 
 `defineCatalog` checks the rules MCP and the tools rely on, and throws `CatalogDefinitionError` listing every violation:
 
-- names are camelCase and unique; `method` + `path` pairs are unique;
+- names are camelCase and unique; `method` + `path` pairs are unique, ignoring parameter names (`GET /a/:x` and `GET /a/:y` are the same route);
 - `params` keys equal the path's parameters; no field appears in more than one of `params`, `query` and `body`;
 - query fields are strings, string enums or literals, `z.coerce.*`, `z.stringbool()` or `queryArray(item)`, because Fastify delivers query values as strings and a single repeated key as a string, not an array;
 - every schema converts to JSON Schema. Use codecs (`z.codec`) in request schemas rather than `z.transform` (which doesn't convert) or `z.preprocess` (which misdescribes the wire shape).
@@ -177,7 +177,7 @@ const client = createCatalogClient(catalog, {
 const { hits } = await client.search({ query: 'invoices', limit: 5 });
 ```
 
-One method per entry, taking the merged `params`/`query`/`body` input and returning the parsed response. Credentials attach only to entries whose `auth` lists a scheme of the same kind; a lazy secret returning `undefined` attaches nothing. Failures throw `CatalogClientError`: `status` 0 with `issues` for invalid input, the HTTP status and parsed error `body` for non-2xx, `status` 0 with `cause` for network errors and timeouts.
+One method per entry, taking the merged `params`/`query`/`body` input (optional when no field is required) and returning the parsed response. A `z.looseObject` body also sends input fields no slot names; a `z.strictObject` body rejects them before sending. Credentials attach only to entries whose `auth` lists a scheme of the same kind; a lazy secret returning `undefined` attaches nothing. Failures throw `CatalogClientError`: `status` 0 with `issues` for invalid input, the HTTP status and parsed error `body` for non-2xx, `status` 0 with `cause` for network errors, timeouts (including while the body is arriving), malformed JSON and a failing credential resolver.
 
 ## 7. Plugin tools in `openclaw`
 
