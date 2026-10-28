@@ -121,6 +121,16 @@ describe('defineCatalog', () => {
       /response does not convert/,
     ],
     [
+      'rule 8: uppercase content type',
+      [entry({ contentType: 'application/JSON' })],
+      /contentType must be lowercase/,
+    ],
+    [
+      'rule 8: json in a non-JSON content type',
+      [entry({ contentType: 'application/x-ndjson', response: z.string() })],
+      /names json but is not JSON/,
+    ],
+    [
       'rule 8: non-JSON response not bytes or text',
       [entry({ contentType: 'image/png', response: z.number() })],
       /non-JSON response must be/,

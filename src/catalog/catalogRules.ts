@@ -188,13 +188,20 @@ function checkConvertible(entry: CatalogEntry, shapes: SlotShapes): string[] {
 }
 
 /**
- * Rule 8: a non-JSON response is bytes or text.
+ * Rule 8: a non-JSON response is bytes or text. A content type is also
+ * lowercase, and contains `json` only when it is JSON, so the type-level
+ * `IsJsonEntry` agrees with the runtime check.
  *
  * @param entry - The entry.
  * @returns Violations.
  */
 function checkNonJsonResponse(entry: CatalogEntry): string[] {
-  if (isJsonContentType(entry.contentType)) return [];
+  const { contentType } = entry;
+  if (contentType !== undefined && contentType !== contentType.toLowerCase())
+    return ['contentType must be lowercase'];
+  if (isJsonContentType(contentType)) return [];
+  if (contentType?.includes('json'))
+    return [`contentType "${contentType}" names json but is not JSON`];
   const { type } = defOf(entry.response);
   const bytes =
     type === 'custom' && entry.response.safeParse(new Uint8Array()).success;
