@@ -68,7 +68,8 @@ describe('scripts-core import surface', () => {
     expectTypeOf(jeeves.runScript).parameters.toEqualTypeOf<
       [name: string, fn: () => void | Promise<void>, crashDir?: string]
     >();
-    expectTypeOf(jeeves.parseArgs).toEqualTypeOf<
+    // Indexed access: a deprecated export, checked without using it (#127).
+    expectTypeOf<(typeof jeeves)['parseArgs']>().toEqualTypeOf<
       (argv?: string[]) => Record<string, string>
     >();
     expectTypeOf(jeeves.createGoogleAuth).parameters.toEqualTypeOf<

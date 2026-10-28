@@ -166,13 +166,10 @@ export {
   ensureDir,
   exponentialBackoff,
   type FlagSpec,
-  getArg,
-  getChannelWorkspace,
   type GoogleAuthOptions,
   loadEnvFile,
   nowIso,
   type OptionalSpec,
-  parseArgs,
   type ParsedArgs,
   parseRunnableArgs,
   positionalArgs,
@@ -203,3 +200,6 @@ export {
   type ServiceManagerOptions,
 } from './service/index.js';
 export { getErrorMessage, isTransientError } from './utils.js';
+
+// Deprecated (#127): `export *` keeps the re-export lint-clean.
+export * from './scripts/deprecated.js';

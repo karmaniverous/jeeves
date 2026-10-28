@@ -21,10 +21,8 @@ export {
 export {
   appendJsonl,
   ensureDir,
-  getArg,
   loadEnvFile,
   nowIso,
-  parseArgs,
   readJson,
   readJsonl,
   sleepAsync,
@@ -52,8 +50,7 @@ export {
   type RunOptions,
   runWithRetry,
 } from './shell.js';
-export {
-  getChannelWorkspace,
-  saveCache,
-  type SlackWorkspaceOptions,
-} from './slack-workspace.js';
+export { saveCache, type SlackWorkspaceOptions } from './slack-workspace.js';
+
+// Deprecated (#127): `export *` keeps the re-export lint-clean.
+export * from './deprecated.js';

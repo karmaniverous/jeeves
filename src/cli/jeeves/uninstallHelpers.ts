@@ -5,8 +5,9 @@
  * @remarks
  * Separate from the command so the file operations are testable without
  * the CLI. Never deletes the workspace `skills/` directory or the core
- * config `templates/` directory: core no longer writes either (both ship
- * with jeeves-tools), so files there belong to someone else.
+ * config `templates/` directory: core writes neither (its skills ship in the
+ * package's `skills/` folder and are removed by `jeeves skills uninstall`),
+ * so files there belong to someone else.
  *
  * @module
  */

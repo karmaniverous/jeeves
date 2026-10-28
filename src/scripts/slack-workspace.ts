@@ -73,18 +73,17 @@ async function queryChannelWorkspace(
 }
 
 /**
- * Resolve the workspace team ID that owns a Slack channel.
- * Results are cached to disk.
+ * Resolve the workspace team ID that owns a Slack channel, cached to disk
+ * (body of the deprecated `getChannelWorkspace`; internal, not
+ * exported from any entry point).
  *
  * @param channelId - Slack channel ID.
  * @param token - Slack bot token for API calls.
  * @param options - Cache path and default workspace.
- *
- * @remarks
- * No remaining consumer: jeeves-scripts-core keeps channel-to-workspace in
- * its Slack state cache. Deprecation is planned for 0.7.1 (#127).
+ * @returns The team ID.
+ * @internal
  */
-export async function getChannelWorkspace(
+export async function getChannelWorkspaceImpl(
   channelId: string,
   token: string,
   options: SlackWorkspaceOptions,

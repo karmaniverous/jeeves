@@ -7,7 +7,9 @@
  * {@link upsertPlatformSection} functions. Synchronous; writes only under the
  * given workspace and core config directories. Never writes or deletes
  * anything under the workspace `skills/` directory or the core config
- * `templates/` directory (skills and spec templates ship with jeeves-tools).
+ * `templates/` directory (since 0.7.0 the skills, with the spec templates in
+ * `jeeves-design`, ship in this package's `skills/` folder and are installed
+ * by `jeeves skills install`).
  *
  * @module
  */
