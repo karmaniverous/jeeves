@@ -12,19 +12,14 @@ import {
 import { attachCredential, type Credential } from '../catalog/clientAuth.js';
 import { httpTransport } from '../catalog/httpTransport.js';
 import type { CatalogEntry } from '../catalog/types.js';
+import type { CatalogToolSelection } from './pluginApiUrl.js';
 import { connectionFail, fail } from './results.js';
 import type { ToolDescriptor, ToolResult } from './types.js';
 
 /** What a catalog-built plugin tool needs besides its entry. */
-export interface CatalogPluginToolOptions {
+export interface CatalogPluginToolOptions extends CatalogToolSelection {
   /** Tool name prefix (the component name). */
   prefix: string;
-  /** Description override. */
-  description?: string;
-  /** Tool parameter names for entry fields, keyed by entry field. */
-  inputAliases?: Readonly<Record<string, string>>;
-  /** `'direct-only'` to stay model-visible under Tool Search. */
-  catalogMode?: 'direct-only';
   /** Request timeout in milliseconds. */
   timeoutMs: number;
   /** Resolves the service base URL on each call. */
