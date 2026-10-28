@@ -45,3 +45,25 @@ export class CatalogClientError extends Error {
     this.issues = details.issues;
   }
 }
+
+/**
+ * The error for input that fails an entry's schemas: status 0, the Zod
+ * issues, and each issue's field and reason in the message, so a caller (or
+ * a model calling a tool) can see what to correct.
+ *
+ * @param entryName - Catalog entry name.
+ * @param issues - Zod issues.
+ * @returns The error.
+ */
+export function invalidInputError(
+  entryName: string,
+  issues: z.core.$ZodIssue[],
+): CatalogClientError {
+  const details = issues
+    .map((i) => `${i.path.map(String).join('.') || '(input)'}: ${i.message}`)
+    .join('; ');
+  return new CatalogClientError(
+    `Invalid input for "${entryName}": ${details}`,
+    { status: 0, issues },
+  );
+}

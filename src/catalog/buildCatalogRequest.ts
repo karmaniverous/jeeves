@@ -6,7 +6,7 @@
 
 import { z } from 'zod';
 
-import { CatalogClientError } from './clientError.js';
+import { invalidInputError } from './clientError.js';
 import {
   PATH_PARAM,
   REQUEST_SLOTS,
@@ -112,11 +112,7 @@ export function buildCatalogRequest<E extends CatalogEntry>(
 ): CatalogRequest {
   const flat = (input ?? {}) as Record<string, unknown>;
   const parsed = mergedInputSchema(entry).safeParse(flat);
-  if (!parsed.success)
-    throw new CatalogClientError(`Invalid input for "${entry.name}"`, {
-      status: 0,
-      issues: parsed.error.issues,
-    });
+  if (!parsed.success) throw invalidInputError(entry.name, parsed.error.issues);
 
   const params = Object.fromEntries(slotFields(entry, 'params', flat));
   const path = entry.path

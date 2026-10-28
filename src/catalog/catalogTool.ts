@@ -17,7 +17,7 @@ import {
   type CatalogRequest,
   mergedInputSchema,
 } from './buildCatalogRequest.js';
-import { CatalogClientError } from './clientError.js';
+import { invalidInputError } from './clientError.js';
 import type { CatalogResponse } from './httpTransport.js';
 import { isJsonContentType, isTextContentType } from './schemaHelpers.js';
 import type { CatalogEntry, EntryKind } from './types.js';
@@ -188,10 +188,7 @@ export function toolInputToRequest(
   );
   const encoded = z.safeEncode(mergedInputSchema(entry), input);
   if (!encoded.success)
-    throw new CatalogClientError(`Invalid input for "${entry.name}"`, {
-      status: 0,
-      issues: encoded.error.issues,
-    });
+    throw invalidInputError(entry.name, encoded.error.issues);
   return buildCatalogRequest(entry, encoded.data as never);
 }
 

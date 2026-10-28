@@ -74,7 +74,9 @@ describe('buildCatalogRequest', () => {
     expect(error).toBeInstanceOf(CatalogClientError);
     expect(error).toMatchObject({
       status: 0,
-      message: 'Invalid input for "createThing"',
+      message: expect.stringMatching(
+        /^Invalid input for "createThing": name: /,
+      ) as string,
       issues: [{ path: ['name'], code: 'too_small' }],
     });
   });
