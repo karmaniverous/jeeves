@@ -58,6 +58,10 @@ After an OpenClaw upgrade, run `jeeves patch-openclaw`, then restart the gateway
 
 **Slack file downloads:** try the `message` tool's `download-file` action first. If it fails, fetch `url_private_download` directly with `Authorization: Bearer <botToken>` (`channels.slack.accounts.default.botToken` in `openclaw.json`). Never say a file can't be downloaded until both methods have failed.
 
+## Sharing Is a Human Decision
+
+Before sharing jeeves-server content, check the recipient may see it: an insider whose scope covers the path gets the insider link. **Never create or send an outsider (HMAC) share link on your own judgement**, including when a path is outside a scoped insider's access. Only a human insider may share one or tell you to. When access is missing, say so and let a human decide.
+
 ## Markdown Fence Hygiene
 
 Default to **tilde fences** (`~~~~`). Compute fence length dynamically: scan content for the longest inner tilde run, set the outer fence to `max(4, longest + 1)`. Never rely on a fixed fence length.

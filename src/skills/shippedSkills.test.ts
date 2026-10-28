@@ -6,6 +6,7 @@
  * `jeeves-platform-managed`.
  */
 
+import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -23,7 +24,7 @@ const MAX_SKILL_CHARS = 20_000;
 
 /** Managed-fleet detail that must not appear in a generic skill. */
 const FLEET_PATTERNS = [
-  /\/opt\/jeeves/,
+  /\/opt\//,
   /jeeves-tools (config set|deploy)/,
   /systemd unit/i,
 ];
@@ -52,12 +53,40 @@ describe('shipped skills', () => {
   it('ships the generic skills', () => {
     expect(skillDirs('skills')).toEqual(
       expect.arrayContaining([
+        'aws-ssm-remote-ops',
         'jeeves-coding',
         'jeeves-design',
         'jeeves-platform',
+        'jeeves-pr-review',
       ]),
     );
   });
+
+  it('catches managed-fleet paths such as /opt/dev', () => {
+    const caught = (text: string) => FLEET_PATTERNS.some((p) => p.test(text));
+    expect(caught('clone into /opt/dev/org/repo')).toBe(true);
+    expect(caught('/opt/jeeves/config')).toBe(true);
+    expect(caught('a designated dev repos directory')).toBe(false);
+  });
+
+  it('points jeeves-coding at jeeves-pr-review', () => {
+    expect(read('skills', 'jeeves-coding')).toContain('`jeeves-pr-review`');
+  });
+
+  it('includes every shipped skill in the npm package', () => {
+    const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+    const [pack] = JSON.parse(
+      execFileSync(npm, ['pack', '--dry-run', '--json', '--ignore-scripts'], {
+        cwd: root,
+        encoding: 'utf8',
+        shell: process.platform === 'win32',
+      }),
+    ) as [{ files: { path: string }[] }];
+    const files = pack.files.map((file) => file.path);
+    for (const folder of ['skills', 'skills-self-hosted'])
+      for (const name of skillDirs(folder))
+        expect(files).toContain(`${folder}/${name}/SKILL.md`);
+  }, 60_000);
 
   for (const folder of ['skills', 'skills-self-hosted']) {
     for (const name of skillDirs(folder)) {

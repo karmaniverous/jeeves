@@ -278,7 +278,7 @@ Plugin changes and OpenClaw dist patches take effect when the gateway next start
 
 ### Skills
 
-`@karmaniverous/jeeves` ships two skill folders: `skills/` (`jeeves-platform`, `jeeves-coding`, `jeeves-design`) for every instance, and `skills-self-hosted/` (`jeeves-onboarding`) for instances not managed by jeeves-tools. `jeeves skills install` adds them to OpenClaw's `skills.load.extraDirs`, so OpenClaw loads them in place from the installed package and `npm update -g` refreshes them; nothing is copied into the workspace.
+`@karmaniverous/jeeves` ships two skill folders: `skills/` (`jeeves-platform`, `jeeves-coding`, `jeeves-design`, `jeeves-pr-review`, `aws-ssm-remote-ops`) for every instance, and `skills-self-hosted/` (`jeeves-onboarding`) for instances not managed by jeeves-tools. `jeeves skills install` adds them to OpenClaw's `skills.load.extraDirs`, so OpenClaw loads them in place from the installed package and `npm update -g` refreshes them; nothing is copied into the workspace.
 
 - `--managed` wires `skills/` only; `--self-hosted` wires both. With neither, the mode follows the current wiring, and a fresh install is self-hosted, so re-running never switches modes.
 - `install` edits only this package's entries (exact match), replaces entries left behind under an old global `node_modules`, and keeps everything else in order. `uninstall` removes exactly this package's entries.

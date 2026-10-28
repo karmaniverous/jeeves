@@ -92,21 +92,28 @@ When a third-party dependency is broken:
 
 ## Dev Workspace
 
-- **Clone location:** the instance's dev repos directory (`core.devRepos` in `jeeves config`), as `{devRepos}/{org-or-userid}/{repo}`. On managed instances this is `/opt/dev` (see `jeeves-platform-managed`). Do not clone repos elsewhere.
+- **Clone location:** the directory the owner has designated for dev repos, as recorded in the workspace notes, as `<dev repos>/{org-or-userid}/{repo}`. If none is recorded, ask before cloning. Do not clone repos elsewhere.
 - Fresh clones are preferred over copying existing checkouts — `npm install` from registry is faster than disk-copying `node_modules`.
 - Dev directory is NOT indexed by jeeves-watcher. Dev work stays off the archive.
 
+## Editing Files Safely
+
+- **Windows: never round-trip source through PowerShell `Get-Content`/`Set-Content`.** It re-encodes UTF-8, so non-ASCII characters such as `§` come back as mojibake (`Â§`). Use your edit tool or Node `fs`. Before committing a bulk rewrite, grep the diff for `Â` and `â€`.
+- **Masked `${{ }}` expressions.** Tool output masking can turn GitHub Actions expressions such as `${{ github.token }}` into three asterisks, which then get written into the file. After writing any workflow or other YAML file: grep it for three asterisks (expect none) and check it parses (`python3 -c "import yaml;yaml.safe_load(open('<file>'))"`). If it is damaged, rebuild the line with a script that writes `$` as `chr(36)`.
+
 ## GitHub Auth (HARD GATE)
 
-- **ALL GitHub operations use the bot identity.** Use the existing `gh` CLI login; confirm it with `gh auth status`. The logged-in account is the instance's bot identity. This works the same on every platform.
-- For tools that need a token in an environment variable (e.g. `GH_TOKEN`), obtain it from `gh auth token` inline at the point of use. Never print, echo, or log the token.
+- **ALL GitHub operations use the bot identity.** The bot is the account the operator logged in for this instance. Other stored `gh` logins may exist and must never be used.
+- **Before any GitHub write** (issue, comment, PR, push, review), confirm the acting account with `gh api user --jq .login`. `gh auth status` passes for whichever login is active, so it doesn't prove the bot is acting. If the login isn't the bot, stop and escalate to the operator; don't switch accounts yourself.
+- For tools that need a token in an environment variable (e.g. `GH_TOKEN`), name the account: `gh auth token --user <bot>`, inline at the point of use, so the active-account setting can't change who acts. Never print, echo, or log the token.
+- A credential step that fails (unreadable file, empty token) must stop the command. Never fall back silently to whatever login is active.
 - Where the gateway service sets `GH_CONFIG_DIR` (as on managed Linux instances), `gh` finds its login there. That is not a separate auth method: always go through `gh`.
 - Never write to GitHub as the owner's personal account.
 - If the bot identity lacks permissions, **escalate to the operator** rather than falling back to a personal account.
 
 ## Pre-PR Checklist (HARD GATE)
 
-**Before creating ANY PR, run the full verification sequence. No exceptions.**
+**Before creating ANY PR, run the full verification sequence. No exceptions.** Then, before calling the PR ready or requesting review, run the finishing passes and independent review in `jeeves-pr-review`.
 
 1. Run all quality gates: `lint`, `typecheck`, `test`, `build`.
 2. In monorepos: run checks **from each package directory**, not just the root. Root-level runs may mask package-level failures due to config resolution differences.
