@@ -67,9 +67,13 @@ export function createPluginToolset<C extends Catalog = Catalog>(
     parsed.auth ? credentialOf(parsed.auth) : undefined;
   const catalog = parsed.catalog;
   const standard = catalog
-    ? (['status', 'config', 'configApply'] as const).map((n) =>
-        catalog.byName(n),
-      )
+    ? (['status', 'config', 'configApply'] as const).map((n) => {
+        if (!catalog.entries.some((e) => e.name === n))
+          throw new Error(
+            `createPluginToolset: catalog must include standardEntries(name, ...) (missing "${n}")`,
+          );
+        return catalog.byName(n);
+      })
     : standardEntries(name, { auth: { config: 'none' } });
   const toolFor = (
     entry: CatalogEntry,

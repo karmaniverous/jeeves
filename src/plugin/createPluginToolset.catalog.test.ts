@@ -198,6 +198,15 @@ describe('createPluginToolset with a catalog', () => {
   });
 });
 
+describe('createPluginToolset catalog checks', () => {
+  it('names the missing standard entry', () => {
+    const bare = defineCatalog([catalog.byName('search')]);
+    expect(() => createPluginToolset(descriptor, { catalog: bare })).toThrow(
+      'createPluginToolset: catalog must include standardEntries(name, ...) (missing "status")',
+    );
+  });
+});
+
 describe('createPluginToolset credentials', () => {
   /** The authorization header sent by a tool call. */
   const sentAuth = async (
