@@ -16,3 +16,7 @@ CHANGELOG.md
 # 0.7.0 baseline snapshots (dev-plan step 0): byte-exact files written by
 # toMatchFileSnapshot. Reformatting one makes its baseline test fail.
 src/test/baseline-0.7.0/*.json
+
+# 0.7.0 built root declarations, copied verbatim (dev-plan step 16) for the
+# type-compatibility test. Byte-for-byte the 0.7.0 output; never reformat.
+src/test/baseline-0.7.0/api-0.7.0.d.ts
