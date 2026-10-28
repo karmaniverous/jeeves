@@ -147,6 +147,7 @@
     "build": "rimraf dist && cross-env NO_COLOR=1 rollup --config rollup.config.ts --configPlugin ./rollup-config-plugin.mjs",
     "changelog": "git-cliff -o CHANGELOG.md",
     "check:packed": "npm run build && tsx scripts/check-packed-consumer.ts",
+    "generate:type-compat": "tsx scripts/generate-type-compat.ts",
     "diagrams": "cd diagrams/src && plantuml -tpng -o ../out -r .",
     "docs": "typedoc",
     "knip": "knip",
