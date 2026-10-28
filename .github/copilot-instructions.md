@@ -1,6 +1,6 @@
 # Review Instructions
 
-These are the standards every pull request in this repo is reviewed against, by any reviewer, human or AI. They match the `jeeves-pr-review` and `jeeves-coding` skills shipped in `skills/`. Rate each finding **bug**, **should-fix** or **nit**, give its `path:line`, say what is wrong and why, and say what checked out.
+These are the standards every pull request in this repo is reviewed against, by any reviewer, human or AI. They match the `jeeves-pr-review` and `jeeves-coding` skills shipped in `skills/`, with one deliberate difference: the skills allow a narrow, listed test-only `eslint-disable-next-line`, while review here keeps the strict rule and flags every suppression. Rate each finding **bug**, **should-fix** or **nit**, give its `path:line`, say what is wrong and why, and say what checked out.
 
 ## Review Philosophy
 
