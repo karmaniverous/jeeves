@@ -7,7 +7,12 @@
 import { z } from 'zod';
 
 import { CatalogClientError } from './clientError.js';
-import { PATH_PARAM, REQUEST_SLOTS, shapeOf } from './schemaHelpers.js';
+import {
+  PATH_PARAM,
+  REQUEST_SLOTS,
+  shapeOf,
+  unknownKeys,
+} from './schemaHelpers.js';
 import type { CatalogEntry } from './types.js';
 
 /** Wire input of an optional slot schema; `unknown` when absent. */
@@ -39,18 +44,21 @@ export interface CatalogRequest {
  * The merged object schema of an entry's request slots.
  *
  * @param entry - Catalog entry.
- * @returns A Zod object over every request field.
+ * @returns A Zod object over every request field. Unnamed keys follow the
+ *   body: kept for `z.looseObject`, rejected for `z.strictObject`, else
+ *   dropped.
  */
 export function mergedInputSchema(entry: CatalogEntry): z.ZodObject {
-  return z.object(
-    Object.assign(
-      {},
-      ...REQUEST_SLOTS.map((slot) => {
-        const schema = entry[slot];
-        return schema ? shapeOf(schema) : {};
-      }),
-    ) as z.ZodRawShape,
-  );
+  const shape = Object.assign(
+    {},
+    ...REQUEST_SLOTS.map((slot) => {
+      const schema = entry[slot];
+      return schema ? shapeOf(schema) : {};
+    }),
+  ) as z.ZodRawShape;
+  const mode = entry.body ? unknownKeys(entry.body) : 'strip';
+  if (mode === 'loose') return z.looseObject(shape);
+  return mode === 'strict' ? z.strictObject(shape) : z.object(shape);
 }
 
 /**
@@ -130,7 +138,19 @@ export function buildCatalogRequest<E extends CatalogEntry>(
     query,
     headers: {},
   };
-  if (entry.body)
-    request.body = Object.fromEntries(slotFields(entry, 'body', flat));
+  if (entry.body) {
+    const named = new Set(Object.keys(mergedInputSchema(entry).shape));
+    // A loose body also carries the input keys no slot names (5.4).
+    const unnamed =
+      unknownKeys(entry.body) === 'loose'
+        ? Object.entries(flat).filter(
+            ([key, value]) => !named.has(key) && value !== undefined,
+          )
+        : [];
+    request.body = Object.fromEntries([
+      ...slotFields(entry, 'body', flat),
+      ...unnamed,
+    ]);
+  }
   return request;
 }

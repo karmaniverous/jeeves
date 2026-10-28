@@ -21,6 +21,8 @@ export interface SchemaDef {
   in?: z.core.$ZodType;
   /** Set on `z.coerce.*` schemas. */
   coerce?: boolean;
+  /** Object catchall: `unknown` for `z.looseObject`, `never` for `z.strictObject`. */
+  catchall?: z.core.$ZodType;
   /** Enum entries. */
   entries?: Record<string, unknown>;
   /** Literal values. */
@@ -75,6 +77,20 @@ export function shapeOf(
 ): Record<string, z.core.$ZodType> | undefined {
   const def = defOf(schema);
   return def.type === 'object' ? def.shape : undefined;
+}
+
+/**
+ * How an object schema treats keys its shape doesn't name.
+ *
+ * @param schema - Object schema.
+ * @returns `loose` (kept), `strict` (rejected) or `strip` (dropped).
+ */
+export function unknownKeys(
+  schema: z.core.$ZodType,
+): 'loose' | 'strict' | 'strip' {
+  const { catchall } = defOf(schema);
+  if (!catchall) return 'strip';
+  return defOf(catchall).type === 'never' ? 'strict' : 'loose';
 }
 
 /** A `:name` path parameter segment; group 1 is the name. */
