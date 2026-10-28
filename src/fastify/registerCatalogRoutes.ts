@@ -187,7 +187,9 @@ function errorHandlerFor(
 export async function registerCatalogRoutes<C extends Catalog>(
   app: FastifyInstance,
   catalog: C,
-  handlers: CatalogHandlers<C>,
+  // NoInfer: C comes from the catalog alone, so handler returns are
+  // contextually typed (a literal status: 200 stays a SuccessStatus).
+  handlers: NoInfer<CatalogHandlers<C>>,
   options: RegisterCatalogRoutesOptions = {},
 ): Promise<void> {
   const mode = options.responseValidation ?? 'strict';

@@ -192,7 +192,7 @@ describe('registerCatalogRoutes', () => {
       await registerCatalogRoutes(app, deleteOnly, {
         deleteThing: () =>
           Promise.resolve({
-            status: 200 as const,
+            status: 200,
             body: { deleted: true, extra: 1 } as { deleted: boolean },
           }),
       });
@@ -248,7 +248,7 @@ describe('registerCatalogRoutes', () => {
             fail
               ? { status: 404 as const, body: { error: 'gone' } }
               : {
-                  status: 200 as const,
+                  status: 200,
                   body: 'plain',
                   headers: { 'content-type': 'text/plain' },
                 },
