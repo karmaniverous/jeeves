@@ -47,7 +47,7 @@ export type ClientResponse<E extends CatalogEntry> =
 export type CatalogClient<C extends Catalog> = {
   [E in C['entries'][number] as E['name']]: (
     // Optional when the entry has no required input field.
-    ...input: Record<never, never> extends CatalogInput<E>
+    ...input: Partial<CatalogInput<E>> extends CatalogInput<E>
       ? [input?: CatalogInput<E>]
       : [input: CatalogInput<E>]
   ) => Promise<ClientResponse<E>>;
