@@ -95,6 +95,11 @@ export {
   resetInit,
 } from './init.js';
 export {
+  computeInsiderKey,
+  computeOutsiderKeyWithExpiry,
+  computePathKey,
+} from './linkKeys.js';
+export {
   atomicWrite,
   formatBeginMarker,
   formatEndMarker,

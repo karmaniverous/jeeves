@@ -224,6 +224,10 @@ Pre-defined marker sets: `SOUL_MARKERS`, `AGENTS_MARKERS`, and `LEGACY_TOOLS_MAR
 
 - **`getServiceUrl(serviceName, consumerName?)`** — resolves a service URL via: consumer config → core config → default port constants.
 
+## jeeves-server Link Keys
+
+`computeInsiderKey(apiKey)`, `computePathKey(apiKey, urlPath)` and `computeOutsiderKeyWithExpiry(apiKey, urlPath, expiry)` compute the HMAC keys in jeeves-server insider and share links, identical to jeeves-server's own, so any component can build a link without depending on jeeves-server. Paths are compared lower-case without leading or trailing slashes. Each returns 32 hex characters.
+
 ## Service Management
 
 `createServiceManager(descriptor)` backs each component's `service` CLI and `{name}_service` tool (install, uninstall, start, stop, restart, status). It uses NSSM on Windows and a launchd agent on macOS. On Linux it first looks for a system unit named `<service>.service` (for example `/etc/systemd/system/jeeves-watcher.service`, the way jeeves-tools provisions managed instances):

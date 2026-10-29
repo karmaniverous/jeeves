@@ -37,7 +37,14 @@ const rootAt070 = [
 
 /** Spec 5.1, as amended 2026-10-28. */
 const EXPECTED: Record<keyof typeof ENTRIES, string[]> = {
-  root: [...rootAt070, 'CatalogToolSelection', 'PluginContext'],
+  root: [
+    ...rootAt070,
+    'CatalogToolSelection',
+    'PluginContext',
+    'computeInsiderKey',
+    'computeOutsiderKeyWithExpiry',
+    'computePathKey',
+  ],
   catalog: [
     'AuthScheme',
     'AuthSpec',
