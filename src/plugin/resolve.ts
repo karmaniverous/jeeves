@@ -13,9 +13,6 @@ import { join } from 'node:path';
 import { expandHome } from '../expandHome.js';
 import type { PluginApi, PluginContext } from './types.js';
 
-/** Whether the "workspace not configured" warning has been logged. */
-let warnedUnconfigured = false;
-
 /**
  * OpenClaw's default workspace for this process: `<state dir>/workspace`,
  * where the state dir is `OPENCLAW_STATE_DIR`, else `~/.openclaw-<profile>`
@@ -41,8 +38,9 @@ function defaultWorkspace(): string {
  * In order (spec 5.8, #138):
  * 1. `agents.defaults.workspace` from the OpenClaw config, `~` expanded;
  * 2. `ctx.workspaceDir` from a hook or tool-factory context;
- * 3. OpenClaw's default workspace (see the state-dir rules), logging one
- *    `api.logger.warn` per process that the workspace isn't configured.
+ * 3. OpenClaw's default workspace (see the state-dir rules). This is where
+ *    OpenClaw itself puts the workspace when none is configured, so it is
+ *    not logged as a misconfiguration.
  *
  * Never returns the plugin root (`api.resolvePath` resolves against it) and
  * never throws.
@@ -62,16 +60,7 @@ export function resolveWorkspacePath(
   const fromContext = ctx?.workspaceDir;
   if (typeof fromContext === 'string' && fromContext.trim()) return fromContext;
 
-  const dir = defaultWorkspace();
-  if (!warnedUnconfigured) {
-    warnedUnconfigured = true;
-    try {
-      api.logger?.warn(`workspace not configured; using ${dir}`);
-    } catch {
-      // A failing host logger must not break path resolution.
-    }
-  }
-  return dir;
+  return defaultWorkspace();
 }
 
 /**

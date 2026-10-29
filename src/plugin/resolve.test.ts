@@ -6,15 +6,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   resolveOptionalPluginSetting,
   resolvePluginSetting,
+  resolveWorkspacePath,
 } from './resolve.js';
 import type { PluginApi } from './types.js';
 
 describe('resolveWorkspacePath', () => {
-  /** A fresh module, so the once-per-process warning flag is reset. */
-  const load = async () => {
-    vi.resetModules();
-    return (await import('./resolve.js')).resolveWorkspacePath;
-  };
+  const load = () => Promise.resolve(resolveWorkspacePath);
 
   const apiWith = (
     workspace?: string,
@@ -80,32 +77,15 @@ describe('resolveWorkspacePath', () => {
     expect((await load())(apiWith())).not.toBe('/plugin/root');
   });
 
-  it('warns once per process, only when falling back to the default', async () => {
+  it('logs nothing when falling back to the default', async () => {
     vi.stubEnv('OPENCLAW_STATE_DIR', '/state');
-    const resolve = await load();
     const api = apiWith();
-    resolve(apiWith('/configured'));
-    resolve(api, { workspaceDir: '/ctx' });
+    expect((await load())(api)).toBe(join('/state', 'workspace'));
     expect(api.warn).not.toHaveBeenCalled();
-    resolve(api);
-    resolve(api);
-    expect(api.warn).toHaveBeenCalledTimes(1);
-    expect(api.warn).toHaveBeenCalledWith(
-      `workspace not configured; using ${join('/state', 'workspace')}`,
-    );
   });
 
-  it('never throws, with no logger or a failing logger', async () => {
-    const resolve = await load();
-    expect(() => resolve({ registerTool: vi.fn() })).not.toThrow();
-    const failing = await load();
-    const api = apiWith(
-      undefined,
-      vi.fn(() => {
-        throw new Error('logger down');
-      }),
-    );
-    expect(() => failing(api)).not.toThrow();
+  it('never throws without a logger', () => {
+    expect(() => resolveWorkspacePath({ registerTool: vi.fn() })).not.toThrow();
   });
 });
 
