@@ -197,6 +197,14 @@ Pre-defined marker sets: `SOUL_MARKERS`, `AGENTS_MARKERS`, and `LEGACY_TOOLS_MAR
 - **`atomicWrite(filePath, content, { mode? })`**: temp file + rename, with EPERM retry on Windows. With `mode`, the temp file gets exactly that mode before the rename.
 - **`withFileLock(filePath, fn, staleMs?)`**: cross-process advisory lock via an atomic `mkdir` of `{file}.lock` (stale threshold `STALE_LOCK_MS`, 2 minutes; stale takeovers are serialised through a `{file}.lock.takeover` guard; fails fast with `ELOCKED`). No signal handlers, no timers, so the lock is not refreshed while held: keep `fn` a short read-modify-write.
 
+## Link Keys
+
+The keys jeeves-server accepts on share and browse URLs, so other components (jeeves-server-core, jeeves-scripts-core) derive them from one implementation. Each is `HMAC-SHA256` keyed by the server's API key, as 32 lower-case hex characters. Paths are lower-cased and trimmed of leading and trailing slashes first.
+
+- **`computePathKey(apiKey, urlPath)`**: a key for one path.
+- **`computeInsiderKey(apiKey)`**: the path-independent insider key (`HMAC(apiKey, "insider")`).
+- **`computeOutsiderKeyWithExpiry(apiKey, urlPath, expiry)`**: a key for one path until `expiry` (epoch milliseconds, as a number or string; both forms give the same key).
+
 ## Service Discovery
 
 - **`getServiceUrl(serviceName, consumerName?)`** — resolves a service URL via: consumer config → core config → default port constants.
