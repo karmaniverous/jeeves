@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.0-0] - 2026-10-29
+
+### 🐛 Bug Fixes
+
+- *(release)* GitHub release notes and changelog use the new version tag
+
+### 📚 Documentation
+
+- Allow narrow eslint-disable-next-line exception in tests
+
+### ⚙️ Miscellaneous Tasks
+
+- Update copilot review instructions
 ## [0.7.0] - 2026-10-14
 
 ### 🚀 Features
@@ -34,6 +47,7 @@ All notable changes to this project will be documented in this file.
 ### ⚙️ Miscellaneous Tasks
 
 - Update dependencies
+- Release v0.7.0
 ## [0.6.0] - 2026-09-29
 
 ### ⚙️ Miscellaneous Tasks
