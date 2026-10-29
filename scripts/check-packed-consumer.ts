@@ -44,14 +44,39 @@ interface Stage {
   entries: string[];
   /** Extra ESM code run after the imports, proving the entry point works. */
   probe?: string;
+  /**
+   * TypeScript type-checked with this and every earlier stage's imports,
+   * proving values from one entry point type-check in another's API (a
+   * `Catalog` declared once, not once per entry point's declarations).
+   */
+  typeProbe?: string;
 }
 
+/** A one-entry catalog every type probe passes across entry points. */
+const PROBE_CATALOG = [
+  `import { defineCatalog as probeDefine } from '${pkg.name}/catalog';`,
+  `import { z as probeZ } from 'zod';`,
+  `export const probeCatalog = probeDefine([{ name: 'ping', method: 'GET', path: '/ping', description: 'Ping.', response: probeZ.object({ ok: probeZ.boolean() }), auth: 'none', kind: 'read' }]);`,
+].join('\n');
+
 const stages: Stage[] = [
-  { label: 'no optional peers', peers: [], entries: ['', '/catalog'] },
+  {
+    label: 'no optional peers',
+    peers: [],
+    entries: ['', '/catalog'],
+    typeProbe: [
+      `import { createPluginToolset } from '${pkg.name}';`,
+      `export const probeTools = (descriptor: Parameters<typeof createPluginToolset>[0]) => createPluginToolset(descriptor, { apiUrl: 'http://127.0.0.1:1', catalog: probeCatalog, tools: { ping: true } });`,
+    ].join('\n'),
+  },
   {
     label: 'zod-openapi',
     peers: ['zod-openapi'],
     entries: ['/openapi'],
+    typeProbe: [
+      `import { buildOpenApiDocument } from '${pkg.name}/openapi';`,
+      `export const probeDoc = buildOpenApiDocument(probeCatalog, { title: 'probe', version: '1.0.0' });`,
+    ].join('\n'),
     probe: [
       `const { defineCatalog, standardEntries } = await import('${pkg.name}/catalog');`,
       `const { buildOpenApiDocument } = await import('${pkg.name}/openapi');`,
@@ -63,6 +88,11 @@ const stages: Stage[] = [
     label: 'fastify',
     peers: ['fastify', 'fastify-type-provider-zod'],
     entries: ['/fastify'],
+    typeProbe: [
+      `import { registerCatalogRoutes } from '${pkg.name}/fastify';`,
+      `import type { FastifyInstance } from 'fastify';`,
+      `export const probeRoutes = (app: FastifyInstance) => registerCatalogRoutes(app, probeCatalog, { ping: () => Promise.resolve({ status: 200, body: { ok: true } }) });`,
+    ].join('\n'),
     probe: [
       `const { default: Fastify } = await import('fastify');`,
       `const { defineCatalog, standardEntries } = await import('${pkg.name}/catalog');`,
@@ -215,6 +245,7 @@ npm(INSTALL_FLAGS, consumer);
 
 const tsc = join(repo, 'node_modules', 'typescript', 'bin', 'tsc');
 const proven: string[] = [];
+const typeProbes: string[] = [];
 
 for (const stage of stages) {
   if (stage.peers.length > 0) {
@@ -237,6 +268,7 @@ for (const stage of stages) {
     fail(`${stage.label}: unexpected peers present: ${unexpected.join(', ')}`);
 
   proven.push(...stage.entries);
+  if (stage.typeProbe) typeProbes.push(stage.typeProbe);
   const specifiers = proven.map((e) => `${pkg.name}${e}`);
   writeFileSync(
     join(consumer, 'check.ts'),
@@ -245,7 +277,9 @@ for (const stage of stages) {
         (s, i) =>
           `import * as m${String(i)} from '${s}';\nvoid m${String(i)};\n`,
       )
-      .join(''),
+      .join('') +
+      [PROBE_CATALOG, ...typeProbes].join('\n') +
+      '\n',
   );
   const typeErrors = ownTypeErrors(consumer);
   if (typeErrors.length > 0)

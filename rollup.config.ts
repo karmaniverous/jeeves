@@ -112,26 +112,45 @@ export const buildLibrary = (dest: string): RollupOptions => ({
 });
 
 /**
- * Build one bundled .d.ts per entry point at dest/<name>.d.ts, each guarded
- * against importing undeclared packages or optional peers it may not use.
+ * Build the declarations in one run: dest/<name>.d.ts per entry point, with
+ * types shared between entry points emitted once under `chunks/`, so a
+ * value from one entry point (e.g. a `Catalog`) type-checks in another's
+ * API. Each entry point, with the chunks it imports, is guarded against
+ * importing undeclared packages or optional peers it may not use.
  */
-export const buildTypes = (dest: string): RollupOptions[] =>
-  Object.entries(libraryEntries).map(([name, { input, optionalPeers }]) => ({
-    input,
-    output: [{ file: `${dest}/${name}.d.ts`, format: 'esm' }],
-    plugins: [
-      dtsPlugin(),
-      dtsDependencyGuardPlugin(pkg, { allowOptionalPeers: optionalPeers }),
-    ],
-  }));
+export const buildTypes = (dest: string): RollupOptions => ({
+  input: Object.fromEntries(
+    Object.entries(libraryEntries).map(([name, { input }]) => [name, input]),
+  ),
+  output: [
+    {
+      dir: dest,
+      format: 'esm',
+      entryFileNames: '[name].d.ts',
+      chunkFileNames: 'chunks/[name]-[hash].d.ts',
+    },
+  ],
+  plugins: [
+    dtsPlugin(),
+    dtsDependencyGuardPlugin(
+      pkg,
+      Object.fromEntries(
+        Object.entries(libraryEntries).map(([name, { optionalPeers }]) => [
+          name,
+          optionalPeers,
+        ]),
+      ),
+    ),
+  ],
+});
 
 /** Assemble complete config: library, types, and CLI outputs. */
 const config: RollupOptions[] = [
   // Library output (ESM)
   buildLibrary(outputPath),
 
-  // Type definitions output (one .d.ts per entry point)
-  ...buildTypes(outputPath),
+  // Type definitions output (one .d.ts per entry point, shared chunks)
+  buildTypes(outputPath),
 
   // CLI output.
   ...cliCommands.map<RollupOptions>((c) => ({

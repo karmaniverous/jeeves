@@ -3,17 +3,30 @@ import { describe, expect, it, vi } from 'vitest';
 
 import pkg from './package.json' with { type: 'json' };
 import {
-  collectBundleImports,
+  collectEntryImports,
   dtsDependencyGuardPlugin,
   findUndeclaredTypeImports,
   packageNameOf,
 } from './rollup-plugin-dts-deps.js';
 
-const bundleOf = (imports: string[], dynamicImports: string[] = []) =>
-  ({
-    'index.d.ts': { type: 'chunk', imports, dynamicImports },
-    'asset.txt': { type: 'asset' },
-  }) as unknown as OutputBundle;
+const chunk = (
+  name: string,
+  imports: string[],
+  { isEntry = true, dynamicImports = [] as string[] } = {},
+) => ({
+  type: 'chunk',
+  name,
+  fileName: isEntry ? `${name}.d.ts` : `chunks/${name}.d.ts`,
+  isEntry,
+  imports,
+  dynamicImports,
+});
+
+const bundleOf = (...chunks: ReturnType<typeof chunk>[]) =>
+  Object.fromEntries([
+    ...chunks.map((c) => [c.fileName, c]),
+    ['asset.txt', { type: 'asset' }],
+  ]) as unknown as OutputBundle;
 
 describe('packageNameOf', () => {
   it.each([
@@ -84,14 +97,31 @@ describe('findUndeclaredTypeImports', () => {
   });
 });
 
-describe('collectBundleImports', () => {
-  it('collects static and dynamic imports from chunks only', () => {
-    expect(collectBundleImports(bundleOf(['a'], ['b']))).toEqual(['a', 'b']);
+describe('collectEntryImports', () => {
+  it('follows shared chunks transitively, once, and keeps externals', () => {
+    const bundle = bundleOf(
+      chunk('index', ['chunks/a.d.ts', 'zod'], { dynamicImports: ['dyn'] }),
+      chunk('a', ['chunks/b.d.ts', 'chunks/a.d.ts'], { isEntry: false }),
+      chunk('b', ['fastify', 'chunks/a.d.ts'], { isEntry: false }),
+      chunk('other', ['commander']),
+    );
+    expect(collectEntryImports(bundle, 'index.d.ts').sort()).toEqual([
+      'dyn',
+      'fastify',
+      'zod',
+    ]);
+  });
+
+  it('ignores a name that is not a chunk', () => {
+    expect(collectEntryImports(bundleOf(), 'asset.txt')).toEqual([]);
   });
 });
 
 describe('dtsDependencyGuardPlugin', () => {
-  const run = (bundle: OutputBundle, allowOptionalPeers?: string[]) => {
+  const run = (
+    bundle: OutputBundle,
+    entries?: Record<string, readonly string[]>,
+  ) => {
     const error = vi.fn();
     const plugin = dtsDependencyGuardPlugin(
       {
@@ -99,7 +129,7 @@ describe('dtsDependencyGuardPlugin', () => {
         peerDependencies: { fastify: '^5' },
         peerDependenciesMeta: { fastify: { optional: true } },
       },
-      { allowOptionalPeers },
+      entries,
     );
     const hook = plugin.generateBundle as (
       this: PluginContext,
@@ -111,18 +141,35 @@ describe('dtsDependencyGuardPlugin', () => {
   };
 
   it('does nothing when all type imports are declared', () => {
-    expect(run(bundleOf(['zod']))).not.toHaveBeenCalled();
+    expect(run(bundleOf(chunk('index', ['zod'])))).not.toHaveBeenCalled();
   });
 
   it('allows an optional peer only where the entry point permits it', () => {
-    expect(run(bundleOf(['fastify']))).toHaveBeenCalledWith(
-      expect.stringContaining('fastify'),
+    expect(run(bundleOf(chunk('index', ['fastify'])))).toHaveBeenCalledWith(
+      expect.stringContaining('index: fastify'),
     );
-    expect(run(bundleOf(['fastify']), ['fastify'])).not.toHaveBeenCalled();
+    expect(
+      run(bundleOf(chunk('index', ['fastify'])), { index: ['fastify'] }),
+    ).not.toHaveBeenCalled();
+  });
+
+  it('checks an optional peer reached through a shared chunk per entry', () => {
+    const bundle = bundleOf(
+      chunk('index', ['chunks/shared.d.ts']),
+      chunk('fastify/index', ['chunks/shared.d.ts']),
+      chunk('shared', ['fastify'], { isEntry: false }),
+    );
+    const error = run(bundle, { 'fastify/index': ['fastify'] });
+    expect(error).toHaveBeenCalledTimes(1);
+    expect(error).toHaveBeenCalledWith(
+      expect.stringMatching(/: index: fastify$/),
+    );
   });
 
   it('fails the build on undeclared type imports', () => {
-    const error = run(bundleOf(['zod', '@commander-js/extra-typings']));
+    const error = run(
+      bundleOf(chunk('index', ['zod', '@commander-js/extra-typings'])),
+    );
     expect(error).toHaveBeenCalledWith(
       expect.stringContaining('@commander-js/extra-typings'),
     );
