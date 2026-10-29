@@ -18,6 +18,13 @@ import type * as Old from './api-0.7.0.js';
 /** `true` when A and B are assignable to each other. */
 type Mutual<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
 
+/** A 0.7.0 argument spec with one entry of every kind. */
+interface Old070Spec extends Old.ArgSpec {
+  live: Old.FlagSpec;
+  max: Old.ValueSpec;
+  since: Old.OptionalSpec;
+}
+
 describe('0.7.0 baseline: root types', () => {
   it('every 0.7.0 export still exists, with a mutually assignable type', async () => {
     const current = await import('../../index.js');
@@ -465,10 +472,13 @@ describe('0.7.0 baseline: root types', () => {
     expectTypeOf<
       Mutual<(typeof Old)['parseManaged'], (typeof Current)['parseManaged']>
     >().toEqualTypeOf<true>();
+    // #151 adds an optional `description` to the spec entries, so the
+    // generic signatures are no longer identical; compare what a 0.7.0 spec
+    // gets back instead, for every kind of entry.
     expectTypeOf<
       Mutual<
-        (typeof Old)['parseRunnableArgs'],
-        (typeof Current)['parseRunnableArgs']
+        typeof Old.parseRunnableArgs<Old070Spec>,
+        typeof Current.parseRunnableArgs<Old070Spec>
       >
     >().toEqualTypeOf<true>();
     expectTypeOf<

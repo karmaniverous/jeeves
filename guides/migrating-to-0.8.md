@@ -19,6 +19,8 @@ title: Migrating to 0.8.0
 - **`ToolDescriptor.catalogMode`**: `'direct-only'` keeps a tool visible to the model under OpenClaw's Tool Search.
 - **Descriptor fields** `promptRules` and `skill` (strings). Core registers neither: the plugin passes `promptRules` to `registerPromptContext`, and the plugin's build writes `skill` as its `SKILL.md`.
 - **`PluginContext`** type and an optional `ctx` parameter on `resolveWorkspacePath(api, ctx?)`.
+- **jeeves-server link keys** (#149): `computeInsiderKey`, `computePathKey` and `computeOutsiderKeyWithExpiry`, identical to jeeves-server's own.
+- **Runnable argument parser** (#151), brought up to jeeves-scripts-core's: an optional `description` on every spec entry (`argFlag(name, description?)`, `{ description }` on `argValue`/`argOptional`), `unknownArgs(args, spec, positionals?)` and `valuelessArgs(args, spec)`. Existing calls are unaffected.
 - **Skills:** `jeeves-pr-review` (finishing a PR and the independent review that replaces Copilot review) and `aws-ssm-remote-ops`. `jeeves-coding` and `jeeves-platform` gain rules on GitHub identity, encodings, restarts and deploy checks. The managed AGENTS block adds that outsider share links are a human decision.
 
 ## Behaviour corrections

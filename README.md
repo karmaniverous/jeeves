@@ -228,6 +228,10 @@ Pre-defined marker sets: `SOUL_MARKERS`, `AGENTS_MARKERS`, and `LEGACY_TOOLS_MAR
 
 `computeInsiderKey(apiKey)`, `computePathKey(apiKey, urlPath)` and `computeOutsiderKeyWithExpiry(apiKey, urlPath, expiry)` compute the HMAC keys in jeeves-server insider and share links, identical to jeeves-server's own, so any component can build a link without depending on jeeves-server. Paths are compared lower-case without leading or trailing slashes. Each returns 32 hex characters.
 
+## Runnable Arguments
+
+`parseRunnableArgs(args, spec)` reads a typed spec of bare flags (`argFlag`), valued options (`argValue`, `argOptional`; `--name value`, `--name=value` or a short alias) and positionals (`positionalArgs`). Each spec entry can carry a one-line `description` for a runnable's help. The parser ignores what the spec doesn't declare; `unknownArgs(args, spec, positionals?)` lists undeclared options (and bare arguments unless allowed) and `valuelessArgs(args, spec)` lists valued options given without a value, so a CLI can reject both. A valued option never takes an option-like argument as its value.
+
 ## Service Management
 
 `createServiceManager(descriptor)` backs each component's `service` CLI and `{name}_service` tool (install, uninstall, start, stop, restart, status). It uses NSSM on Windows and a launchd agent on macOS. On Linux it first looks for a system unit named `<service>.service` (for example `/etc/systemd/system/jeeves-watcher.service`, the way jeeves-tools provisions managed instances):

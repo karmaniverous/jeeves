@@ -16,6 +16,8 @@ export {
   type ParsedArgs,
   parseRunnableArgs,
   positionalArgs,
+  unknownArgs,
+  valuelessArgs,
   type ValueSpec,
 } from './args.js';
 export {

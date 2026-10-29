@@ -35,7 +35,7 @@ const rootAt070 = [
     .filter(Boolean),
 );
 
-/** Spec 5.1, as amended 2026-10-28. */
+/** Spec 5.1, as amended 2026-10-28 and 2026-10-29 (#149, #151). */
 const EXPECTED: Record<keyof typeof ENTRIES, string[]> = {
   root: [
     ...rootAt070,
@@ -44,6 +44,8 @@ const EXPECTED: Record<keyof typeof ENTRIES, string[]> = {
     'computeInsiderKey',
     'computeOutsiderKeyWithExpiry',
     'computePathKey',
+    'unknownArgs',
+    'valuelessArgs',
   ],
   catalog: [
     'AuthScheme',
