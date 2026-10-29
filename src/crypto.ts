@@ -18,6 +18,15 @@ function normalizePath(urlPath: string): string {
   return urlPath.toLowerCase().replace(/^\/+|\/+$/g, '');
 }
 
+/** `HMAC-SHA256(secret, data)` as lower-case hex, truncated to 32 characters. */
+function hmacKey(secret: string, data: string): string {
+  return crypto
+    .createHmac('sha256', secret)
+    .update(data)
+    .digest('hex')
+    .substring(0, 32);
+}
+
 /**
  * Compute a path-specific link key: `HMAC-SHA256(apiKey, normalizedPath)`,
  * truncated to 32 hex characters.
@@ -29,11 +38,7 @@ function normalizePath(urlPath: string): string {
  * @returns A 32-character lower-case hex key.
  */
 export function computePathKey(apiKey: string, urlPath: string): string {
-  const hash = crypto
-    .createHmac('sha256', apiKey)
-    .update(normalizePath(urlPath))
-    .digest('hex');
-  return hash.substring(0, 32);
+  return hmacKey(apiKey, normalizePath(urlPath));
 }
 
 /**
@@ -49,11 +54,7 @@ export function computePathKey(apiKey: string, urlPath: string): string {
  * @returns A 32-character lower-case hex key.
  */
 export function computeInsiderKey(apiKey: string): string {
-  const hash = crypto
-    .createHmac('sha256', apiKey)
-    .update('insider')
-    .digest('hex');
-  return hash.substring(0, 32);
+  return hmacKey(apiKey, 'insider');
 }
 
 /**
@@ -74,7 +75,5 @@ export function computeOutsiderKeyWithExpiry(
   urlPath: string,
   expiry: string | number,
 ): string {
-  const data = `${normalizePath(urlPath)}|${String(expiry)}`;
-  const hash = crypto.createHmac('sha256', apiKey).update(data).digest('hex');
-  return hash.substring(0, 32);
+  return hmacKey(apiKey, `${normalizePath(urlPath)}|${String(expiry)}`);
 }
