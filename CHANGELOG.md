@@ -2,11 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.0-3] - 2026-10-29
+
+### 🐛 Bug Fixes
+
+- Declarations built in one run so Catalog is declared once (step 19 core defect)
 ## [0.8.0-2] - 2026-10-29
 
 ### 🚀 Features
 
 - RegisterCatalogRoutes logger option; validation issues keep Zod params (step 19, owner-approved)
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v0.8.0-2
 ## [0.8.0-1] - 2026-10-29
 
 ### 🚀 Features
