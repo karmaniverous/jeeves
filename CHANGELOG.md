@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.0-2] - 2026-10-29
+
+### 🚀 Features
+
+- RegisterCatalogRoutes logger option; validation issues keep Zod params (step 19, owner-approved)
 ## [0.8.0-1] - 2026-10-29
 
 ### 🚀 Features
@@ -75,6 +80,7 @@ All notable changes to this project will be documented in this file.
 
 - Update copilot review instructions
 - Dependency and audit updates
+- Release v0.8.0-1
 ## [0.7.0] - 2026-10-14
 
 ### 🚀 Features
