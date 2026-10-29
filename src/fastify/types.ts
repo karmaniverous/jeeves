@@ -119,6 +119,16 @@ export interface CatalogValidationIssue {
   code: string;
   /** Human-readable message. */
   message: string;
+  /** The Zod issue's other fields (e.g. `expected`, `minimum`, `keys`). */
+  params: Record<string, unknown>;
+}
+
+/** Where catalog routes log, when not Fastify's own logger (pino-compatible). */
+export interface CatalogRouteLogger {
+  /** Logs a `'log'`-mode response mismatch. */
+  warn: (details: object, message: string) => void;
+  /** Logs a `'strict'`-mode response mismatch. */
+  error: (details: object, message: string) => void;
 }
 
 /** Options for `registerCatalogRoutes`. */
@@ -137,4 +147,9 @@ export interface RegisterCatalogRoutesOptions {
    * sends the handler's body unchanged.
    */
   responseValidation?: 'strict' | 'log';
+  /**
+   * Where response mismatches are logged. Default: Fastify's logger, which
+   * logs nothing when the app was created with `logger: false`.
+   */
+  logger?: CatalogRouteLogger;
 }

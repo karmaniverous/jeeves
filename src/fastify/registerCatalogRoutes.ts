@@ -22,6 +22,7 @@ import type { Catalog, CatalogEntry } from '../catalog/types.js';
 import type {
   CatalogHandler,
   CatalogHandlers,
+  CatalogRouteLogger,
   CatalogValidationIssue,
   HandlerResult,
   RegisterCatalogRoutesOptions,
@@ -59,7 +60,12 @@ class ResponseMismatchError extends Error {
  */
 function issuesOf(
   error: {
-    validation: { instancePath: string; keyword: string; message?: string }[];
+    validation: {
+      instancePath: string;
+      keyword: string;
+      message?: string;
+      params: Record<string, unknown>;
+    }[];
   },
   context: string,
 ): CatalogValidationIssue[] {
@@ -69,6 +75,7 @@ function issuesOf(
     path: v.instancePath.split('/').filter(Boolean),
     code: v.keyword,
     message: String(v.message),
+    params: v.params,
   }));
 }
 
@@ -152,10 +159,12 @@ function send(
  * scope's response schemas.
  *
  * @param format - Validation error body formatter.
+ * @param logger - Logger option, else the request's logger.
  * @returns The error handler.
  */
 function errorHandlerFor(
   format: NonNullable<RegisterCatalogRoutesOptions['formatValidationError']>,
+  logger: CatalogRouteLogger | undefined,
 ) {
   return (error: unknown, request: FastifyRequest, reply: FastifyReply) => {
     if (hasZodFastifySchemaValidationErrors(error)) {
@@ -165,7 +174,10 @@ function errorHandlerFor(
         .send(format(issuesOf(error, validationContext), request));
     }
     if (error instanceof ResponseMismatchError) {
-      request.log.error({ issues: error.issues }, 'Response validation failed');
+      (logger ?? request.log).error(
+        { issues: error.issues },
+        'Response validation failed',
+      );
       return reply.status(500).send(RESPONSE_FAILED);
     }
     // Strings go out as the app sent them; objects as JSON, typed as such
@@ -223,13 +235,13 @@ export async function registerCatalogRoutes<C extends Catalog>(
         scope.setValidatorCompiler(validatorCompiler);
         scope.setSerializerCompiler(({ schema, method, url, httpStatus }) =>
           serializerFor(schema as z.ZodType, mode, (issues) => {
-            scope.log.warn(
+            (options.logger ?? scope.log).warn(
               { method, url, httpStatus, issues },
               'Response validation failed (log mode): sent unparsed',
             );
           }),
         );
-        scope.setErrorHandler(errorHandlerFor(format));
+        scope.setErrorHandler(errorHandlerFor(format, options.logger));
 
         for (const entry of catalog.entries) {
           const handler = byName[entry.name];

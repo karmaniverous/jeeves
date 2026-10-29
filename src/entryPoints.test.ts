@@ -89,6 +89,7 @@ const EXPECTED: Record<keyof typeof ENTRIES, string[]> = {
   fastify: [
     'CatalogHandler',
     'CatalogHandlers',
+    'CatalogRouteLogger',
     'CatalogValidationIssue',
     'ErrorStatus',
     'HandlerResult',

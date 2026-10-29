@@ -18,6 +18,7 @@ export {
 export type {
   CatalogHandler,
   CatalogHandlers,
+  CatalogRouteLogger,
   CatalogValidationIssue,
   ErrorStatus,
   HandlerResult,

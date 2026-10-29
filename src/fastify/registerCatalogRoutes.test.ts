@@ -109,7 +109,14 @@ describe('registerCatalogRoutes', () => {
       expect(body.statusCode).toBe(400);
       expect(body.json()).toMatchObject({
         error: 'Request validation failed',
-        issues: [{ slot: 'body', path: ['name'], code: 'too_small' }],
+        issues: [
+          {
+            slot: 'body',
+            path: ['name'],
+            code: 'too_small',
+            params: expect.objectContaining({ minimum: 1 }) as unknown,
+          },
+        ],
       });
       const query = await app.inject('/things/x?tags=abc');
       expect(query.statusCode).toBe(400);
@@ -256,6 +263,24 @@ describe('registerCatalogRoutes', () => {
       expect(res.statusCode).toBe(500);
       expect(appHandler).not.toHaveBeenCalled();
       await app.close();
+    });
+
+    it('logs mismatches through the logger option when Fastify logging is off', async () => {
+      const logger = { warn: vi.fn(), error: vi.fn() };
+      const strict = await buildTestApp({ logger });
+      await strict.inject('/broken');
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.objectContaining({ issues: expect.any(Array) as unknown }),
+        'Response validation failed',
+      );
+      await strict.close();
+      const log = await buildTestApp({ responseValidation: 'log', logger });
+      await log.inject('/broken');
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.objectContaining({ url: '/broken', httpStatus: '2xx' }),
+        'Response validation failed (log mode): sent unparsed',
+      );
+      await log.close();
     });
 
     it('log: warns and sends the handler body unparsed', async () => {
