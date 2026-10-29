@@ -2,11 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.0-4] - 2026-10-29
+
+### 🚀 Features
+
+- Export jeeves-server link-key functions from the root (#149)
+
+### ⚙️ Miscellaneous Tasks
+
+- Merge main (0.8.0-0 release commit) into feature/135
 ## [0.8.0-3] - 2026-10-29
 
 ### 🐛 Bug Fixes
 
 - Declarations built in one run so Catalog is declared once (step 19 core defect)
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v0.8.0-3
 ## [0.8.0-2] - 2026-10-29
 
 ### 🚀 Features
@@ -36,7 +49,6 @@ All notable changes to this project will be documented in this file.
 
 ### 🐛 Bug Fixes
 
-- *(release)* GitHub release notes and changelog use the new version tag
 - Handler results keep literal statuses in registerCatalogRoutes
 - Client wraps body-read, JSON and credential failures as status-0 errors (review #1)
 - App error-handler replies bypass the catalog response schemas (review #2)
@@ -69,7 +81,6 @@ All notable changes to this project will be documented in this file.
 
 ### 📚 Documentation
 
-- Allow narrow eslint-disable-next-line exception in tests
 - 0.8.0 README, migration guide and endpoint-catalog guide
 - Lint-exception wording consistent across review skill and instructions (review #15)
 - Endpoint-catalog guide reflects the review fixes
@@ -87,9 +98,22 @@ All notable changes to this project will be documented in this file.
 
 ### ⚙️ Miscellaneous Tasks
 
-- Update copilot review instructions
 - Dependency and audit updates
 - Release v0.8.0-1
+## [0.8.0-0] - 2026-10-29
+
+### 🐛 Bug Fixes
+
+- *(release)* GitHub release notes and changelog use the new version tag
+
+### 📚 Documentation
+
+- Allow narrow eslint-disable-next-line exception in tests
+
+### ⚙️ Miscellaneous Tasks
+
+- Update copilot review instructions
+- Release v0.8.0-0
 ## [0.7.0] - 2026-10-14
 
 ### 🚀 Features
