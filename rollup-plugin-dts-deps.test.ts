@@ -90,6 +90,35 @@ describe('findUndeclaredTypeImports', () => {
     });
   });
 
+  describe('scoped dependencies', () => {
+    const withScoped = {
+      dependencies: { zod: '^4', fastify: '^5' },
+    };
+
+    it('rejects a scoped dependency the entry point does not allow', () => {
+      expect(
+        findUndeclaredTypeImports(['fastify'], withScoped, [], ['fastify']),
+      ).toEqual(['fastify']);
+    });
+
+    it('accepts a scoped dependency the entry point allows', () => {
+      expect(
+        findUndeclaredTypeImports(
+          ['fastify'],
+          withScoped,
+          ['fastify'],
+          ['fastify'],
+        ),
+      ).toEqual([]);
+    });
+
+    it('keeps unscoped dependencies declared everywhere', () => {
+      expect(
+        findUndeclaredTypeImports(['zod'], withScoped, [], ['fastify']),
+      ).toEqual([]);
+    });
+  });
+
   it('passes for the real package.json and its type-level imports', () => {
     expect(
       findUndeclaredTypeImports(['@commander-js/extra-typings', 'zod'], pkg),
@@ -163,6 +192,32 @@ describe('dtsDependencyGuardPlugin', () => {
     expect(error).toHaveBeenCalledTimes(1);
     expect(error).toHaveBeenCalledWith(
       expect.stringMatching(/: index: fastify$/),
+    );
+  });
+
+  it('scopes every dependency an entry point lists to the entry points listing it', () => {
+    const error = vi.fn();
+    const plugin = dtsDependencyGuardPlugin(
+      { dependencies: { zod: '^4', 'zod-openapi': '^6' } },
+      { 'openapi/index': ['zod-openapi'] },
+    );
+    const hook = plugin.generateBundle as (
+      this: PluginContext,
+      options: unknown,
+      bundle: OutputBundle,
+    ) => void;
+    hook.call(
+      { error } as unknown as PluginContext,
+      {},
+      bundleOf(
+        chunk('index', ['chunks/shared.d.ts', 'zod']),
+        chunk('openapi/index', ['zod-openapi']),
+        chunk('shared', ['zod-openapi'], { isEntry: false }),
+      ),
+    );
+    expect(error).toHaveBeenCalledTimes(1);
+    expect(error).toHaveBeenCalledWith(
+      expect.stringMatching(/: index: zod-openapi$/),
     );
   });
 

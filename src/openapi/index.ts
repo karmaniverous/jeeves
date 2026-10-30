@@ -3,8 +3,8 @@
  *
  * @remarks
  * OpenAPI 3.1 document building from a catalog, the committed-document
- * writer and the drift check. Needs the optional peer `zod-openapi`; never
- * imports Fastify.
+ * writer and the drift check. Imports `zod-openapi` (a dependency only this
+ * entry point loads); never imports Fastify.
  *
  * @packageDocumentation
  */

@@ -15,13 +15,13 @@ Adoption is optional and per component. A component that doesn't adopt keeps wor
 
 ## 1. Dependencies
 
-| Package | Add |
-| --- | --- |
-| `core` | `@karmaniverous/jeeves` (already there), `zod` `^4.6`; dev dependency `zod-openapi` `^6` (the document writer and drift check) |
-| `service` | `fastify` `^5`, `fastify-type-provider-zod` `^7` |
-| `openclaw` | nothing new |
+| Package    | Add                                                   |
+| ---------- | ----------------------------------------------------- |
+| `core`     | `@karmaniverous/jeeves` (already there), `zod` `^4.6` |
+| `service`  | `fastify` `^5` (your app)                             |
+| `openclaw` | nothing new                                           |
 
-`fastify`, `fastify-type-provider-zod` and `zod-openapi` are optional peers of core: only the entry point that needs one imports it. The root and `/catalog` entry points import none of them.
+`fastify-type-provider-zod` (request validation) and `zod-openapi` (the document writer and drift check) are dependencies of `@karmaniverous/jeeves`, so you don't add them. Only the entry point that needs one imports it: the root and `/catalog` entry points import none of them. Add `fastify-type-provider-zod` to a service only if the service itself imports it (e.g. for `ZodTypeProvider` on routes outside the catalog).
 
 Use one copy of Zod: catalog schemas are built with your `zod` and core reads them, so declare `zod` as `^4.6` wherever you declare it, and check `npm ls zod` shows a single version.
 

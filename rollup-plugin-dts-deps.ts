@@ -22,32 +22,41 @@ export function packageNameOf(specifier: string): string {
 
 /**
  * Find bare-module imports that consumers could not resolve from the
- * published package's declared runtime dependencies.
+ * published package's declared runtime dependencies, or that this entry
+ * point may not import.
  *
  * @remarks
  * An optional peer (`peerDependenciesMeta[name].optional`) counts as
- * declared only for an entry point that lists it in `allowOptionalPeers`:
- * consumers of any other entry point may not have it installed.
+ * declared only for an entry point that lists it in `allowed`: consumers of
+ * any other entry point may not have it installed. A package in `scoped`
+ * (a dependency only some entry points need, e.g. Fastify) likewise counts
+ * only for an entry point that lists it in `allowed`, so importing another
+ * entry point never loads it.
  *
- * @param imports - Module specifiers imported by the emitted declarations.
+ * @param imports - Module specifiers imported by the emitted output.
  * @param pkg - Declared `dependencies` / `peerDependencies` /
  *   `peerDependenciesMeta`.
- * @param allowOptionalPeers - Optional peers this entry point may import.
+ * @param allowed - Optional peers and scoped packages this entry point may
+ *   import.
+ * @param scoped - Dependencies only the entry points that allow them may
+ *   import.
  * @returns Sorted, de-duplicated package names that are undeclared.
  */
 export function findUndeclaredTypeImports(
   imports: Iterable<string>,
   pkg: DeclaredDependencies,
-  allowOptionalPeers: readonly string[] = [],
+  allowed: readonly string[] = [],
+  scoped: readonly string[] = [],
 ): string[] {
-  const isOptional = (name: string): boolean =>
-    pkg.peerDependenciesMeta?.[name]?.optional === true;
-  const declared = new Set([
-    ...Object.keys(pkg.dependencies ?? {}),
-    ...Object.keys(pkg.peerDependencies ?? {}).filter(
-      (name) => !isOptional(name) || allowOptionalPeers.includes(name),
-    ),
-  ]);
+  const isRestricted = (name: string): boolean =>
+    pkg.peerDependenciesMeta?.[name]?.optional === true ||
+    scoped.includes(name);
+  const declared = new Set(
+    [
+      ...Object.keys(pkg.dependencies ?? {}),
+      ...Object.keys(pkg.peerDependencies ?? {}),
+    ].filter((name) => !isRestricted(name) || allowed.includes(name)),
+  );
   const undeclared = new Set<string>();
   for (const specifier of imports) {
     if (specifier.startsWith('.') || specifier.startsWith('/')) continue;
@@ -88,21 +97,24 @@ export function collectEntryImports(
 }
 
 /**
- * Rollup plugin (for the `.d.ts` build) that fails the build when an entry
- * point's declarations, including the shared chunks it imports, import a
- * package that is not a declared `dependency` or `peerDependency` (e.g. a
- * devDependency-only package, which nested consumer installs cannot
- * resolve), or an optional peer that entry point is not allowed to import.
+ * Rollup plugin (for the library and `.d.ts` builds) that fails the build
+ * when an entry point's output, including the shared chunks it imports,
+ * imports a package that is not a declared `dependency` or `peerDependency`
+ * (e.g. a devDependency-only package, which nested consumer installs cannot
+ * resolve), or an optional peer or scoped package that entry point is not
+ * allowed to import.
  *
  * @param pkg - Declared dependencies from `package.json`.
- * @param entries - Optional peers each entry point may import, keyed by
- *   entry chunk name; an entry chunk not listed may import none.
+ * @param entries - Optional peers and scoped packages each entry point may
+ *   import, keyed by entry chunk name. Every package listed for any entry
+ *   point is scoped; an entry chunk not listed may import none of them.
  * @returns Rollup plugin.
  */
 export function dtsDependencyGuardPlugin(
   pkg: DeclaredDependencies,
   entries: Readonly<Record<string, readonly string[]>> = {},
 ): Plugin {
+  const scoped = [...new Set(Object.values(entries).flat())];
   return {
     name: 'dts-dependency-guard',
     generateBundle(_options, bundle) {
@@ -112,6 +124,7 @@ export function dtsDependencyGuardPlugin(
           collectEntryImports(bundle, item.fileName),
           pkg,
           entries[item.name],
+          scoped,
         );
         return undeclared.length > 0
           ? [`${item.name}: ${undeclared.join(', ')}`]
@@ -119,7 +132,7 @@ export function dtsDependencyGuardPlugin(
       });
       if (problems.length > 0) {
         this.error(
-          `Published types import packages missing from dependencies/peerDependencies, or optional peers not allowed in that entry point: ${problems.join('; ')}`,
+          `Published output imports packages missing from dependencies/peerDependencies, or optional peers or scoped packages not allowed in that entry point: ${problems.join('; ')}`,
         );
       }
     },

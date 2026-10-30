@@ -10,8 +10,10 @@ title: Migrating to 0.8.0
 
 - **Endpoint catalog.** Three new entry points:
   - `@karmaniverous/jeeves/catalog`: `defineCatalog`, `standardEntries`, `queryArray`, `errorBodySchema`, `buildCatalogRequest`, `httpTransport`, `createCatalogClient`, `CatalogClientError`, `catalogToolDefinition`, `toolResultFromResponse`, `toToolName`.
-  - `@karmaniverous/jeeves/openapi`: `buildOpenApiDocument`, `writeOpenApiDocument`, `checkOpenApiDrift` (needs the optional peer `zod-openapi` ^6).
-  - `@karmaniverous/jeeves/fastify`: `registerCatalogRoutes`, `registerOpenApiRoute`, `standardHandlers` (need the optional peers `fastify` ^5 and `fastify-type-provider-zod` ^7).
+  - `@karmaniverous/jeeves/openapi`: `buildOpenApiDocument`, `writeOpenApiDocument`, `checkOpenApiDrift`.
+  - `@karmaniverous/jeeves/fastify`: `registerCatalogRoutes`, `registerOpenApiRoute`, `standardHandlers`.
+
+  `fastify`, `fastify-type-provider-zod` and `zod-openapi` are dependencies of this package; you don't install them yourself. Only the entry point that needs one imports it.
 
   `@karmaniverous/jeeves/mcp` is reserved for a later release. How to adopt the catalog: [Adopting the Endpoint Catalog](endpoint-catalog.md).
 

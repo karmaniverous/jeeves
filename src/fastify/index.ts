@@ -3,7 +3,8 @@
  *
  * @remarks
  * Catalog-driven Fastify route registration and the `/openapi.json` route.
- * Needs the optional peers `fastify` and `fastify-type-provider-zod`.
+ * Imports `fastify-type-provider-zod` and types from `fastify`, dependencies
+ * only this entry point loads.
  *
  * @packageDocumentation
  */

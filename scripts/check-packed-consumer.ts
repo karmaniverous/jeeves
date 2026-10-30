@@ -2,18 +2,22 @@
  * Packed-consumer check for the library entry points (spec 5.1).
  *
  * @remarks
- * Run with `npm run check:packed` (which builds first). Packs the package,
- * installs the tarball into a temporary `moduleResolution: Bundler` project
- * and, in three stages that add optional peers one group at a time, proves
- * each entry point type-checks and imports with only the peers it needs:
+ * Run with `npm run check:packed` (which builds first). Packs the package
+ * and checks the tarball's file list, then:
  *
- * 1. no optional peers: the root and `/catalog`;
- * 2. plus `zod-openapi`: `/openapi`;
- * 3. plus `fastify` and `fastify-type-provider-zod`: `/fastify`.
+ * 1. installs the tarball, and nothing else, into a temporary
+ *    `moduleResolution: Bundler` project and proves each entry point
+ *    type-checks and imports, stage by stage (the root and `/catalog`, then
+ *    `/openapi`, then `/fastify`);
+ * 2. installs the tarball alone into a temporary global prefix and runs the
+ *    `/openapi` and `/fastify` probes from there. A service installed
+ *    globally beside the `jeeves` CLI may use that top-level copy, which
+ *    resolves its imports from its own location, not the service's; every
+ *    package it imports must therefore be its own dependency.
  *
- * The optional peers are dev dependencies of this repo, so in-repo tests
- * can't prove their absence; this script is the only proof. It also checks
- * the tarball's file list. Exits non-zero on the first failure.
+ * Which entry point may import Fastify or `zod-openapi` is checked at build
+ * time (the entry guard in `rollup.config.ts`). Exits non-zero on the first
+ * failure.
  *
  * @module
  */
@@ -33,14 +37,12 @@ const repo = resolve(import.meta.dirname, '..');
 const pkg = JSON.parse(readFileSync(join(repo, 'package.json'), 'utf8')) as {
   name: string;
   exports: Record<string, { types: string; import: string }>;
-  peerDependencies: Record<string, string>;
   devDependencies: Record<string, string>;
 };
 
-/** One stage: peers installed before it, and the entry points it proves. */
+/** One stage: the entry points it proves. */
 interface Stage {
   label: string;
-  peers: string[];
   entries: string[];
   /** Extra ESM code run after the imports, proving the entry point works. */
   probe?: string;
@@ -61,8 +63,7 @@ const PROBE_CATALOG = [
 
 const stages: Stage[] = [
   {
-    label: 'no optional peers',
-    peers: [],
+    label: 'root and catalog',
     entries: ['', '/catalog'],
     typeProbe: [
       `import { createPluginToolset } from '${pkg.name}';`,
@@ -70,8 +71,7 @@ const stages: Stage[] = [
     ].join('\n'),
   },
   {
-    label: 'zod-openapi',
-    peers: ['zod-openapi'],
+    label: 'openapi',
     entries: ['/openapi'],
     typeProbe: [
       `import { buildOpenApiDocument } from '${pkg.name}/openapi';`,
@@ -86,7 +86,6 @@ const stages: Stage[] = [
   },
   {
     label: 'fastify',
-    peers: ['fastify', 'fastify-type-provider-zod'],
     entries: ['/fastify'],
     typeProbe: [
       `import { registerCatalogRoutes } from '${pkg.name}/fastify';`,
@@ -107,8 +106,32 @@ const stages: Stage[] = [
   },
 ];
 
-/** Every optional peer, none of which may be present before its stage. */
-const optionalPeers = stages.flatMap((s) => s.peers);
+/**
+ * Probe run against the globally installed copy (`ROOT` is its directory):
+ * imports each entry point by path, takes Fastify from the copy's own
+ * resolution, and exercises request validation and the OpenAPI document.
+ */
+const GLOBAL_PROBE = [
+  `import { createRequire } from 'node:module';`,
+  `import { join } from 'node:path';`,
+  `import { pathToFileURL } from 'node:url';`,
+  `const ROOT = process.env.JEEVES_ROOT;`,
+  `const load = (p) => import(pathToFileURL(join(ROOT, p)).href);`,
+  `const { default: Fastify } = await import(pathToFileURL(createRequire(join(ROOT, 'package.json')).resolve('fastify')).href);`,
+  `const { defineCatalog, standardEntries } = await load('${pkg.exports['./catalog'].import}');`,
+  `const { buildOpenApiDocument } = await load('${pkg.exports['./openapi'].import}');`,
+  `const { registerCatalogRoutes } = await load('${pkg.exports['./fastify'].import}');`,
+  `const entries = standardEntries('probe', { auth: { config: 'none' } });`,
+  `const catalog = defineCatalog(entries.filter((e) => e.name === 'status' || e.name === 'configApply'));`,
+  `if (!buildOpenApiDocument(catalog, { title: 'probe', version: '1.0.0' }).paths['/config/apply'].post) throw new Error('no operation');`,
+  `const app = Fastify();`,
+  `await registerCatalogRoutes(app, catalog, { status: () => Promise.resolve({ status: 200, body: { name: 'probe', version: '1', uptime: 0, status: 'healthy', health: {} } }), configApply: () => Promise.resolve({ status: 200, body: { applied: true, config: {} } }) });`,
+  `const ok = await app.inject('/status');`,
+  `if (ok.statusCode !== 200 || ok.json().name !== 'probe') throw new Error('route failed: ' + ok.body);`,
+  `const bad = await app.inject({ method: 'POST', url: '/config/apply', payload: { patch: 1 } });`,
+  `if (bad.statusCode !== 400 || bad.json().issues?.[0]?.slot !== 'body') throw new Error('validation failed: ' + bad.body);`,
+  `await app.close();`,
+].join('\n');
 
 /** Files the tarball must contain. */
 const requiredFiles = [
@@ -248,25 +271,6 @@ const proven: string[] = [];
 const typeProbes: string[] = [];
 
 for (const stage of stages) {
-  if (stage.peers.length > 0) {
-    npm(
-      [
-        ...INSTALL_FLAGS,
-        ...stage.peers.map((p) => `${p}@${pkg.peerDependencies[p]}`),
-      ],
-      consumer,
-    );
-  }
-  const installed = optionalPeers.filter((p) =>
-    existsSync(join(consumer, 'node_modules', ...p.split('/'))),
-  );
-  const allowed = stages
-    .slice(0, stages.indexOf(stage) + 1)
-    .flatMap((s) => s.peers);
-  const unexpected = installed.filter((p) => !allowed.includes(p));
-  if (unexpected.length > 0)
-    fail(`${stage.label}: unexpected peers present: ${unexpected.join(', ')}`);
-
   proven.push(...stage.entries);
   if (stage.typeProbe) typeProbes.push(stage.typeProbe);
   const specifiers = proven.map((e) => `${pkg.name}${e}`);
@@ -305,5 +309,38 @@ for (const stage of stages) {
     `check-packed-consumer: ${stage.label}: ${specifiers.join(', ')} ok`,
   );
 }
+
+// Global install, alone: the copy a globally installed service may share.
+const prefix = join(work, 'global');
+mkdirSync(prefix);
+npm(
+  [
+    ...INSTALL_FLAGS,
+    '--global',
+    '--prefix',
+    prefix,
+    join(work, packed.filename),
+  ],
+  work,
+);
+const globalRoot = join(
+  prefix,
+  ...(process.platform === 'win32' ? [] : ['lib']),
+  'node_modules',
+  ...pkg.name.split('/'),
+);
+if (!existsSync(join(globalRoot, 'package.json')))
+  fail(`global install: ${globalRoot} not found`);
+try {
+  execFileSync(process.execPath, ['--input-type=module', '-e', GLOBAL_PROBE], {
+    cwd: work,
+    env: { ...process.env, JEEVES_ROOT: globalRoot },
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'inherit'],
+  });
+} catch {
+  fail('global install: /openapi and /fastify probe failed');
+}
+console.log('check-packed-consumer: global install: /openapi, /fastify ok');
 
 console.log('check-packed-consumer: all stages passed');

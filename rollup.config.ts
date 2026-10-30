@@ -55,6 +55,12 @@ const commonPlugins = [
 
 const commonAliases: Alias[] = [];
 
+/** Plugins every library and CLI build runs. */
+const inputPlugins = [
+  aliasPlugin({ entries: commonAliases }),
+  ...commonPlugins,
+];
+
 /**
  * Common input options for library builds.
  * Externalize runtime dependencies and peers.
@@ -66,27 +72,39 @@ const commonInputOptions: InputOptions = {
     ...Object.keys(pkg.peerDependencies ?? {}),
     'tslib',
   ],
-  plugins: [aliasPlugin({ entries: commonAliases }), ...commonPlugins],
+  plugins: inputPlugins,
 };
 
 /**
  * Library entry points (spec 5.1): output name (under `dist/`) to source,
- * plus the optional peers each entry point's declarations may import. The
- * root and `catalog` entry points may import none, so consumers that don't
- * adopt the catalog never need Fastify or the OpenAPI libraries.
+ * plus the scoped dependencies each entry point may import (code and
+ * declarations). The root and `catalog` entry points import none, so
+ * importing them never loads Fastify or the OpenAPI library.
  */
 const libraryEntries = {
-  index: { input: 'src/index.ts', optionalPeers: [] },
-  'catalog/index': { input: 'src/catalog/index.ts', optionalPeers: [] },
+  index: { input: 'src/index.ts', scoped: [] },
+  'catalog/index': { input: 'src/catalog/index.ts', scoped: [] },
   'openapi/index': {
     input: 'src/openapi/index.ts',
-    optionalPeers: ['zod-openapi'],
+    scoped: ['zod-openapi'],
   },
   'fastify/index': {
     input: 'src/fastify/index.ts',
-    optionalPeers: ['fastify', 'fastify-type-provider-zod'],
+    scoped: ['fastify', 'fastify-type-provider-zod'],
   },
-} satisfies Record<string, { input: string; optionalPeers: string[] }>;
+} satisfies Record<string, { input: string; scoped: string[] }>;
+
+/** Guard each entry point's imports against undeclared or scoped packages. */
+const entryGuard = () =>
+  dtsDependencyGuardPlugin(
+    pkg,
+    Object.fromEntries(
+      Object.entries(libraryEntries).map(([name, { scoped }]) => [
+        name,
+        scoped,
+      ]),
+    ),
+  );
 
 /** Discover CLI commands under src/cli. */
 const cliCommands = (await fs.readdir('src/cli').catch(() => [])) as string[];
@@ -97,6 +115,7 @@ const cliCommands = (await fs.readdir('src/cli').catch(() => [])) as string[];
  */
 export const buildLibrary = (dest: string): RollupOptions => ({
   ...commonInputOptions,
+  plugins: [...inputPlugins, entryGuard()],
   input: Object.fromEntries(
     Object.entries(libraryEntries).map(([name, { input }]) => [name, input]),
   ),
@@ -116,7 +135,7 @@ export const buildLibrary = (dest: string): RollupOptions => ({
  * types shared between entry points emitted once under `chunks/`, so a
  * value from one entry point (e.g. a `Catalog`) type-checks in another's
  * API. Each entry point, with the chunks it imports, is guarded against
- * importing undeclared packages or optional peers it may not use.
+ * importing undeclared packages or scoped dependencies it may not use.
  */
 export const buildTypes = (dest: string): RollupOptions => ({
   input: Object.fromEntries(
@@ -130,18 +149,7 @@ export const buildTypes = (dest: string): RollupOptions => ({
       chunkFileNames: 'chunks/[name]-[hash].d.ts',
     },
   ],
-  plugins: [
-    dtsPlugin(),
-    dtsDependencyGuardPlugin(
-      pkg,
-      Object.fromEntries(
-        Object.entries(libraryEntries).map(([name, { optionalPeers }]) => [
-          name,
-          optionalPeers,
-        ]),
-      ),
-    ),
-  ],
+  plugins: [dtsPlugin(), entryGuard()],
 });
 
 /** Assemble complete config: library, types, and CLI outputs. */

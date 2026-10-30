@@ -75,14 +75,14 @@ Upgrading from v0.x? See the [migration guide](guides/migrating-to-v1.md). Upgra
 
 ## Entry Points
 
-| Import | What it gives you | Needs |
+| Import | What it gives you | Loads |
 | --- | --- | --- |
 | `@karmaniverous/jeeves` | Plugin SDK, CLI support, managed content, service helpers, script helpers | - |
 | `@karmaniverous/jeeves/catalog` | Endpoint catalog: `defineCatalog`, `standardEntries`, `queryArray`, `createCatalogClient`, request building, tool definitions | - |
-| `@karmaniverous/jeeves/openapi` | `buildOpenApiDocument`, `writeOpenApiDocument`, `checkOpenApiDrift` | `zod-openapi` ^6 |
-| `@karmaniverous/jeeves/fastify` | `registerCatalogRoutes`, `registerOpenApiRoute`, `standardHandlers` | `fastify` ^5, `fastify-type-provider-zod` ^7 |
+| `@karmaniverous/jeeves/openapi` | `buildOpenApiDocument`, `writeOpenApiDocument`, `checkOpenApiDrift` | `zod-openapi` |
+| `@karmaniverous/jeeves/fastify` | `registerCatalogRoutes`, `registerOpenApiRoute`, `standardHandlers` | `fastify-type-provider-zod` (types from `fastify`) |
 
-The packages under **Needs** are optional peers: install them only where you import that entry point.
+The packages under **Loads** are dependencies of this package, imported only by that entry point: importing the root or `/catalog` never loads them. They are regular dependencies, not peers, so an entry point works wherever this package is installed, including a global install a service shares with the `jeeves` CLI.
 
 ## Endpoint Catalog
 
