@@ -1,12 +1,12 @@
 ---
 name: jeeves-pr-review
 description: >
-  Finish and review a pull request before any human review: SOLID/DRY, test adequacy with mutation checks, docs sync, gates, CI, then an independent review by a fresh subagent posted to GitHub, and an evidence-based PR description. Use before calling any PR ready or requesting review. Replaces Copilot review.
+  Finish and review a pull request before any human review: SOLID/DRY, test adequacy with mutation checks, docs sync, gates, CI, then an independent review by a fresh subagent posted to GitHub, and an evidence-based PR description. Use before calling any PR ready or requesting review.
 ---
 
 # Finishing and Reviewing a PR
 
-A PR is not called ready, and no human review is requested, until every pass below has run on the pushed head and the independent review is posted and answered. This replaces Copilot review: don't request one.
+A PR is not called ready, and no human review is requested, until every pass below has run on the pushed head and the independent review is posted and answered. The review is your own: run it yourself rather than waiting for an external reviewer.
 
 The coding rules themselves are in `jeeves-coding`; what to build is in `jeeves-design`. This skill is the finishing procedure that proves a change meets them.
 
