@@ -70,6 +70,11 @@ export {
   WORKSPACE_FILES,
 } from './constants/index.js';
 export {
+  computeInsiderKey,
+  computeOutsiderKeyWithExpiry,
+  computePathKey,
+} from './crypto.js';
+export {
   type CoreConfig,
   coreConfigSchema,
   DEFAULT_BIND_ADDRESS,
@@ -94,11 +99,6 @@ export {
   rejectWindowsDrivePath,
   resetInit,
 } from './init.js';
-export {
-  computeInsiderKey,
-  computeOutsiderKeyWithExpiry,
-  computePathKey,
-} from './linkKeys.js';
 export {
   atomicWrite,
   formatBeginMarker,
