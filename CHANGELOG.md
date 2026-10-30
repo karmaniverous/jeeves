@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.0-5] - 2026-10-30
+
+### 🚀 Features
+
+- Bring the runnable argument parser up to jeeves-scripts-core's (#151)
 ## [0.8.0-4] - 2026-10-29
 
 ### 🚀 Features
@@ -11,6 +16,7 @@ All notable changes to this project will be documented in this file.
 ### ⚙️ Miscellaneous Tasks
 
 - Merge main (0.8.0-0 release commit) into feature/135
+- Release v0.8.0-4
 ## [0.8.0-3] - 2026-10-29
 
 ### 🐛 Bug Fixes
