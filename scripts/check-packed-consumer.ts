@@ -6,18 +6,20 @@
  * and checks the tarball's file list, then:
  *
  * 1. installs the tarball, and nothing else, into a temporary
- *    `moduleResolution: Bundler` project and proves each entry point
- *    type-checks and imports, stage by stage (the root and `/catalog`, then
- *    `/openapi`, then `/fastify`);
+ *    `moduleResolution: Bundler` project; proves no entry point's packed
+ *    code reaches a scoped dependency it may not import (`entry-points.ts`:
+ *    the root and `/catalog` never load Fastify or `zod-openapi`); then
+ *    proves each entry point type-checks and imports, stage by stage (the
+ *    root and `/catalog`, then `/openapi`, then `/fastify`);
  * 2. installs the tarball alone into a temporary global prefix and runs the
- *    `/openapi` and `/fastify` probes from there. A service installed
- *    globally beside the `jeeves` CLI may use that top-level copy, which
- *    resolves its imports from its own location, not the service's; every
- *    package it imports must therefore be its own dependency.
+ *    `/openapi` and `/fastify` probes against that copy, with the consumer
+ *    project's own Zod and Fastify. A service installed globally beside the
+ *    `jeeves` CLI may use that top-level copy, which resolves its imports
+ *    from its own location, not the service's: every package it imports
+ *    must be its own dependency, and catalog schemas from the service's Zod
+ *    must validate through it (Decision 88).
  *
- * Which entry point may import Fastify or `zod-openapi` is checked at build
- * time (the entry guard in `rollup.config.ts`). Exits non-zero on the first
- * failure.
+ * Exits non-zero on the first failure.
  *
  * @module
  */
@@ -32,6 +34,9 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
+
+import { libraryEntries, scopedPackages } from '../entry-points.js';
+import { packageNameOf } from '../rollup-plugin-entry-deps.js';
 
 const repo = resolve(import.meta.dirname, '..');
 const pkg = JSON.parse(readFileSync(join(repo, 'package.json'), 'utf8')) as {
@@ -107,9 +112,11 @@ const stages: Stage[] = [
 ];
 
 /**
- * Probe run against the globally installed copy (`ROOT` is its directory):
- * imports each entry point by path, takes Fastify from the copy's own
- * resolution, and exercises request validation and the OpenAPI document.
+ * Probe run in the consumer project against the globally installed copy
+ * (`ROOT` is its directory): imports each entry point by path, takes Zod and
+ * Fastify from the consumer (a separate copy of each, as a service has),
+ * and exercises the OpenAPI document and request validation of a schema
+ * built with the consumer's Zod.
  */
 const GLOBAL_PROBE = [
   `import { createRequire } from 'node:module';`,
@@ -117,21 +124,55 @@ const GLOBAL_PROBE = [
   `import { pathToFileURL } from 'node:url';`,
   `const ROOT = process.env.JEEVES_ROOT;`,
   `const load = (p) => import(pathToFileURL(join(ROOT, p)).href);`,
-  `const { default: Fastify } = await import(pathToFileURL(createRequire(join(ROOT, 'package.json')).resolve('fastify')).href);`,
+  `const ours = createRequire(join(process.cwd(), 'package.json')).resolve('zod');`,
+  `const theirs = createRequire(join(ROOT, 'package.json')).resolve('zod');`,
+  `if (ours === theirs) throw new Error('one Zod copy: ' + ours);`,
+  `const { z } = await import('zod');`,
+  `const { default: Fastify } = await import('fastify');`,
   `const { defineCatalog, standardEntries } = await load('${pkg.exports['./catalog'].import}');`,
   `const { buildOpenApiDocument } = await load('${pkg.exports['./openapi'].import}');`,
   `const { registerCatalogRoutes } = await load('${pkg.exports['./fastify'].import}');`,
   `const entries = standardEntries('probe', { auth: { config: 'none' } });`,
-  `const catalog = defineCatalog(entries.filter((e) => e.name === 'status' || e.name === 'configApply'));`,
+  `const echo = { name: 'echo', method: 'POST', path: '/echo', description: 'Echo.', body: z.object({ n: z.number() }), response: z.object({ n: z.number() }), auth: 'none', kind: 'write' };`,
+  `const catalog = defineCatalog([...entries.filter((e) => e.name === 'status' || e.name === 'configApply'), echo]);`,
   `if (!buildOpenApiDocument(catalog, { title: 'probe', version: '1.0.0' }).paths['/config/apply'].post) throw new Error('no operation');`,
   `const app = Fastify();`,
-  `await registerCatalogRoutes(app, catalog, { status: () => Promise.resolve({ status: 200, body: { name: 'probe', version: '1', uptime: 0, status: 'healthy', health: {} } }), configApply: () => Promise.resolve({ status: 200, body: { applied: true, config: {} } }) });`,
+  `await registerCatalogRoutes(app, catalog, { status: () => Promise.resolve({ status: 200, body: { name: 'probe', version: '1', uptime: 0, status: 'healthy', health: {} } }), configApply: () => Promise.resolve({ status: 200, body: { applied: true, config: {} } }), echo: ({ body }) => Promise.resolve({ status: 200, body }) });`,
   `const ok = await app.inject('/status');`,
   `if (ok.statusCode !== 200 || ok.json().name !== 'probe') throw new Error('route failed: ' + ok.body);`,
   `const bad = await app.inject({ method: 'POST', url: '/config/apply', payload: { patch: 1 } });`,
   `if (bad.statusCode !== 400 || bad.json().issues?.[0]?.slot !== 'body') throw new Error('validation failed: ' + bad.body);`,
+  `const echoed = await app.inject({ method: 'POST', url: '/echo', payload: { n: 1 } });`,
+  `if (echoed.statusCode !== 200 || echoed.json().n !== 1) throw new Error('echo failed: ' + echoed.body);`,
+  `const refused = await app.inject({ method: 'POST', url: '/echo', payload: { n: 'x' } });`,
+  `if (refused.statusCode !== 400 || refused.json().issues?.[0]?.path?.[0] !== 'n') throw new Error('echo validation failed: ' + refused.body);`,
   `await app.close();`,
 ].join('\n');
+
+/** Static and dynamic import specifiers in an ESM file. */
+const IMPORT_RE = /(?:\bfrom\s*|\bimport\s*\(?\s*)['"]([^'"]+)['"]/g;
+
+/**
+ * Bare packages an entry point's packed code reaches: its own imports and
+ * those of every relative module it imports, transitively.
+ *
+ * @param file - The entry point's `.js` file.
+ * @returns Package names.
+ */
+function reachedPackages(file: string): Set<string> {
+  const seen = new Set<string>();
+  const packages = new Set<string>();
+  const visit = (path: string): void => {
+    if (seen.has(path)) return;
+    seen.add(path);
+    for (const [, spec] of readFileSync(path, 'utf8').matchAll(IMPORT_RE)) {
+      if (spec.startsWith('.')) visit(resolve(dirname(path), spec));
+      else if (!spec.startsWith('node:')) packages.add(packageNameOf(spec));
+    }
+  };
+  visit(file);
+  return packages;
+}
 
 /** Files the tarball must contain. */
 const requiredFiles = [
@@ -266,6 +307,20 @@ writeFileSync(
 );
 npm(INSTALL_FLAGS, consumer);
 
+// No entry point's packed code reaches a scoped dependency it may not use.
+const installedRoot = join(consumer, 'node_modules', ...pkg.name.split('/'));
+for (const [name, { scoped }] of Object.entries(libraryEntries)) {
+  const allowed: readonly string[] = scoped;
+  const reached = reachedPackages(join(installedRoot, 'dist', `${name}.js`));
+  const banned = scopedPackages.filter(
+    (p) => reached.has(p) && !allowed.includes(p),
+  );
+  if (banned.length > 0) fail(`dist/${name}.js reaches ${banned.join(', ')}`);
+}
+console.log(
+  'check-packed-consumer: entry points reach only their own scoped dependencies',
+);
+
 const tsc = join(repo, 'node_modules', 'typescript', 'bin', 'tsc');
 const proven: string[] = [];
 const typeProbes: string[] = [];
@@ -333,7 +388,7 @@ if (!existsSync(join(globalRoot, 'package.json')))
   fail(`global install: ${globalRoot} not found`);
 try {
   execFileSync(process.execPath, ['--input-type=module', '-e', GLOBAL_PROBE], {
-    cwd: work,
+    cwd: consumer,
     env: { ...process.env, JEEVES_ROOT: globalRoot },
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'inherit'],
@@ -341,6 +396,8 @@ try {
 } catch {
   fail('global install: /openapi and /fastify probe failed');
 }
-console.log('check-packed-consumer: global install: /openapi, /fastify ok');
+console.log(
+  "check-packed-consumer: global install: /openapi, /fastify ok with the consumer's Zod and Fastify",
+);
 
 console.log('check-packed-consumer: all stages passed');

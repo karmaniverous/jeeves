@@ -119,7 +119,7 @@ The Plugin SDK (`src/plugin/`) provides canonical types and utilities for buildi
 
 ### Resolution Helpers
 
-- **`resolveWorkspacePath(api, ctx?)`** — resolves the agent workspace: `api.config.agents.defaults.workspace` (`~` expanded) → `ctx.workspaceDir` → OpenClaw's default (`$OPENCLAW_STATE_DIR/workspace`, `~/.openclaw-<profile>/workspace` or `~/.openclaw/workspace`, with one warning per process). Never the plugin root (`api.resolvePath` resolves against the plugin root), never throws.
+- **`resolveWorkspacePath(api, ctx?)`** — resolves the agent workspace: `api.config.agents.defaults.workspace` (`~` expanded) → `ctx.workspaceDir` → OpenClaw's default (`$OPENCLAW_STATE_DIR/workspace`, `~/.openclaw-<profile>/workspace` or `~/.openclaw/workspace`). Never the plugin root (`api.resolvePath` resolves against the plugin root), never throws.
 - **`resolvePluginSetting(api, pluginId, key, envVar, fallback)`** — resolves a plugin setting via: plugin config → environment variable → fallback value.
 
 ### Always-in-Context Rules (`before_prompt_build`)

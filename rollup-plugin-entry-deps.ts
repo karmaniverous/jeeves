@@ -21,6 +21,20 @@ export function packageNameOf(specifier: string): string {
 }
 
 /**
+ * Rollup `external` predicate for a list of packages: a package and any of
+ * its subpaths (e.g. `zod-openapi/api`). Matching subpaths keeps them out of
+ * the bundle, so the entry guard sees them as imports of their package.
+ *
+ * @param packages - Package names to keep external.
+ * @returns Whether a module id is one of the packages or a subpath of one.
+ */
+export function externalMatcher(
+  packages: readonly string[],
+): (id: string) => boolean {
+  return (id) => packages.some((p) => id === p || id.startsWith(`${p}/`));
+}
+
+/**
  * Find bare-module imports that consumers could not resolve from the
  * published package's declared runtime dependencies, or that this entry
  * point may not import.
@@ -42,7 +56,7 @@ export function packageNameOf(specifier: string): string {
  *   import.
  * @returns Sorted, de-duplicated package names that are undeclared.
  */
-export function findUndeclaredTypeImports(
+export function findUndeclaredImports(
   imports: Iterable<string>,
   pkg: DeclaredDependencies,
   allowed: readonly string[] = [],
@@ -110,17 +124,17 @@ export function collectEntryImports(
  *   point is scoped; an entry chunk not listed may import none of them.
  * @returns Rollup plugin.
  */
-export function dtsDependencyGuardPlugin(
+export function entryDependencyGuardPlugin(
   pkg: DeclaredDependencies,
   entries: Readonly<Record<string, readonly string[]>> = {},
 ): Plugin {
   const scoped = [...new Set(Object.values(entries).flat())];
   return {
-    name: 'dts-dependency-guard',
+    name: 'entry-dependency-guard',
     generateBundle(_options, bundle) {
       const problems = Object.values(bundle).flatMap((item) => {
         if (item.type !== 'chunk' || !item.isEntry) return [];
-        const undeclared = findUndeclaredTypeImports(
+        const undeclared = findUndeclaredImports(
           collectEntryImports(bundle, item.fileName),
           pkg,
           entries[item.name],

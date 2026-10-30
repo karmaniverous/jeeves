@@ -4,10 +4,11 @@ import { describe, expect, it, vi } from 'vitest';
 import pkg from './package.json' with { type: 'json' };
 import {
   collectEntryImports,
-  dtsDependencyGuardPlugin,
-  findUndeclaredTypeImports,
+  entryDependencyGuardPlugin,
+  externalMatcher,
+  findUndeclaredImports,
   packageNameOf,
-} from './rollup-plugin-dts-deps.js';
+} from './rollup-plugin-entry-deps.js';
 
 const chunk = (
   name: string,
@@ -39,7 +40,25 @@ describe('packageNameOf', () => {
   });
 });
 
-describe('findUndeclaredTypeImports', () => {
+describe('externalMatcher', () => {
+  const isExternal = externalMatcher(['zod-openapi', '@scope/pkg']);
+
+  it.each(['zod-openapi', 'zod-openapi/api', '@scope/pkg', '@scope/pkg/sub'])(
+    'keeps %s external',
+    (id) => {
+      expect(isExternal(id)).toBe(true);
+    },
+  );
+
+  it.each(['zod', 'zod-openapi-extra', '@scope/pkgx', './zod-openapi'])(
+    'bundles %s',
+    (id) => {
+      expect(isExternal(id)).toBe(false);
+    },
+  );
+});
+
+describe('findUndeclaredImports', () => {
   const declared = {
     dependencies: { zod: '^4' },
     peerDependencies: { commander: '^15' },
@@ -47,7 +66,7 @@ describe('findUndeclaredTypeImports', () => {
 
   it('ignores relative, absolute, and node builtin specifiers', () => {
     expect(
-      findUndeclaredTypeImports(
+      findUndeclaredImports(
         ['./a.js', '../b.js', '/abs', 'node:fs', 'path', 'zod/v4', 'commander'],
         declared,
       ),
@@ -56,12 +75,12 @@ describe('findUndeclaredTypeImports', () => {
 
   it('reports undeclared packages, sorted and de-duplicated', () => {
     expect(
-      findUndeclaredTypeImports(['zz', '@a/b/c', 'zz/sub', '@a/b'], declared),
+      findUndeclaredImports(['zz', '@a/b/c', 'zz/sub', '@a/b'], declared),
     ).toEqual(['@a/b', 'zz']);
   });
 
   it('treats missing dependency maps as empty', () => {
-    expect(findUndeclaredTypeImports(['zod'], {})).toEqual(['zod']);
+    expect(findUndeclaredImports(['zod'], {})).toEqual(['zod']);
   });
 
   describe('optional peers', () => {
@@ -72,21 +91,19 @@ describe('findUndeclaredTypeImports', () => {
     };
 
     it('rejects an optional peer the entry point does not allow', () => {
-      expect(findUndeclaredTypeImports(['fastify'], withOptional)).toEqual([
+      expect(findUndeclaredImports(['fastify'], withOptional)).toEqual([
         'fastify',
       ]);
     });
 
     it('accepts an optional peer the entry point allows', () => {
       expect(
-        findUndeclaredTypeImports(['fastify'], withOptional, ['fastify']),
+        findUndeclaredImports(['fastify'], withOptional, ['fastify']),
       ).toEqual([]);
     });
 
     it('keeps non-optional peers declared everywhere', () => {
-      expect(findUndeclaredTypeImports(['commander'], withOptional)).toEqual(
-        [],
-      );
+      expect(findUndeclaredImports(['commander'], withOptional)).toEqual([]);
     });
   });
 
@@ -97,13 +114,24 @@ describe('findUndeclaredTypeImports', () => {
 
     it('rejects a scoped dependency the entry point does not allow', () => {
       expect(
-        findUndeclaredTypeImports(['fastify'], withScoped, [], ['fastify']),
+        findUndeclaredImports(['fastify'], withScoped, [], ['fastify']),
       ).toEqual(['fastify']);
+    });
+
+    it('rejects a subpath of a scoped dependency the entry point does not allow', () => {
+      expect(
+        findUndeclaredImports(
+          ['zod-openapi/api'],
+          { dependencies: { 'zod-openapi': '^6' } },
+          [],
+          ['zod-openapi'],
+        ),
+      ).toEqual(['zod-openapi']);
     });
 
     it('accepts a scoped dependency the entry point allows', () => {
       expect(
-        findUndeclaredTypeImports(
+        findUndeclaredImports(
           ['fastify'],
           withScoped,
           ['fastify'],
@@ -114,14 +142,14 @@ describe('findUndeclaredTypeImports', () => {
 
     it('keeps unscoped dependencies declared everywhere', () => {
       expect(
-        findUndeclaredTypeImports(['zod'], withScoped, [], ['fastify']),
+        findUndeclaredImports(['zod'], withScoped, [], ['fastify']),
       ).toEqual([]);
     });
   });
 
   it('passes for the real package.json and its type-level imports', () => {
     expect(
-      findUndeclaredTypeImports(['@commander-js/extra-typings', 'zod'], pkg),
+      findUndeclaredImports(['@commander-js/extra-typings', 'zod'], pkg),
     ).toEqual([]);
   });
 });
@@ -146,13 +174,13 @@ describe('collectEntryImports', () => {
   });
 });
 
-describe('dtsDependencyGuardPlugin', () => {
+describe('entryDependencyGuardPlugin', () => {
   const run = (
     bundle: OutputBundle,
     entries?: Record<string, readonly string[]>,
   ) => {
     const error = vi.fn();
-    const plugin = dtsDependencyGuardPlugin(
+    const plugin = entryDependencyGuardPlugin(
       {
         dependencies: { zod: '^4' },
         peerDependencies: { fastify: '^5' },
@@ -197,7 +225,7 @@ describe('dtsDependencyGuardPlugin', () => {
 
   it('scopes every dependency an entry point lists to the entry points listing it', () => {
     const error = vi.fn();
-    const plugin = dtsDependencyGuardPlugin(
+    const plugin = entryDependencyGuardPlugin(
       { dependencies: { zod: '^4', 'zod-openapi': '^6' } },
       { 'openapi/index': ['zod-openapi'] },
     );

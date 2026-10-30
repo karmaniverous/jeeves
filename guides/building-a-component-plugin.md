@@ -36,7 +36,7 @@ const PLUGIN_ID = 'jeeves-watcher-openclaw';
 
 // Resolve the agent workspace:
 //   api.config.agents.defaults.workspace → ctx.workspaceDir (when passed)
-//   → OpenClaw's default workspace (one warning per process).
+//   → OpenClaw's default workspace.
 // Never the plugin root. Pass a hook or tool-factory ctx where you have one.
 const workspacePath = resolveWorkspacePath(api);
 

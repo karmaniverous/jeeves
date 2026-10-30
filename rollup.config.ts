@@ -10,7 +10,11 @@ import fs from 'fs-extra';
 import type { InputOptions, RollupOptions } from 'rollup';
 import dtsPlugin from 'rollup-plugin-dts';
 
-import { dtsDependencyGuardPlugin } from './rollup-plugin-dts-deps.js';
+import { libraryEntries } from './entry-points.js';
+import {
+  entryDependencyGuardPlugin,
+  externalMatcher,
+} from './rollup-plugin-entry-deps.js';
 import { mdPlugin } from './rollup-plugin-md.js';
 
 const require = createRequire(import.meta.url);
@@ -63,40 +67,21 @@ const inputPlugins = [
 
 /**
  * Common input options for library builds.
- * Externalize runtime dependencies and peers.
+ * Externalize runtime dependencies and peers, including their subpaths.
  */
 const commonInputOptions: InputOptions = {
   input: 'src/index.ts',
-  external: [
+  external: externalMatcher([
     ...Object.keys(pkg.dependencies ?? {}),
     ...Object.keys(pkg.peerDependencies ?? {}),
     'tslib',
-  ],
+  ]),
   plugins: inputPlugins,
 };
 
-/**
- * Library entry points (spec 5.1): output name (under `dist/`) to source,
- * plus the scoped dependencies each entry point may import (code and
- * declarations). The root and `catalog` entry points import none, so
- * importing them never loads Fastify or the OpenAPI library.
- */
-const libraryEntries = {
-  index: { input: 'src/index.ts', scoped: [] },
-  'catalog/index': { input: 'src/catalog/index.ts', scoped: [] },
-  'openapi/index': {
-    input: 'src/openapi/index.ts',
-    scoped: ['zod-openapi'],
-  },
-  'fastify/index': {
-    input: 'src/fastify/index.ts',
-    scoped: ['fastify', 'fastify-type-provider-zod'],
-  },
-} satisfies Record<string, { input: string; scoped: string[] }>;
-
 /** Guard each entry point's imports against undeclared or scoped packages. */
 const entryGuard = () =>
-  dtsDependencyGuardPlugin(
+  entryDependencyGuardPlugin(
     pkg,
     Object.fromEntries(
       Object.entries(libraryEntries).map(([name, { scoped }]) => [

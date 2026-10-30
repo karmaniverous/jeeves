@@ -11,8 +11,6 @@ import {
 import type { PluginApi } from './types.js';
 
 describe('resolveWorkspacePath', () => {
-  const load = () => Promise.resolve(resolveWorkspacePath);
-
   const apiWith = (
     workspace?: string,
     warn = vi.fn<(message: string) => void>(),
@@ -30,57 +28,59 @@ describe('resolveWorkspacePath', () => {
     vi.unstubAllEnvs();
   });
 
-  it('returns the configured workspace first, ~ expanded', async () => {
-    const resolve = await load();
-    expect(resolve(apiWith('/from/config'), { workspaceDir: '/ctx' })).toBe(
-      '/from/config',
+  it('returns the configured workspace first, ~ expanded', () => {
+    expect(
+      resolveWorkspacePath(apiWith('/from/config'), { workspaceDir: '/ctx' }),
+    ).toBe('/from/config');
+    expect(resolveWorkspacePath(apiWith('~/ws'))).toBe(join(homedir(), 'ws'));
+    expect(resolveWorkspacePath(apiWith('~'))).toBe(homedir());
+  });
+
+  it('uses ctx.workspaceDir when config is absent or blank', () => {
+    expect(resolveWorkspacePath(apiWith(), { workspaceDir: '/ctx' })).toBe(
+      '/ctx',
     );
-    expect(resolve(apiWith('~/ws'))).toBe(join(homedir(), 'ws'));
-    expect(resolve(apiWith('~'))).toBe(homedir());
+    expect(resolveWorkspacePath(apiWith('   '), { workspaceDir: '/ctx' })).toBe(
+      '/ctx',
+    );
   });
 
-  it('uses ctx.workspaceDir when config is absent or blank', async () => {
-    const resolve = await load();
-    expect(resolve(apiWith(), { workspaceDir: '/ctx' })).toBe('/ctx');
-    expect(resolve(apiWith('   '), { workspaceDir: '/ctx' })).toBe('/ctx');
-  });
-
-  it('defaults to <OPENCLAW_STATE_DIR>/workspace', async () => {
+  it('defaults to <OPENCLAW_STATE_DIR>/workspace', () => {
     vi.stubEnv('OPENCLAW_STATE_DIR', '/state');
     vi.stubEnv('OPENCLAW_PROFILE', 'work');
-    expect((await load())(apiWith(), { workspaceDir: ' ' })).toBe(
+    expect(resolveWorkspacePath(apiWith(), { workspaceDir: ' ' })).toBe(
       join('/state', 'workspace'),
     );
   });
 
-  it('defaults to ~/.openclaw-<profile>/workspace for a non-default profile', async () => {
+  it('defaults to ~/.openclaw-<profile>/workspace for a non-default profile', () => {
     vi.stubEnv('OPENCLAW_STATE_DIR', '');
     vi.stubEnv('OPENCLAW_PROFILE', 'work');
-    expect((await load())(apiWith())).toBe(
+    expect(resolveWorkspacePath(apiWith())).toBe(
       join(homedir(), '.openclaw-work', 'workspace'),
     );
   });
 
   it.each(['', 'default'])(
     'defaults to ~/.openclaw/workspace for profile %j',
-    async (profile) => {
+    (profile) => {
       vi.stubEnv('OPENCLAW_STATE_DIR', '');
       vi.stubEnv('OPENCLAW_PROFILE', profile);
-      expect((await load())(apiWith())).toBe(
+      expect(resolveWorkspacePath(apiWith())).toBe(
         join(homedir(), '.openclaw', 'workspace'),
       );
     },
   );
 
-  it('never returns the plugin root', async () => {
+  it('never returns the plugin root', () => {
     vi.stubEnv('OPENCLAW_STATE_DIR', '');
-    expect((await load())(apiWith())).not.toBe('/plugin/root');
+    expect(resolveWorkspacePath(apiWith())).not.toBe('/plugin/root');
   });
 
-  it('logs nothing when falling back to the default', async () => {
+  it('logs nothing when falling back to the default', () => {
     vi.stubEnv('OPENCLAW_STATE_DIR', '/state');
     const api = apiWith();
-    expect((await load())(api)).toBe(join('/state', 'workspace'));
+    expect(resolveWorkspacePath(api)).toBe(join('/state', 'workspace'));
     expect(api.warn).not.toHaveBeenCalled();
   });
 
