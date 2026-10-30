@@ -2,11 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.0-6] - 2026-10-30
+
+### 🐛 Bug Fixes
+
+- Make fastify, fastify-type-provider-zod and zod-openapi dependencies
+
+### 📚 Documentation
+
+- Jeeves-pr-review no longer mentions Copilot
 ## [0.8.0-5] - 2026-10-30
 
 ### 🚀 Features
 
 - Bring the runnable argument parser up to jeeves-scripts-core's (#151)
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v0.8.0-5
 ## [0.8.0-4] - 2026-10-29
 
 ### 🚀 Features
