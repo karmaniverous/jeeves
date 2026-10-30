@@ -2,7 +2,7 @@ import { builtinModules } from 'node:module';
 
 import type { OutputBundle, Plugin } from 'rollup';
 
-/** Dependency maps from `package.json` relevant to published types. */
+/** Dependency maps from `package.json` relevant to published output. */
 export interface DeclaredDependencies {
   dependencies?: Record<string, string>;
   peerDependencies?: Record<string, string>;
@@ -46,6 +46,10 @@ export function externalMatcher(
  * (a dependency only some entry points need, e.g. Fastify) likewise counts
  * only for an entry point that lists it in `allowed`, so importing another
  * entry point never loads it.
+ *
+ * Core declares no peers today (spec Decision 88); the optional-peer rule
+ * stays because it reads `package.json` generically and keeps the guard
+ * correct if a future entry point (e.g. `/mcp`, #136) declares one.
  *
  * @param imports - Module specifiers imported by the emitted output.
  * @param pkg - Declared `dependencies` / `peerDependencies` /
@@ -146,7 +150,7 @@ export function entryDependencyGuardPlugin(
       });
       if (problems.length > 0) {
         this.error(
-          `Published output imports packages missing from dependencies/peerDependencies, or optional peers or scoped packages not allowed in that entry point: ${problems.join('; ')}`,
+          `Published output imports packages missing from dependencies/peerDependencies, or scoped packages (or optional peers) not allowed in that entry point: ${problems.join('; ')}`,
         );
       }
     },
