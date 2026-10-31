@@ -107,7 +107,10 @@ describe('createCatalogClient against the test app', () => {
     const client = createCatalogClient(testCatalog, { baseUrl });
     const error = await failure(client.broken({}));
     expect(error.status).toBe(500);
-    expect(error.body).toEqual({ error: 'Response validation failed' });
+    expect(error.body).toEqual({
+      code: 'internal_error',
+      error: 'Response validation failed',
+    });
   });
 
   it('rejects invalid input before sending, with status 0', async () => {
@@ -259,6 +262,53 @@ describe('createCatalogClient with a fetch spy', () => {
       const error = await failure(client.open({}));
       expect(error).toMatchObject({ status: 502, body: { error: body } });
     }
+  });
+
+  /** A fetch answering with `body` at `status` and these headers. */
+  const withHeaders = (
+    body: string,
+    status: number,
+    headers: Record<string, string>,
+  ) =>
+    vi.fn<typeof fetch>(() =>
+      Promise.resolve(new Response(body, { status, headers })),
+    );
+
+  it('keeps the headers of a non-2xx response and parses Retry-After', async () => {
+    const error = await failure(
+      createCatalogClient(catalog, {
+        baseUrl: 'http://svc',
+        fetch: withHeaders('{"error":"busy","code":"x"}', 503, {
+          'Retry-After': '30',
+        }),
+      }).open({}),
+    );
+    expect(error.status).toBe(503);
+    expect(error.headers?.get('retry-after')).toBe('30');
+    expect(error.retryAfterMs).toBe(30_000);
+  });
+
+  it('keeps the headers of a 2xx response that fails its schema', async () => {
+    const error = await failure(
+      createCatalogClient(catalog, {
+        baseUrl: 'http://svc',
+        fetch: withHeaders('{"ok":"yes"}', 200, { 'x-trace': 't1' }),
+      }).open({}),
+    );
+    expect(error.issues).toBeDefined();
+    expect(error.headers?.get('x-trace')).toBe('t1');
+  });
+
+  it('has no headers when no response arrived', async () => {
+    const error = await failure(
+      createCatalogClient(catalog, {
+        baseUrl: 'http://svc',
+        fetch: vi.fn<typeof fetch>(() => Promise.reject(new TypeError('down'))),
+      }).open({}),
+    );
+    expect(error.status).toBe(0);
+    expect(error.headers).toBeUndefined();
+    expect(error.retryAfterMs).toBeUndefined();
   });
 
   it('treats an unfollowed 3xx as an error', async () => {

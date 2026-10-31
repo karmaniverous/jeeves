@@ -1,4 +1,4 @@
-# Packed-consumer check (spec 5.1, Decision 88): installs the packed tarball
+# Packed-consumer check (spec 5.1, 5a.4; Decisions 88, 89): installs the packed tarball
 # into a consumer project and a global prefix, and proves each entry point
 # imports only what it may and works from a global install.
 name: Packed Consumer Check

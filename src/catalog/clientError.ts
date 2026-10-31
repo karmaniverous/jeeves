@@ -7,6 +7,7 @@
 import type { z } from 'zod';
 
 import type { ErrorBody } from './errorBody.js';
+import { retryAfterMs } from './retryAfter.js';
 
 /** What a {@link CatalogClientError} carries. */
 export interface CatalogClientErrorDetails {
@@ -18,6 +19,8 @@ export interface CatalogClientErrorDetails {
   issues?: z.core.$ZodIssue[];
   /** Underlying error (abort, network failure). */
   cause?: unknown;
+  /** Headers of the response, whenever one was received. */
+  headers?: Headers;
 }
 
 /**
@@ -32,10 +35,23 @@ export class CatalogClientError extends Error {
   readonly body?: ErrorBody;
   /** Zod issues, when validation failed. */
   readonly issues?: z.core.$ZodIssue[];
+  /** Headers of the response; absent when none was received (status 0). */
+  readonly headers?: Headers;
+  /**
+   * Milliseconds to wait before retrying, from the response's `Retry-After`
+   * (delta-seconds, or an HTTP date relative to when the error was built);
+   * absent when the header is missing or unparseable.
+   *
+   * @remarks
+   * Not capped: a server may ask for days. Cap it before passing it to
+   * `setTimeout`, which fires delays above 2^31-1 ms (about 24.8 days)
+   * after 1 ms.
+   */
+  readonly retryAfterMs?: number;
 
   /**
    * @param message - Error message.
-   * @param details - Status, body, issues and cause.
+   * @param details - Status, body, issues, cause and response headers.
    */
   constructor(message: string, details: CatalogClientErrorDetails) {
     super(message, { cause: details.cause });
@@ -43,6 +59,11 @@ export class CatalogClientError extends Error {
     this.status = details.status;
     this.body = details.body;
     this.issues = details.issues;
+    this.headers = details.headers;
+    this.retryAfterMs = retryAfterMs(
+      details.headers?.get('retry-after') ?? null,
+      Date.now(),
+    );
   }
 }
 

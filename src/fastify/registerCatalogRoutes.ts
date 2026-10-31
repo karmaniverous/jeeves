@@ -10,10 +10,6 @@ import type {
   FastifyRequest,
   FastifySchema,
 } from 'fastify';
-import {
-  hasZodFastifySchemaValidationErrors,
-  validatorCompiler,
-} from 'fastify-type-provider-zod';
 import type { z } from 'zod';
 
 import { errorBodySchema } from '../catalog/errorBody.js';
@@ -28,9 +24,17 @@ import type {
   RegisterCatalogRoutesOptions,
   RequestInput,
 } from './types.js';
+import {
+  isCatalogValidationError,
+  type ValidationEntry,
+  validatorCompiler,
+} from './zodValidation.js';
 
-/** Body of a strict-mode response mismatch. */
-const RESPONSE_FAILED = { error: 'Response validation failed' } as const;
+/** Body of a strict-mode response mismatch (spec 5a.3). */
+const RESPONSE_FAILED = {
+  code: 'internal_error',
+  error: 'Response validation failed',
+} as const;
 
 /** Fastify's names for the validated request parts, mapped to slots. */
 const SLOT_OF = {
@@ -53,20 +57,13 @@ class ResponseMismatchError extends Error {
 /**
  * Request-validation issues from a Fastify validation error.
  *
- * @param error - Error carrying ftpz validation entries.
+ * @param error - Error carrying this module's validation entries.
  * @param context - Fastify's validation context (`body`, `querystring`,
  *   `params`).
  * @returns The issues.
  */
 function issuesOf(
-  error: {
-    validation: {
-      instancePath: string;
-      keyword: string;
-      message?: string;
-      params: Record<string, unknown>;
-    }[];
-  },
+  error: { validation: ValidationEntry[] },
   context: string,
 ): CatalogValidationIssue[] {
   const slot = SLOT_OF[context as keyof typeof SLOT_OF];
@@ -74,7 +71,7 @@ function issuesOf(
     slot,
     path: v.instancePath.split('/').filter(Boolean),
     code: v.keyword,
-    message: String(v.message),
+    message: v.message,
     params: v.params,
   }));
 }
@@ -167,12 +164,10 @@ function errorHandlerFor(
   logger: CatalogRouteLogger | undefined,
 ) {
   return (error: unknown, request: FastifyRequest, reply: FastifyReply) => {
-    if (hasZodFastifySchemaValidationErrors(error)) {
-      const { validationContext } = error as { validationContext: string };
+    if (isCatalogValidationError(error))
       return reply
         .status(400)
-        .send(format(issuesOf(error, validationContext), request));
-    }
+        .send(format(issuesOf(error, error.validationContext), request));
     if (error instanceof ResponseMismatchError) {
       (logger ?? request.log).error(
         { issues: error.issues },

@@ -3,8 +3,9 @@
  *
  * @remarks
  * Catalog-driven Fastify route registration and the `/openapi.json` route.
- * Imports `fastify-type-provider-zod` and types from `fastify`, dependencies
- * only this entry point loads.
+ * Imports only types from `fastify`, an optional peer: the app supplies its
+ * own Fastify instance. Request validation is core's own (spec 5a.2), so
+ * nothing outside jeeves and `zod` loads at run time.
  *
  * @packageDocumentation
  */
