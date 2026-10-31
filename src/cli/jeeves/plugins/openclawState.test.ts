@@ -4,6 +4,7 @@ import { CommandFailedError, type CommandRunner } from './commandRunner.js';
 import { failed, fakeRunner, ok } from './fakePorts.js';
 import {
   assertOpenClawAvailable,
+  isOpenClawMissing,
   readPluginsConfig,
   resolveExactVersion,
 } from './openclawState.js';
@@ -15,6 +16,23 @@ const UNSET = JSON.stringify({
     message:
       'Config path is valid but unset: plugins. The runtime default applies…',
   },
+});
+
+describe('isOpenClawMissing', () => {
+  const noDist = () => {
+    throw new Error('no dist');
+  };
+  it('is true only for a start failure with no dist', () => {
+    const spawnError = new Error('spawn openclaw ENOENT');
+    expect(isOpenClawMissing(spawnError, noDist)).toBe(true);
+    expect(isOpenClawMissing(spawnError, () => '/dist')).toBe(false);
+    expect(
+      isOpenClawMissing(
+        new CommandFailedError('openclaw --version', failed()),
+        noDist,
+      ),
+    ).toBe(false);
+  });
 });
 
 describe('assertOpenClawAvailable', () => {

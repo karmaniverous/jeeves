@@ -10,7 +10,11 @@ import fs from 'fs-extra';
 import type { InputOptions, RollupOptions } from 'rollup';
 import dtsPlugin from 'rollup-plugin-dts';
 
-import { dtsDependencyGuardPlugin } from './rollup-plugin-dts-deps.js';
+import { libraryEntries } from './entry-points.js';
+import {
+  entryDependencyGuardPlugin,
+  externalMatcher,
+} from './rollup-plugin-entry-deps.js';
 import { mdPlugin } from './rollup-plugin-md.js';
 
 const require = createRequire(import.meta.url);
@@ -55,44 +59,82 @@ const commonPlugins = [
 
 const commonAliases: Alias[] = [];
 
+/** Plugins every library and CLI build runs. */
+const inputPlugins = [
+  aliasPlugin({ entries: commonAliases }),
+  ...commonPlugins,
+];
+
 /**
  * Common input options for library builds.
- * Externalize runtime dependencies and peers.
+ * Externalize runtime dependencies and peers, including their subpaths.
  */
 const commonInputOptions: InputOptions = {
   input: 'src/index.ts',
-  external: [
+  external: externalMatcher([
     ...Object.keys(pkg.dependencies ?? {}),
     ...Object.keys(pkg.peerDependencies ?? {}),
     'tslib',
-  ],
-  plugins: [aliasPlugin({ entries: commonAliases }), ...commonPlugins],
+  ]),
+  plugins: inputPlugins,
 };
+
+/** Guard each entry point's imports against undeclared or scoped packages. */
+const entryGuard = () =>
+  entryDependencyGuardPlugin(
+    pkg,
+    Object.fromEntries(
+      Object.entries(libraryEntries).map(([name, { scoped }]) => [
+        name,
+        scoped,
+      ]),
+    ),
+  );
 
 /** Discover CLI commands under src/cli. */
 const cliCommands = (await fs.readdir('src/cli').catch(() => [])) as string[];
 
 /**
- * Build the library (ESM only).
+ * Build the library (ESM only): one bundle per entry point, with modules
+ * shared between entry points emitted once under `chunks/`.
  */
 export const buildLibrary = (dest: string): RollupOptions => ({
   ...commonInputOptions,
+  plugins: [...inputPlugins, entryGuard()],
+  input: Object.fromEntries(
+    Object.entries(libraryEntries).map(([name, { input }]) => [name, input]),
+  ),
   output: [
     {
       dir: dest,
       extend: true,
       format: 'esm',
+      entryFileNames: '[name].js',
+      chunkFileNames: 'chunks/[name]-[hash].js',
     },
   ],
 });
 
 /**
- * Build bundled .d.ts at dest/index.d.ts.
+ * Build the declarations in one run: dest/<name>.d.ts per entry point, with
+ * types shared between entry points emitted once under `chunks/`, so a
+ * value from one entry point (e.g. a `Catalog`) type-checks in another's
+ * API. Each entry point, with the chunks it imports, is guarded against
+ * importing undeclared packages or scoped dependencies it may not use.
  */
 export const buildTypes = (dest: string): RollupOptions => ({
-  input: 'src/index.ts',
-  output: [{ file: `${dest}/index.d.ts`, format: 'esm' }],
-  plugins: [dtsPlugin(), dtsDependencyGuardPlugin(pkg)],
+  input: Object.fromEntries(
+    Object.entries(libraryEntries).map(([name, { input }]) => [name, input]),
+  ),
+  output: [
+    {
+      dir: dest,
+      format: 'esm',
+      entryFileNames: '[name].d.ts',
+      chunkFileNames: 'chunks/[name]-[hash].d.ts',
+    },
+  ],
+  plugins: [dtsPlugin(), entryGuard()],
 });
 
 /** Assemble complete config: library, types, and CLI outputs. */
@@ -100,7 +142,7 @@ const config: RollupOptions[] = [
   // Library output (ESM)
   buildLibrary(outputPath),
 
-  // Type definitions output (single .d.ts)
+  // Type definitions output (one .d.ts per entry point, shared chunks)
   buildTypes(outputPath),
 
   // CLI output.

@@ -35,6 +35,7 @@ Knowledge synthesis engine that discovers `.meta/` directories in the filesystem
 Shared library and CLI that provides the substrate all components build on:
 
 - **Plugin SDK** — canonical types (`PluginApi`, `ToolResult`, `ToolDescriptor`), result formatters (`ok`/`fail`/`connectionFail`), HTTP helpers (`fetchJson`/`postJson`), resolution utilities (`resolveWorkspacePath`/`resolvePluginSetting`), the `before_prompt_build` prompt-context helper (`registerPromptContext`), and lifecycle disposal (`onPluginDispose`)
+- **Endpoint catalog** (0.8.0, opt-in): @karmaniverous/jeeves/catalog describes a component's HTTP API once; @karmaniverous/jeeves/fastify registers its routes with validation, @karmaniverous/jeeves/openapi writes its OpenAPI document, and the same catalog drives a typed client and the plugin tools. See [Adopting the Endpoint Catalog](endpoint-catalog.md).
 - **Service SDK** — service CLI, service manager, and transport-agnostic config query/apply and status handlers
 - **Service discovery** — URL and bind-address resolution
 - **Managed-block primitives** — pure `renderManagedBlock` / `upsertManagedBlock` / `removeManagedBlock` / `parseManaged`, `atomicWrite` and `withFileLock`
@@ -138,7 +139,7 @@ MEMORY.md is the assistant's curated long-term memory, loaded at every session s
 
 ## Skills
 
-Since 0.7.0, core ships platform skills in two folders: `skills/` (`jeeves-platform`, `jeeves-coding`, `jeeves-design`) for every instance and `skills-self-hosted/` (`jeeves-onboarding`) for instances not managed by jeeves-tools. `jeeves skills install [--managed|--self-hosted]` (also run by `jeeves install` and `update`) adds them to OpenClaw's `skills.load.extraDirs`, so they load in place from the installed package; nothing is copied into `{workspace}/skills/`, and a same-named skill from any higher-precedence source (workspace, managed or workshop skills) shadows the package's, and one in another `extraDirs` entry or an enabled plugin collides with it (`jeeves skills status` reports every source that has one). Component plugins ship their own skills in their packages via the plugin manifest.
+Since 0.7.0, core ships platform skills in two folders: `skills/` (`jeeves-platform`, `jeeves-coding`, `jeeves-design`, `jeeves-pr-review`, `aws-ssm-remote-ops`) for every instance and `skills-self-hosted/` (`jeeves-onboarding`) for instances not managed by jeeves-tools. `jeeves skills install [--managed|--self-hosted]` (also run by `jeeves install` and `update`) adds them to OpenClaw's `skills.load.extraDirs`, so they load in place from the installed package; nothing is copied into `{workspace}/skills/`, and a same-named skill from any higher-precedence source (workspace, managed or workshop skills) shadows the package's, and one in another `extraDirs` entry or an enabled plugin collides with it (`jeeves skills status` reports every source that has one). Component plugins ship their own skills in their packages via the plugin manifest.
 
 ## Node.js Requirement
 

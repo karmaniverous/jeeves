@@ -30,6 +30,7 @@ export {
 } from './http.js';
 export { onPluginDispose } from './lifecycle.js';
 export {
+  type CatalogToolSelection,
   type PluginApiUrlResolver,
   type PluginToolsetOptions,
   pluginToolsetOptionsSchema,
@@ -52,6 +53,7 @@ export {
 } from './skillFrontmatter.js';
 export type {
   PluginApi,
+  PluginContext,
   ToolDescriptor,
   ToolRegistrationOptions,
   ToolResult,

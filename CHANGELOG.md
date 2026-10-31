@@ -2,6 +2,123 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.0-6] - 2026-10-30
+
+### 🐛 Bug Fixes
+
+- Make fastify, fastify-type-provider-zod and zod-openapi dependencies
+
+### 📚 Documentation
+
+- Jeeves-pr-review no longer mentions Copilot
+## [0.8.0-5] - 2026-10-30
+
+### 🚀 Features
+
+- Bring the runnable argument parser up to jeeves-scripts-core's (#151)
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v0.8.0-5
+## [0.8.0-4] - 2026-10-29
+
+### 🚀 Features
+
+- Export jeeves-server link-key functions from the root (#149)
+
+### ⚙️ Miscellaneous Tasks
+
+- Merge main (0.8.0-0 release commit) into feature/135
+- Release v0.8.0-4
+## [0.8.0-3] - 2026-10-29
+
+### 🐛 Bug Fixes
+
+- Declarations built in one run so Catalog is declared once (step 19 core defect)
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v0.8.0-3
+## [0.8.0-2] - 2026-10-29
+
+### 🚀 Features
+
+- RegisterCatalogRoutes logger option; validation issues keep Zod params (step 19, owner-approved)
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v0.8.0-2
+## [0.8.0-1] - 2026-10-29
+
+### 🚀 Features
+
+- Catalog model (defineCatalog, AuthSpec, errorBodySchema, queryArray, standardEntries)
+- OpenAPI 3.1 document builder, writer and drift check
+- Catalog-driven Fastify route registration and /openapi.json route
+- Catalog request building, http transport and CatalogClientError
+- Typed catalog client (createCatalogClient, ClientAuth)
+- Catalog tool definition and tool result mapping
+- Descriptor promptRules/skill and safeParse check; workspace path per #138
+- Plugin toolset built on the catalog
+- Bootstrap report names the source of each limit (#139)
+- Component proxy discovery by name filter, service list and marker (#142)
+- Skip OpenClaw steps when OpenClaw is not installed; atomic uninstall writes (#143)
+- Jeeves-pr-review and aws-ssm-remote-ops skills; skill and AGENTS content
+- Deprecate parseArgs, getArg and getChannelWorkspace; fix stale comments (#127, #144)
+
+### 🐛 Bug Fixes
+
+- Handler results keep literal statuses in registerCatalogRoutes
+- Client wraps body-read, JSON and credential failures as status-0 errors (review #1)
+- App error-handler replies bypass the catalog response schemas (review #2)
+- Route registration errors reject registerCatalogRoutes (review #3)
+- Invalid tool input names each field and reason (review #4)
+- Request input follows the body's unknown-key mode (review #5)
+- Optional-input check without an empty object type
+- CreatePluginToolset names a missing standard entry (review #10)
+- App error-handler replies keep strings and content type (re-review #1)
+- A typed body catchall checks unnamed fields (re-review #2)
+- Rule 8 lowercases only the media type (re-review #4)
+- ResolveWorkspacePath falls back to OpenClaw's default silently (step 17, owner-approved)
+
+### 💼 Other
+
+- Add catalog, openapi and fastify entry points with optional peers
+- Rule 2 treats routes differing only in parameter names as duplicates (review #7)
+- Rule 8 keeps the type-level and runtime JSON checks in agreement (review #8)
+- Client methods take no argument when an entry has no required input (review #9)
+- One invalid-input error with field details (review #4 follow-up)
+
+### 🚜 Refactor
+
+- One function per catalog rule, shared schema helpers, DRY packed-consumer script
+- One leading-~ expansion; cover drift lines only the generated document has
+- CatalogToolSelection derived from its schema (review #6)
+- OpenAPI builder uses isTextContentType (review #11)
+- CatalogToolSelection derived from the exported options schema (review #6 follow-up)
+- CatalogPluginToolOptions extends CatalogToolSelection (re-review #3)
+
+### 📚 Documentation
+
+- 0.8.0 README, migration guide and endpoint-catalog guide
+- Lint-exception wording consistent across review skill and instructions (review #15)
+- Endpoint-catalog guide reflects the review fixes
+- Guide covers app error replies, registration errors and rule 8 wording (re-review #4, #5)
+
+### 🧪 Testing
+
+- Capture 0.7.0 baselines for the root export surface and standard plugin tools
+- Discovery ports without calling the real npm
+- 0.7.0 type compatibility for every root export
+- Entry-point export lists match spec 5.1
+- Commit the type-compat generator; drop the duplicate 0.7.0 declarations (review #12, #13)
+- Negative type assertions without @ts-expect-error (review #14)
+- App-set content type on an object error reply is kept (re-review #1)
+
+### ⚙️ Miscellaneous Tasks
+
+- Dependency and audit updates
+- Release v0.8.0-1
 ## [0.8.0-0] - 2026-10-29
 
 ### 🐛 Bug Fixes
@@ -15,6 +132,7 @@ All notable changes to this project will be documented in this file.
 ### ⚙️ Miscellaneous Tasks
 
 - Update copilot review instructions
+- Release v0.8.0-0
 ## [0.7.0] - 2026-10-14
 
 ### 🚀 Features

@@ -34,8 +34,10 @@ import {
 
 const PLUGIN_ID = 'jeeves-watcher-openclaw';
 
-// Resolve the workspace root (three-step fallback):
-//   api.config.agents.defaults.workspace → api.resolvePath('.') → process.cwd()
+// Resolve the agent workspace:
+//   api.config.agents.defaults.workspace → ctx.workspaceDir (when passed)
+//   → OpenClaw's default workspace.
+// Never the plugin root. Pass a hook or tool-factory ctx where you have one.
 const workspacePath = resolveWorkspacePath(api);
 
 // Resolve a plugin setting (three-step fallback):
@@ -114,6 +116,15 @@ const tools = createPluginToolset(descriptor, {
 
 An unset or empty `apiUrl` (or a resolver returning `undefined`) falls back to `http://127.0.0.1:<defaultPort>`; trailing slashes are stripped.
 
+From 0.8.0 the toolset also takes:
+
+- `catalog`: the component's endpoint catalog. The standard tools are then built from its `status`, `config` and `configApply` entries, with their real `auth`.
+- `tools`: catalog entries to expose as tools (`true`, or `{ description?, inputAliases?, catalogMode? }`), in catalog order. Requires `catalog`.
+- `auth`: the credential (`{ bearer }`, `{ header }`, `{ query }` or `{ cookie }`, each value a string or a lazy resolver), attached only to entries whose `auth` lists that kind. Without a `catalog` nothing is sent, as in 0.7.0.
+- `api`: appends the descriptor's `customPluginTools(api)`. Duplicate tool names throw.
+
+See [Adopting the Endpoint Catalog](endpoint-catalog.md).
+
 The `{name}_service` tool uses `createServiceManager`. On Linux it manages an existing system unit in place: `install` is a no-op that reports the unit, and start/stop/restart run plain `systemctl`, authorized by the polkit rule jeeves-tools installs (no sudo; the gateway runs with `NoNewPrivileges`). `status` names the unit and scope it read. Without a system unit it uses a user unit and first checks for a user bus. The README's Service Management section has the details.
 
 ### Plugin config
@@ -161,6 +172,8 @@ function registerTools(api: PluginApi): void {
 `fetchJson` and `postJson` abort after `DEFAULT_FETCH_TIMEOUT_MS` (120 s), so a service that accepts the connection but never answers can't hang a tool call. A tool whose call can legitimately take longer (an export, a synthesis run) passes its own limit, `postJson(url, body, { timeoutMs: 300_000 })`, or its own `signal` in `fetchJson`'s `init`, which always wins over the default.
 
 ## Step 6: Always-in-Context Rules
+
+Keep the rules text in your `core` package and put it on the descriptor as `promptRules` (and your skill's contents as `skill`), so the plugin and the service both reach them. Core registers neither: the plugin passes `promptRules` to `registerPromptContext`, and its build writes `skill` as `SKILL.md` into the folder `openclaw.plugin.json` lists under `skills`.
 
 Rules the agent must see on every turn (e.g. "search before grepping") are injected with OpenClaw's `before_prompt_build` hook, returning `{ appendSystemContext }`:
 

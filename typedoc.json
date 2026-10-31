@@ -1,5 +1,10 @@
 {
-  "entryPoints": ["./src/index.ts"],
+  "entryPoints": [
+    "./src/index.ts",
+    "./src/catalog/index.ts",
+    "./src/openapi/index.ts",
+    "./src/fastify/index.ts"
+  ],
   "highlightLanguages": [
     "bash",
     "console",
@@ -26,6 +31,8 @@
     "./guides/managed-content-system.md",
     "./guides/building-a-component-plugin.md",
     "./guides/migrating-to-v1.md",
+    "./guides/migrating-to-0.8.md",
+    "./guides/endpoint-catalog.md",
     "./guides/migrating-to-0.7.md",
     "./CHANGELOG.md"
   ],

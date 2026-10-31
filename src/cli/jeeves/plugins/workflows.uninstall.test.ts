@@ -84,11 +84,22 @@ describe('uninstallPlugins', () => {
     );
   });
 
-  it('skips plugin removal when the OpenClaw CLI is not installed', async () => {
+  it('skips plugin removal when the CLI is missing but a dist resolves', async () => {
     const { deps, log } = setupWorkflow({});
     deps.runner = () => Promise.reject(new Error('spawn openclaw ENOENT'));
+    deps.resolveDist = () => '/g/openclaw/dist';
     await expect(uninstallPlugins(deps)).resolves.toEqual([]);
     expect(log).toContain('  OpenClaw CLI not found; no plugins to remove');
+  });
+
+  it('prints "OpenClaw not installed; skipped" when OpenClaw is absent (#143)', async () => {
+    const { deps, log } = setupWorkflow({});
+    deps.runner = () => Promise.reject(new Error('spawn openclaw ENOENT'));
+    deps.resolveDist = () => {
+      throw new Error('OpenClaw dist directory not found');
+    };
+    await expect(uninstallPlugins(deps)).resolves.toEqual([]);
+    expect(log).toContain('  plugins: OpenClaw not installed; skipped');
   });
 
   it('still fails on other OpenClaw errors', async () => {

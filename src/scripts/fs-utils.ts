@@ -104,14 +104,14 @@ export function loadEnvFile(envPath: string): void {
 // ========== CLI Arg Parsing ==========
 
 /**
- * Parse --key=value arguments from argv into a record.
+ * Parse --key=value arguments from argv into a record (body of the
+ * deprecated `parseArgs`; internal, not exported from any entry point).
  *
- * @remarks
- * Prefer {@link parseRunnableArgs}, which takes a declared spec, returns
- * typed values and throws when a valued option is given without a
- * value. Deprecation is planned for 0.7.1 (#127).
+ * @param argv - Arguments (default: `process.argv.slice(2)`).
+ * @returns Values keyed by option name.
+ * @internal
  */
-export function parseArgs(
+export function parseArgsImpl(
   argv: string[] = process.argv.slice(2),
 ): Record<string, string> {
   const args: Record<string, string> = {};
@@ -125,14 +125,16 @@ export function parseArgs(
 }
 
 /**
- * Get the value following a named flag, or a default.
+ * Get the value following a named flag, or a default (body of the
+ * deprecated `getArg`; internal, not exported from any entry point).
  *
- * @remarks
- * Prefer {@link parseRunnableArgs}, which takes a declared spec, returns
- * typed values and throws when a valued option is given without a
- * value. Deprecation is planned for 0.7.1 (#127).
+ * @param argv - Arguments.
+ * @param name - Flag, e.g. `--count`.
+ * @param defaultValue - Value when the flag or its value is absent.
+ * @returns The value.
+ * @internal
  */
-export function getArg(
+export function getArgImpl(
   argv: string[],
   name: string,
   defaultValue: string,

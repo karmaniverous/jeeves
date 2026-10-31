@@ -73,6 +73,28 @@ so you never need a plugin-specific installer.
 
 Upgrading from v0.x? See the [migration guide](guides/migrating-to-v1.md). Upgrading to 0.7.0? See [Migrating to 0.7](guides/migrating-to-0.7.md).
 
+## Entry Points
+
+| Import | What it gives you | Loads |
+| --- | --- | --- |
+| `@karmaniverous/jeeves` | Plugin SDK, CLI support, managed content, service helpers, script helpers | - |
+| `@karmaniverous/jeeves/catalog` | Endpoint catalog: `defineCatalog`, `standardEntries`, `queryArray`, `createCatalogClient`, request building, tool definitions | - |
+| `@karmaniverous/jeeves/openapi` | `buildOpenApiDocument`, `writeOpenApiDocument`, `checkOpenApiDrift` | `zod-openapi` |
+| `@karmaniverous/jeeves/fastify` | `registerCatalogRoutes`, `registerOpenApiRoute`, `standardHandlers` | `fastify-type-provider-zod` (types from `fastify`) |
+
+The packages under **Loads** are dependencies of this package, imported only by that entry point: importing the root or `/catalog` never loads them. They are regular dependencies, not peers, so an entry point works wherever this package is installed, including a global install a service shares with the `jeeves` CLI.
+
+## Endpoint Catalog
+
+A component can describe its HTTP API once, as a catalog of entries (method, path, Zod schemas for params, query, body and response, an `auth` description and a `kind`). From that one catalog:
+
+- `registerCatalogRoutes` registers the Fastify routes with request validation and checked responses (`responseValidation: 'strict'` by default, or `'log'` while migrating);
+- `writeOpenApiDocument` and `checkOpenApiDrift` keep a committed OpenAPI 3.1 document in step;
+- `createCatalogClient` gives a typed client with one method per entry;
+- `createPluginToolset` builds plugin tools for the entries you select.
+
+`standardEntries(name, { auth })` describes the `/status`, `/config` and `/config/apply` routes every component has. An entry's `auth` describes the credentials a route accepts; the component's own auth hook still enforces them. Adoption is optional: see [Adopting the Endpoint Catalog](guides/endpoint-catalog.md).
+
 ## Plugin SDK
 
 The Plugin SDK (`src/plugin/`) provides canonical types and utilities for building OpenClaw plugins that integrate with the Jeeves platform.
@@ -81,7 +103,8 @@ The Plugin SDK (`src/plugin/`) provides canonical types and utilities for buildi
 
 - **`PluginApi`** — structural subset of the `api` object the OpenClaw gateway passes to `register(api)`: `config`, `pluginConfig`, `logger`, `lifecycle`, `on()`, `resolvePath()`, and `registerTool()`.
 - **`ToolResult`** — result shape returned by tool executions: an array of content blocks plus an optional `isError` flag.
-- **`ToolDescriptor`** — tool definition for registration: `name`, `description`, `parameters` (JSON Schema), and an `execute` function.
+- **`ToolDescriptor`** — tool definition for registration: `name`, `description`, `parameters` (JSON Schema), an `execute` function, and optional `catalogMode: 'direct-only'` (stays visible to the model under OpenClaw's Tool Search).
+- **`PluginContext`** — `{ workspaceDir?: string }`, the part of an OpenClaw hook or tool-factory context core reads.
 
 ### Result Formatters
 
@@ -96,7 +119,7 @@ The Plugin SDK (`src/plugin/`) provides canonical types and utilities for buildi
 
 ### Resolution Helpers
 
-- **`resolveWorkspacePath(api)`** — resolves the workspace root from the plugin API via a three-step chain: `api.config.agents.defaults.workspace` → `api.resolvePath('.')` → `process.cwd()`.
+- **`resolveWorkspacePath(api, ctx?)`** — resolves the agent workspace: `api.config.agents.defaults.workspace` (`~` expanded) → `ctx.workspaceDir` → OpenClaw's default (`$OPENCLAW_STATE_DIR/workspace`, `~/.openclaw-<profile>/workspace` or `~/.openclaw/workspace`). Never the plugin root (`api.resolvePath` resolves against the plugin root), never throws.
 - **`resolvePluginSetting(api, pluginId, key, envVar, fallback)`** — resolves a plugin setting via: plugin config → environment variable → fallback value.
 
 ### Always-in-Context Rules (`before_prompt_build`)
@@ -209,6 +232,10 @@ The keys jeeves-server accepts on share and browse URLs, so other components (je
 
 - **`getServiceUrl(serviceName, consumerName?)`** — resolves a service URL via: consumer config → core config → default port constants.
 
+## Runnable Arguments
+
+`parseRunnableArgs(args, spec)` reads a typed spec of bare flags (`argFlag`), valued options (`argValue`, `argOptional`; `--name value`, `--name=value` or a short alias) and positionals (`positionalArgs`). Each spec entry can carry a one-line `description` for a runnable's help. The parser ignores what the spec doesn't declare; `unknownArgs(args, spec, positionals?)` lists undeclared options (and bare arguments unless allowed) and `valuelessArgs(args, spec)` lists valued options given without a value, so a CLI can reject both. A valued option never takes an option-like argument as its value.
+
 ## Service Management
 
 `createServiceManager(descriptor)` backs each component's `service` CLI and `{name}_service` tool (install, uninstall, start, stop, restart, status). It uses NSSM on Windows and a launchd agent on macOS. On Linux it first looks for a system unit named `<service>.service` (for example `/etc/systemd/system/jeeves-watcher.service`, the way jeeves-tools provisions managed instances):
@@ -253,7 +280,7 @@ jeeves <component> [args...]   # Proxy to jeeves-<component> (only for installed
 
 `install`, `update`, `uninstall`, `status` and `config` accept `-w, --workspace <path>` and `-c, --config-root <path>`. `status` also takes `-t, --timeout <ms>` (default 3000).
 
-At startup the CLI runs `npm ls -g --json --depth=0` and adds a proxy subcommand for each globally installed `@karmaniverous/jeeves-<name>` package that is not a `-openclaw` plugin (for example `jeeves runner ...` runs `jeeves-runner ...`).
+At startup the CLI runs `npm ls -g --json --depth=0` and adds a proxy subcommand for each globally installed `@karmaniverous/jeeves-<name>` package (not a `-openclaw` plugin) that is one of the four services (`runner`, `watcher`, `server`, `meta`) or whose `package.json` has `"jeeves": { "component": true }`. The proxy runs the package's bin with Node, without a shell, passing every argument (including `--help`), stdio and the exit code through: `jeeves runner ...` runs `jeeves-runner ...`.
 
 ### Install and update
 
@@ -280,13 +307,13 @@ Plugin specs can be short (`watcher`, `watcher@1.2.3`, `runner@^1`) or full (`@k
 
 `jeeves update` runs steps 2 to 6 for the named packages, or for every Jeeves plugin that has a `plugins.entries` record, at `latest`. It takes the same plugin options as `jeeves install` (including `--plugin-config` and `--force-reinstall`) and fills in missing plugin config with the same precedence: existing values are kept unless you pass them, and a missing required value fails the command before anything changes.
 
-`jeeves uninstall` removes the SOUL.md/AGENTS.md managed blocks (and any legacy TOOLS.md block) and the core `config.schema.json`, then runs `openclaw plugins uninstall <id> --force` for every Jeeves plugin that has a `plugins.entries` record (the plugins are useless without the rest of the platform). If OpenClaw is not installed, the plugin step is skipped. OpenClaw leaves `plugins.entries.<id> = { enabled: false }` behind and can delete `plugins.load`, so the CLI then unsets the leftover entry and restores `plugins.load` from its value before the uninstall. The core `config.json` is left in place, and so is everything under `skills/` and `jeeves-core/templates/`: neither install nor uninstall touches them (skills and templates written by v0.x stay where they are).
+`jeeves uninstall` removes the SOUL.md/AGENTS.md managed blocks (and any legacy TOOLS.md block) and the core `config.schema.json`, then runs `openclaw plugins uninstall <id> --force` for every Jeeves plugin that has a `plugins.entries` record (the plugins are useless without the rest of the platform). If OpenClaw is not installed at all, the plugin and skills steps print "OpenClaw not installed; skipped" and exit 0 (and `jeeves status` reports skills as skipped). SOUL.md and AGENTS.md are rewritten atomically. OpenClaw leaves `plugins.entries.<id> = { enabled: false }` behind and can delete `plugins.load`, so the CLI then unsets the leftover entry and restores `plugins.load` from its value before the uninstall. The core `config.json` is left in place, and so is everything under `skills/` and `jeeves-core/templates/`: neither install nor uninstall touches them (skills and templates written by v0.x stay where they are).
 
-Plugin changes and OpenClaw dist patches take effect when the gateway next starts. The CLI tells you to restart it; it never restarts the gateway itself, because it can't know how you run it (console, service, container). There is no `--restart` option.
+With the gateway running, OpenClaw applies plugin changes live, and the CLI says so ("Plugin changes were applied live ...; no restart needed"). When a change wasn't applied live, and after OpenClaw dist patches (which load at startup), the CLI tells you to restart the gateway. It never restarts it itself, because it can't know how you run it (console, service, container). There is no `--restart` option.
 
 ### Skills
 
-`@karmaniverous/jeeves` ships two skill folders: `skills/` (`jeeves-platform`, `jeeves-coding`, `jeeves-design`) for every instance, and `skills-self-hosted/` (`jeeves-onboarding`) for instances not managed by jeeves-tools. `jeeves skills install` adds them to OpenClaw's `skills.load.extraDirs`, so OpenClaw loads them in place from the installed package and `npm update -g` refreshes them; nothing is copied into the workspace.
+`@karmaniverous/jeeves` ships two skill folders: `skills/` (`jeeves-platform`, `jeeves-coding`, `jeeves-design`, `jeeves-pr-review`, `aws-ssm-remote-ops`) for every instance, and `skills-self-hosted/` (`jeeves-onboarding`) for instances not managed by jeeves-tools. `jeeves skills install` adds them to OpenClaw's `skills.load.extraDirs`, so OpenClaw loads them in place from the installed package and `npm update -g` refreshes them; nothing is copied into the workspace.
 
 - `--managed` wires `skills/` only; `--self-hosted` wires both. With neither, the mode follows the current wiring, and a fresh install is self-hosted, so re-running never switches modes.
 - `install` edits only this package's entries (exact match), replaces entries left behind under an old global `node_modules`, and keeps everything else in order. `uninstall` removes exactly this package's entries.
@@ -475,6 +502,13 @@ MEMORY.md has a character budget (default: 20,000 characters). The `analyzeMemor
 
 Memory hygiene is reporting-only. Core does not auto-delete content (Decision 42). Size pressure is the right signal for curation.
 
+## Deprecated
+
+Marked `@deprecated` in 0.8.0 and removed in 4.0.0:
+
+- `parseArgs`, `getArg`: use `parseRunnableArgs`.
+- `getChannelWorkspace`: no remaining consumer.
+
 <!-- TYPEDOC_EXCLUDE -->
 
 ## Documentation
@@ -482,6 +516,8 @@ Memory hygiene is reporting-only. Core does not auto-delete content (Decision 42
 - [Platform Overview](https://docs.karmanivero.us/jeeves/documents/Platform_Overview.html) — architecture, components, design philosophy
 - [Managed Content System](https://docs.karmanivero.us/jeeves/documents/Managed_Content_System.html) — static content, markers, budgets, `jeeves install`
 - [Migrating to v1](guides/migrating-to-v1.md) — what was removed and what replaces it
+- [Migrating to 0.8](guides/migrating-to-0.8.md) — the endpoint catalog, new plugin options, behaviour corrections and deprecations
+- [Adopting the Endpoint Catalog](guides/endpoint-catalog.md) — catalog, routes, OpenAPI, client and plugin tools, step by step
 - [Migrating to 0.7](guides/migrating-to-0.7.md) — `patch-openclaw`, `jeeves skills`, the bootstrap size report, hoisted script helpers and the fetch timeout
 - [Building a Component Plugin](https://docs.karmanivero.us/jeeves/documents/Building_a_Component_Plugin.html) — step-by-step integration
 - [API Reference](https://docs.karmanivero.us/jeeves) — types, functions, constants

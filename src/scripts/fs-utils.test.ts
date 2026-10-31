@@ -11,10 +11,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   appendJsonl,
   ensureDir,
-  getArg,
+  getArgImpl,
   loadEnvFile,
   nowIso,
-  parseArgs,
+  parseArgsImpl,
   readJson,
   readJsonl,
   uuid,
@@ -122,12 +122,12 @@ describe('loadEnvFile', () => {
 
 describe('parseArgs', () => {
   it('parses --key=value arguments', () => {
-    const result = parseArgs(['--foo=bar', '--num=42']);
+    const result = parseArgsImpl(['--foo=bar', '--num=42']);
     expect(result).toEqual({ foo: 'bar', num: '42' });
   });
 
   it('ignores non-matching arguments', () => {
-    const result = parseArgs(['plain', '-short', '--flag']);
+    const result = parseArgsImpl(['plain', '-short', '--flag']);
     expect(result).toEqual({});
   });
 });
@@ -135,11 +135,11 @@ describe('parseArgs', () => {
 describe('getArg', () => {
   it('returns value after named flag', () => {
     const argv = ['--count', '10', '--name', 'test'];
-    expect(getArg(argv, '--count', '1')).toBe('10');
-    expect(getArg(argv, '--name', '')).toBe('test');
+    expect(getArgImpl(argv, '--count', '1')).toBe('10');
+    expect(getArgImpl(argv, '--name', '')).toBe('test');
   });
 
   it('returns default when flag is missing', () => {
-    expect(getArg([], '--missing', 'default')).toBe('default');
+    expect(getArgImpl([], '--missing', 'default')).toBe('default');
   });
 });

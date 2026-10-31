@@ -21,11 +21,14 @@ import path from 'node:path';
 
 import { z } from 'zod';
 
+import { expandHome } from '../../../expandHome.js';
 import type { CommandRunner } from '../plugins/commandRunner.js';
 import { configGetArgs, OPENCLAW_BIN } from '../plugins/openclawCommands.js';
 import {
   BOOTSTRAP_TOTAL_MAX_CHARS,
   type BootstrapLimits,
+  type BootstrapLimitSource,
+  defaultBootstrapLimits,
 } from './bootstrapReport.js';
 import { BOOTSTRAP_FILE_MAX_CHARS } from './budgets.js';
 
@@ -54,9 +57,7 @@ export type AgentsLimitsConfig = z.infer<typeof agentsSchema>;
 
 /** Expand `~`, resolve, and normalise a path for comparison. */
 function canonical(p: string, home: string): string {
-  const expanded =
-    p === '~' || /^~[/\\]/.test(p) ? path.join(home, p.slice(1)) : p;
-  const resolved = path.resolve(expanded).replace(/[/\\]+$/, '');
+  const resolved = path.resolve(expandHome(p, home)).replace(/[/\\]+$/, '');
   return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
 }
 
@@ -66,7 +67,8 @@ function canonical(p: string, home: string): string {
  * @param agents - The `agents` config slice.
  * @param workspacePath - The workspace being measured.
  * @param home - Home directory, for `~` (default `os.homedir()`).
- * @returns The limits; `defaulted` when a built-in default was used.
+ * @returns The limits; a limit's source is `unset` when any owning agent
+ *   falls back to the built-in default, else `config`.
  */
 export function resolveBootstrapLimits(
   agents: AgentsLimitsConfig,
@@ -82,46 +84,52 @@ export function resolveBootstrapLimits(
   );
   const candidates = owners.length > 0 ? owners : [{}];
 
-  let defaulted = false;
   const pick = (
     key: 'bootstrapMaxChars' | 'bootstrapTotalMaxChars',
     builtIn: number,
-  ): number =>
-    Math.min(
-      ...candidates.map((entry) => {
-        const value = entry[key] ?? defaults[key];
-        if (value === undefined) defaulted = true;
-        return value ?? builtIn;
-      }),
-    );
-
+  ): [number, BootstrapLimitSource] => {
+    const values = candidates.map((entry) => entry[key] ?? defaults[key]);
+    return [
+      Math.min(...values.map((v) => v ?? builtIn)),
+      values.includes(undefined) ? 'unset' : 'config',
+    ];
+  };
+  const [perFile, perFileSource] = pick(
+    'bootstrapMaxChars',
+    BOOTSTRAP_FILE_MAX_CHARS,
+  );
+  const [total, totalSource] = pick(
+    'bootstrapTotalMaxChars',
+    BOOTSTRAP_TOTAL_MAX_CHARS,
+  );
   return {
-    perFile: pick('bootstrapMaxChars', BOOTSTRAP_FILE_MAX_CHARS),
-    total: pick('bootstrapTotalMaxChars', BOOTSTRAP_TOTAL_MAX_CHARS),
-    defaulted,
+    perFile,
+    total,
+    source: { perFile: perFileSource, total: totalSource },
   };
 }
 
 /**
  * Read OpenClaw's `agents` config and resolve the workspace's limits.
- * Never throws: an unreadable or unset slice falls back to the defaults.
+ * Never throws: an unreadable slice gives the defaults with source
+ * `failed`; an unset limit gives its default with source `unset`.
  *
  * @param runner - Command runner.
  * @param workspacePath - The workspace being measured.
- * @returns The limits and whether a default was used.
+ * @returns The limits and their sources.
  */
 export async function readBootstrapLimits(
   runner: CommandRunner,
   workspacePath: string,
 ): Promise<BootstrapLimits> {
-  let agents: AgentsLimitsConfig = {};
   try {
     const result = await runner(OPENCLAW_BIN, configGetArgs('agents'));
-    if (result.exitCode === 0) {
-      agents = agentsSchema.catch({}).parse(JSON.parse(result.stdout));
-    }
+    if (result.exitCode !== 0) return defaultBootstrapLimits('failed');
+    const agents = agentsSchema
+      .catch({})
+      .parse(JSON.parse(result.stdout) as unknown);
+    return resolveBootstrapLimits(agents, workspacePath);
   } catch {
-    // Unreadable: the defaults apply.
+    return defaultBootstrapLimits('failed');
   }
-  return resolveBootstrapLimits(agents, workspacePath);
 }

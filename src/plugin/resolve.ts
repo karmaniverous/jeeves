@@ -7,31 +7,60 @@
  * plugin config → environment variable → default value.
  */
 
-import type { PluginApi } from './types.js';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+
+import { expandHome } from '../expandHome.js';
+import type { PluginApi, PluginContext } from './types.js';
 
 /**
- * Resolve the workspace root from the OpenClaw plugin API.
+ * OpenClaw's default workspace for this process: `<state dir>/workspace`,
+ * where the state dir is `OPENCLAW_STATE_DIR`, else `~/.openclaw-<profile>`
+ * for a non-default `OPENCLAW_PROFILE`, else `~/.openclaw`.
+ *
+ * @returns The default workspace path.
+ */
+function defaultWorkspace(): string {
+  const stateDir = process.env.OPENCLAW_STATE_DIR?.trim();
+  if (stateDir) return join(expandHome(stateDir), 'workspace');
+  const profile = process.env.OPENCLAW_PROFILE?.trim();
+  return join(
+    homedir(),
+    profile && profile !== 'default' ? `.openclaw-${profile}` : '.openclaw',
+    'workspace',
+  );
+}
+
+/**
+ * Resolve the agent workspace directory.
  *
  * @remarks
- * Tries three sources in order:
- * 1. `api.config.agents.defaults.workspace` — explicit config
- * 2. `api.resolvePath('.')` — gateway-provided path resolver
- * 3. `process.cwd()` — last resort
+ * In order (spec 5.8, #138):
+ * 1. `agents.defaults.workspace` from the OpenClaw config, `~` expanded;
+ * 2. `ctx.workspaceDir` from a hook or tool-factory context;
+ * 3. OpenClaw's default workspace (see the state-dir rules). This is where
+ *    OpenClaw itself puts the workspace when none is configured, so it is
+ *    not logged as a misconfiguration.
+ *
+ * Never returns the plugin root (`api.resolvePath` resolves against it) and
+ * never throws.
  *
  * @param api - The plugin API object provided by the gateway.
- * @returns Absolute path to the workspace root.
+ * @param ctx - Hook or tool-factory context, when available.
+ * @returns Absolute path to the workspace.
  */
-export function resolveWorkspacePath(api: PluginApi): string {
+export function resolveWorkspacePath(
+  api: PluginApi,
+  ctx?: PluginContext,
+): string {
   const configured = api.config?.agents?.defaults?.workspace;
-  if (typeof configured === 'string' && configured.trim()) {
-    return configured;
-  }
+  if (typeof configured === 'string' && configured.trim())
+    return expandHome(configured.trim());
 
-  if (typeof api.resolvePath === 'function') {
-    return api.resolvePath('.');
-  }
+  const fromContext = ctx?.workspaceDir;
+  if (typeof fromContext === 'string' && fromContext.trim()) return fromContext;
 
-  return process.cwd();
+  return defaultWorkspace();
 }
 
 /**

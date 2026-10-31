@@ -35,6 +35,22 @@ Runner (schedule) → Scripts → Services ← Server (present) ← Browser
 - **Server** presents files, renders documents, and provides the event gateway.
 - **Core** is the `jeeves` CLI (writes the SOUL.md and AGENTS.md managed blocks, installs and updates the component plugins) plus a library the components share: service discovery, config resolution, managed-block primitives, and the plugin SDK. Core has no daemon, port or timers, and registers no tools with the gateway.
 
+Who calls whom:
+
+| From | To | How |
+| --- | --- | --- |
+| meta | watcher | HTTP: scan queries, virtual-rule registration (`/rules/register`) |
+| server | watcher | HTTP: search proxy (`/api/search`) |
+| server | runner | HTTP: dashboard proxy (`/runner/*`) |
+| runner | gateway | LLM worker sessions |
+| runner | watcher | indirectly: scripts write files, the watcher indexes them |
+
+**Scripts' domain docs** ship with `@karmaniverous/jeeves-scripts-core` as `guides/<domain>.md` (see the `jeeves-scripts` skill), not in the scripts instance checkout.
+
+## Endpoint Catalog
+
+From `@karmaniverous/jeeves` 0.8.0 a component can describe its HTTP API once, as a catalog (`defineCatalog` from `@karmaniverous/jeeves/catalog`) in its `core` package. One catalog drives the service routes and their validation (`registerCatalogRoutes`, `@karmaniverous/jeeves/fastify`), the OpenAPI document (`buildOpenApiDocument`, `@karmaniverous/jeeves/openapi`, no Fastify needed), a typed client (`createCatalogClient`) and the plugin tools (`createPluginToolset` with `catalog` and `tools`). An entry's `auth` describes how it is authenticated; the component's own middleware still enforces it. Components that haven't adopted a catalog keep working unchanged. Adoption is described in the package's `guides/endpoint-catalog.md`.
+
 ## Service Discovery
 
 Services find each other via config resolution:
@@ -42,6 +58,15 @@ Services find each other via config resolution:
 1. Component's own config file (`{configRoot}/jeeves-{name}/config.json`)
 2. Core config file (`{configRoot}/jeeves-core/config.json`)
 3. Default port constants
+
+Services bind to `0.0.0.0` by default (`bindAddress` in core config). Connect to a local service via `127.0.0.1`, never `localhost`: `localhost` can resolve to IPv6 `::1` and get `ECONNREFUSED` from a service bound to IPv4.
+
+Path roles, whatever the host:
+
+| Role | What it holds |
+| --- | --- |
+| workspace | The agent workspace: SOUL.md, AGENTS.md, memory, `jeeves.config.json` |
+| configRoot | Component config: `{configRoot}/jeeves-{name}/config.json`, core's in `jeeves-core/` |
 
 ## Managed Content System
 
@@ -96,8 +121,15 @@ jeeves patch-openclaw
 - **Conversation hooks:** `hooks.allowConversationAccess` is granted only to plugins that declare conversation hooks (`jeeves.conversationHooks` in their `package.json`). Without the grant OpenClaw skips hooks such as `before_prompt_build`.
 - **`--dry-run`** on install, update and uninstall prints everything it would do and changes nothing.
 - **OpenClaw patches:** `jeeves patch-openclaw` re-applies Jeeves' OpenClaw dist patches (`--skip-patch` skips them in install/update). It exits non-zero when a patch site isn't found (e.g. an unsupported OpenClaw version) and must run as the user who owns the OpenClaw install.
-- **Restart yourself.** Plugin changes and dist patches take effect when the gateway next starts; the CLI never restarts it (or jeeves-server, if it updated `keys._plugin`). Restart jeeves-server with `server_service` (action `restart`); restarting the gateway needs owner approval and must be the last action.
+- **Restarts.** With the gateway running, OpenClaw applies plugin changes live, and `jeeves install`/`update` say so ("applied live ...; no restart needed"). Restart the gateway only when the CLI says a change was not applied live, and after `jeeves patch-openclaw` (dist patches load at startup). The CLI never restarts anything itself. Restarting the gateway needs owner approval and must be the last action. If `keys._plugin` changed, restart jeeves-server with `server_service` (action `restart`).
 - Installed plugins and versions: `openclaw plugins inspect --all --json`. Service health: `jeeves status`.
+
+## Installed Is Not Running; Merged Is Not Deployed
+
+Before claiming an upgrade or a deploy:
+
+- **Service upgrade.** Report the installed version and the running version separately. The running version is the live `/status` `version`; compare it with the installed `package.json` version, and check when the service process last started (e.g. `systemctl show <unit> -p ActiveEnterTimestamp -p MainPID -p NRestarts` on Linux). An install newer than the process start means the service never restarted.
+- **App deploy.** Find the deploy target by reading the workflow YAML on the target branch and following any `uses:`, not by step names. Compare the commit running on the target with the PR's merge commit. A smoke test run before those match only proves the target is reachable and auth works.
 
 ## Memory Hygiene
 

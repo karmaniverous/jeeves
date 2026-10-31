@@ -1,9 +1,10 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { LEGACY_TOOLS_MARKERS, SOUL_MARKERS } from '../../constants/index.js';
+import * as fileOps from '../../managed/fileOps.js';
 import { useTempDir } from '../../test/tempDir.js';
 import { removePlatformArtifacts } from './uninstallHelpers.js';
 
@@ -57,5 +58,17 @@ describe('removePlatformArtifacts', () => {
       'spec',
     );
     expect(existsSync(join(cfg, 'config.json'))).toBe(true);
+  });
+});
+
+describe('removePlatformArtifacts writes (#143)', () => {
+  it('rewrites workspace files with atomicWrite', () => {
+    const write = vi.spyOn(fileOps, 'atomicWrite');
+    removePlatformArtifacts(ws, cfg, false);
+    expect(write).toHaveBeenCalledWith(
+      join(ws, 'SOUL.md'),
+      expect.stringContaining('mine'),
+    );
+    write.mockRestore();
   });
 });

@@ -5,13 +5,14 @@
  * @remarks
  * Separate from the command so the file operations are testable without
  * the CLI. Never deletes the workspace `skills/` directory or the core
- * config `templates/` directory: core no longer writes either (both ship
- * with jeeves-tools), so files there belong to someone else.
+ * config `templates/` directory: core writes neither (its skills ship in the
+ * package's `skills/` folder and are removed by `jeeves skills uninstall`),
+ * so files there belong to someone else.
  *
  * @module
  */
 
-import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
@@ -21,6 +22,7 @@ import {
   SOUL_MARKERS,
   WORKSPACE_FILES,
 } from '../../constants/index.js';
+import { atomicWrite } from '../../managed/fileOps.js';
 import { removeManagedBlock } from '../../managed/managedBlock.js';
 
 /**
@@ -40,7 +42,7 @@ export function removeManagedBlockFromFile(
   const content = readFileSync(filePath, 'utf-8');
   const updated = removeManagedBlock(content, markers);
   if (updated === content) return false;
-  if (!dryRun) writeFileSync(filePath, updated, 'utf-8');
+  if (!dryRun) atomicWrite(filePath, updated);
   return true;
 }
 

@@ -20,6 +20,7 @@
 import { getWorkspacePath } from '../../../init.js';
 import { getPackageRoot } from '../../../plugin/getPackageRoot.js';
 import { getErrorMessage } from '../../../utils.js';
+import { resolveOpenClawDist } from '../openclawPatch/resolveOpenclawDist.js';
 import { formatCommand } from '../plugins/commandLine.js';
 import {
   type CommandRunner,
@@ -32,6 +33,10 @@ import {
   configUnsetArgs,
   OPENCLAW_BIN,
 } from '../plugins/openclawCommands.js';
+import {
+  isOpenClawMissing,
+  OPENCLAW_NOT_INSTALLED,
+} from '../plugins/openclawState.js';
 import {
   createNodePrivateTempFiles,
   type PrivateTempFiles,
@@ -86,6 +91,8 @@ export interface RunSkillsOptions extends SkillsCommandPorts {
   dryRun?: boolean;
   /** Explicit mode (`install` only; inferred when omitted). */
   mode?: SkillsMode;
+  /** Resolves OpenClaw's dist directory, throwing when none exists. */
+  resolveDist?: () => string;
 }
 
 /** Result of {@link runSkillsCommand}. */
@@ -208,6 +215,18 @@ export async function runSkillsCommand(
     log(`skills ${action}: applied`);
     return { exitCode: 0, changed: true };
   } catch (e) {
+    // #143: with no OpenClaw at all, status and uninstall have nothing to do.
+    if (
+      action !== 'install' &&
+      isOpenClawMissing(e, options.resolveDist ?? resolveOpenClawDist)
+    ) {
+      log(
+        action === 'status'
+          ? '  skipped (OpenClaw not installed)'
+          : `skills uninstall: ${OPENCLAW_NOT_INSTALLED}`,
+      );
+      return { exitCode: 0, changed: false };
+    }
     logError(`skills ${action}: FAILED: ${getErrorMessage(e)}`);
     return { exitCode: 1, changed: false };
   }

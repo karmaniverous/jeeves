@@ -1,3 +1,6 @@
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -8,35 +11,81 @@ import {
 import type { PluginApi } from './types.js';
 
 describe('resolveWorkspacePath', () => {
-  it('prefers config workspace over resolvePath', () => {
-    const api: PluginApi = {
-      resolvePath: () => '/from/resolve-path',
-      config: { agents: { defaults: { workspace: '/from/config' } } },
-      registerTool: vi.fn(),
-    };
-    expect(resolveWorkspacePath(api)).toBe('/from/config');
+  const apiWith = (
+    workspace?: string,
+    warn = vi.fn<(message: string) => void>(),
+  ): PluginApi & { warn: typeof warn } => ({
+    ...(workspace === undefined
+      ? {}
+      : { config: { agents: { defaults: { workspace } } } }),
+    resolvePath: () => '/plugin/root',
+    logger: { warn },
+    registerTool: vi.fn(),
+    warn,
   });
 
-  it('falls back to resolvePath when config workspace is absent', () => {
-    const api: PluginApi = {
-      resolvePath: () => '/from/resolve-path',
-      registerTool: vi.fn(),
-    };
-    expect(resolveWorkspacePath(api)).toBe('/from/resolve-path');
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
-  it('falls back to resolvePath when config workspace is empty', () => {
-    const api: PluginApi = {
-      resolvePath: () => '/from/resolve-path',
-      config: { agents: { defaults: { workspace: '   ' } } },
-      registerTool: vi.fn(),
-    };
-    expect(resolveWorkspacePath(api)).toBe('/from/resolve-path');
+  it('returns the configured workspace first, ~ expanded', () => {
+    expect(
+      resolveWorkspacePath(apiWith('/from/config'), { workspaceDir: '/ctx' }),
+    ).toBe('/from/config');
+    expect(resolveWorkspacePath(apiWith('~/ws'))).toBe(join(homedir(), 'ws'));
+    expect(resolveWorkspacePath(apiWith('~'))).toBe(homedir());
   });
 
-  it('falls back to process.cwd when nothing is configured', () => {
-    const api: PluginApi = { registerTool: vi.fn() };
-    expect(resolveWorkspacePath(api)).toBe(process.cwd());
+  it('uses ctx.workspaceDir when config is absent or blank', () => {
+    expect(resolveWorkspacePath(apiWith(), { workspaceDir: '/ctx' })).toBe(
+      '/ctx',
+    );
+    expect(resolveWorkspacePath(apiWith('   '), { workspaceDir: '/ctx' })).toBe(
+      '/ctx',
+    );
+  });
+
+  it('defaults to <OPENCLAW_STATE_DIR>/workspace', () => {
+    vi.stubEnv('OPENCLAW_STATE_DIR', '/state');
+    vi.stubEnv('OPENCLAW_PROFILE', 'work');
+    expect(resolveWorkspacePath(apiWith(), { workspaceDir: ' ' })).toBe(
+      join('/state', 'workspace'),
+    );
+  });
+
+  it('defaults to ~/.openclaw-<profile>/workspace for a non-default profile', () => {
+    vi.stubEnv('OPENCLAW_STATE_DIR', '');
+    vi.stubEnv('OPENCLAW_PROFILE', 'work');
+    expect(resolveWorkspacePath(apiWith())).toBe(
+      join(homedir(), '.openclaw-work', 'workspace'),
+    );
+  });
+
+  it.each(['', 'default'])(
+    'defaults to ~/.openclaw/workspace for profile %j',
+    (profile) => {
+      vi.stubEnv('OPENCLAW_STATE_DIR', '');
+      vi.stubEnv('OPENCLAW_PROFILE', profile);
+      expect(resolveWorkspacePath(apiWith())).toBe(
+        join(homedir(), '.openclaw', 'workspace'),
+      );
+    },
+  );
+
+  it('never returns the plugin root', () => {
+    vi.stubEnv('OPENCLAW_STATE_DIR', '');
+    expect(resolveWorkspacePath(apiWith())).not.toBe('/plugin/root');
+  });
+
+  it('logs nothing when falling back to the default', () => {
+    vi.stubEnv('OPENCLAW_STATE_DIR', '/state');
+    const api = apiWith();
+    expect(resolveWorkspacePath(api)).toBe(join('/state', 'workspace'));
+    expect(api.warn).not.toHaveBeenCalled();
+  });
+
+  it('never throws without a logger', () => {
+    expect(() => resolveWorkspacePath({ registerTool: vi.fn() })).not.toThrow();
   });
 });
 

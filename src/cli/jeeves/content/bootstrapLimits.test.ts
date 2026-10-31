@@ -42,7 +42,11 @@ describe('resolveBootstrapLimits', () => {
         ws,
         home,
       ),
-    ).toEqual({ perFile: 15_000, total: 50_000, defaulted: false });
+    ).toEqual({
+      perFile: 15_000,
+      total: 50_000,
+      source: { perFile: 'config', total: 'config' },
+    });
   });
 
   it("applies the owning agent's override, inheriting what it omits", () => {
@@ -60,7 +64,11 @@ describe('resolveBootstrapLimits', () => {
         ws,
         home,
       ),
-    ).toEqual({ perFile: 8_000, total: 50_000, defaulted: false });
+    ).toEqual({
+      perFile: 8_000,
+      total: 50_000,
+      source: { perFile: 'config', total: 'config' },
+    });
   });
 
   it('takes the smallest limit when several agents share the workspace', () => {
@@ -83,14 +91,18 @@ describe('resolveBootstrapLimits', () => {
         ws,
         home,
       ),
-    ).toEqual({ perFile: 9_000, total: 40_000, defaulted: false });
+    ).toEqual({
+      perFile: 9_000,
+      total: 40_000,
+      source: { perFile: 'config', total: 'config' },
+    });
   });
 
   it('falls back to the built-in defaults and says so', () => {
     expect(resolveBootstrapLimits({}, ws, home)).toEqual({
       perFile: BOOTSTRAP_FILE_MAX_CHARS,
       total: BOOTSTRAP_TOTAL_MAX_CHARS,
-      defaulted: true,
+      source: { perFile: 'unset', total: 'unset' },
     });
   });
 });
@@ -110,27 +122,27 @@ describe('readBootstrapLimits', () => {
     await expect(readBootstrapLimits(fake.runner, ws)).resolves.toEqual({
       perFile: 15_000,
       total: 50_000,
-      defaulted: false,
+      source: { perFile: 'config', total: 'config' },
     });
     expect(fake.lines()).toEqual([GET]);
   });
 
   it.each([
     ['config get fails', failed()],
-    ['output is not JSON', ok('not json')],
     [
-      'values are invalid',
-      ok(JSON.stringify({ defaults: { bootstrapMaxChars: -5 } })),
+      'config get fails despite JSON output',
+      { ...ok('{"defaults":{"bootstrapMaxChars":5}}'), exitCode: 1 },
     ],
+    ['output is not JSON', ok('not json')],
   ])(
-    'uses the defaults, and the report says so, when %s',
+    'uses the defaults with source failed, and says so, when %s',
     async (_l, response) => {
       const fake = fakeRunner({ [GET]: response });
       const limits = await readBootstrapLimits(fake.runner, ws);
       expect(limits).toEqual({
         perFile: BOOTSTRAP_FILE_MAX_CHARS,
         total: BOOTSTRAP_TOTAL_MAX_CHARS,
-        defaulted: true,
+        source: { perFile: 'failed', total: 'failed' },
       });
       expect(
         bootstrapReportLines({
@@ -139,7 +151,35 @@ describe('readBootstrapLimits', () => {
           totalLevel: 'ok',
           limits,
         }).at(-1),
-      ).toMatch(/using the defaults/);
+      ).toBe(
+        "  (could not read OpenClaw's bootstrap limits; using the defaults)",
+      );
     },
   );
+
+  it('marks an invalid or missing limit unset, per limit', async () => {
+    const fake = fakeRunner({
+      [GET]: ok(
+        JSON.stringify({
+          defaults: { bootstrapMaxChars: -5, bootstrapTotalMaxChars: 40_000 },
+        }),
+      ),
+    });
+    const limits = await readBootstrapLimits(fake.runner, ws);
+    expect(limits).toEqual({
+      perFile: BOOTSTRAP_FILE_MAX_CHARS,
+      total: 40_000,
+      source: { perFile: 'unset', total: 'config' },
+    });
+    expect(
+      bootstrapReportLines({
+        files: [],
+        totalChars: 0,
+        totalLevel: 'ok',
+        limits,
+      }).at(-1),
+    ).toBe(
+      "  (OpenClaw's bootstrap limits are not set; using OpenClaw's defaults)",
+    );
+  });
 });

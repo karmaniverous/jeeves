@@ -9,7 +9,7 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { getChannelWorkspace, saveCache } from './slack-workspace.js';
+import { getChannelWorkspaceImpl, saveCache } from './slack-workspace.js';
 
 let tmpDir: string;
 let cachePath: string;
@@ -33,7 +33,7 @@ describe('getChannelWorkspace', () => {
 
     const fetchSpy = vi.spyOn(globalThis, 'fetch');
 
-    const result = await getChannelWorkspace('C123', 'xoxb-token', {
+    const result = await getChannelWorkspaceImpl('C123', 'xoxb-token', {
       cachePath,
       defaultWorkspace: DEFAULT_WORKSPACE,
     });
@@ -53,7 +53,7 @@ describe('getChannelWorkspace', () => {
       ),
     );
 
-    const result = await getChannelWorkspace('C_NEW', 'xoxb-token', {
+    const result = await getChannelWorkspaceImpl('C_NEW', 'xoxb-token', {
       cachePath,
       defaultWorkspace: DEFAULT_WORKSPACE,
     });
@@ -74,7 +74,7 @@ describe('getChannelWorkspace', () => {
       new Response('error', { status: 500 }),
     );
 
-    const result = await getChannelWorkspace('C_ERR', 'xoxb-token', {
+    const result = await getChannelWorkspaceImpl('C_ERR', 'xoxb-token', {
       cachePath,
       defaultWorkspace: DEFAULT_WORKSPACE,
     });
@@ -93,7 +93,7 @@ describe('getChannelWorkspace', () => {
       ),
     );
 
-    const result = await getChannelWorkspace('C_LOCAL', 'xoxb-token', {
+    const result = await getChannelWorkspaceImpl('C_LOCAL', 'xoxb-token', {
       cachePath,
       defaultWorkspace: DEFAULT_WORKSPACE,
     });
@@ -115,7 +115,7 @@ describe('saveCache', () => {
       ),
     );
 
-    await getChannelWorkspace('C_SAVE', 'xoxb-token', {
+    await getChannelWorkspaceImpl('C_SAVE', 'xoxb-token', {
       cachePath,
       defaultWorkspace: DEFAULT_WORKSPACE,
     });

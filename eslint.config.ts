@@ -44,6 +44,9 @@ export default [
       'dist/**/*',
       'docs/**/*',
       'node_modules/**/*',
+      // 0.7.0 built declarations, copied verbatim for the type-compatibility
+      // test (dev-plan step 16; owner-approved 2026-10-28). Never reformatted.
+      'src/test/baseline-0.7.0/api-0.7.0.d.ts',
     ],
   },
   eslint.configs.recommended,

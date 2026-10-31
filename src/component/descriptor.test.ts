@@ -59,6 +59,29 @@ describe('jeevesComponentDescriptorSchema', () => {
     expect(result.success).toBe(false);
   });
 
+  it('rejects a configSchema with parse but no safeParse (#141)', () => {
+    const result = jeevesComponentDescriptorSchema.safeParse(
+      makeDescriptor({ configSchema: { parse: (v: unknown) => v } }),
+    );
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.message).toBe(
+      'configSchema must be a Zod schema (with parse and safeParse)',
+    );
+  });
+
+  it('accepts promptRules and skill strings, rejecting other types', () => {
+    const ok = jeevesComponentDescriptorSchema.safeParse(
+      makeDescriptor({ promptRules: '## Rules', skill: '# Skill' }),
+    );
+    expect(ok.success).toBe(true);
+    expect(ok.data?.promptRules).toBe('## Rules');
+    expect(ok.data?.skill).toBe('# Skill');
+    for (const bad of [{ promptRules: 1 }, { skill: ['x'] }])
+      expect(
+        jeevesComponentDescriptorSchema.safeParse(makeDescriptor(bad)).success,
+      ).toBe(false);
+  });
+
   it('should accept optional serviceName', () => {
     const result = jeevesComponentDescriptorSchema.safeParse(
       makeDescriptor({ serviceName: 'custom-svc' }),

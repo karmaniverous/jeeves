@@ -12,12 +12,15 @@
  */
 
 import { dryRunSuffix } from '../cliOutput.js';
+import { resolveOpenClawDist } from '../openclawPatch/resolveOpenclawDist.js';
 import type { ApplyReport } from './applyReport.js';
 import { configuredPluginIds } from './configPatch.js';
 import { executePlan, type ExecutePlanContext } from './executePlan.js';
 import { findLegacyExtension } from './legacyExtensions.js';
 import {
   assertOpenClawAvailable,
+  isOpenClawMissing,
+  OPENCLAW_NOT_INSTALLED,
   OpenClawNotFoundError,
   readPluginsConfig,
 } from './openclawState.js';
@@ -44,6 +47,8 @@ import { resolveTargets } from './resolveTargets.js';
 export interface PluginWorkflowDeps extends ExecutePlanContext {
   /** OpenClaw config directory (parent of `extensions/`). */
   configDir: string;
+  /** Resolves OpenClaw's dist directory, throwing when none exists. */
+  resolveDist?: () => string;
 }
 
 /** Print the plan header and prerequisite version. */
@@ -170,7 +175,11 @@ export async function uninstallPlugins(
     await preflight(deps, 'Jeeves plugin removal');
   } catch (error) {
     if (!(error instanceof OpenClawNotFoundError)) throw error;
-    deps.log('  OpenClaw CLI not found; no plugins to remove');
+    deps.log(
+      isOpenClawMissing(error, deps.resolveDist ?? resolveOpenClawDist)
+        ? `  plugins: ${OPENCLAW_NOT_INSTALLED}`
+        : '  OpenClaw CLI not found; no plugins to remove',
+    );
     return [];
   }
   const before = await readPluginsConfig(deps.runner);

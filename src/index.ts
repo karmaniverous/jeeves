@@ -119,6 +119,7 @@ export {
   type MemoryHygieneResult,
 } from './memory/index.js';
 export {
+  type CatalogToolSelection,
   connectionFail,
   CONVERSATION_HOOK_NAMES,
   createPluginToolset,
@@ -134,6 +135,7 @@ export {
   onPluginDispose,
   type PluginApi,
   type PluginApiUrlResolver,
+  type PluginContext,
   type PluginLifecycleApi,
   type PluginToolsetOptions,
   pluginToolsetOptionsSchema,
@@ -169,13 +171,10 @@ export {
   ensureDir,
   exponentialBackoff,
   type FlagSpec,
-  getArg,
-  getChannelWorkspace,
   type GoogleAuthOptions,
   loadEnvFile,
   nowIso,
   type OptionalSpec,
-  parseArgs,
   type ParsedArgs,
   parseRunnableArgs,
   positionalArgs,
@@ -194,7 +193,9 @@ export {
   type SlackWorkspaceOptions,
   sleepAsync,
   sleepMs,
+  unknownArgs,
   uuid,
+  valuelessArgs,
   type ValueSpec,
   writeJsonAtomic,
   writeJsonl,
@@ -206,3 +207,6 @@ export {
   type ServiceManagerOptions,
 } from './service/index.js';
 export { getErrorMessage, isTransientError } from './utils.js';
+
+// Deprecated (#127): `export *` keeps the re-export lint-clean.
+export * from './scripts/deprecated.js';

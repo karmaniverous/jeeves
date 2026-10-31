@@ -230,3 +230,52 @@ describe('runSkillsCommand install', () => {
     expect(logLines.some((l) => l.includes('batch file content'))).toBe(true);
   });
 });
+
+describe('runSkillsCommand without OpenClaw (#143)', () => {
+  const missing = () => Promise.reject(new Error('spawn openclaw ENOENT'));
+  const noDist = () => {
+    throw new Error('OpenClaw dist directory not found');
+  };
+
+  it.each([
+    ['status', '  skipped (OpenClaw not installed)'],
+    ['uninstall', 'skills uninstall: OpenClaw not installed; skipped'],
+  ] as const)('%s skips and exits 0', async (action, line) => {
+    const { log, lines } = logger();
+    await expect(
+      runSkillsCommand(action, {
+        runner: missing,
+        log,
+        packageRoot: fx.pkgRoot,
+        resolveDist: noDist,
+      }),
+    ).resolves.toEqual({ exitCode: 0, changed: false });
+    expect(lines).toEqual([line]);
+  });
+
+  it('install still fails', async () => {
+    const { log } = logger();
+    const error = () => undefined;
+    const result = await runSkillsCommand('install', {
+      runner: missing,
+      log,
+      error,
+      packageRoot: fx.pkgRoot,
+      resolveDist: noDist,
+    });
+    expect(result.exitCode).toBe(1);
+  });
+
+  it('uninstall fails when the CLI is missing but a dist resolves', async () => {
+    const { log } = logger();
+    const error = () => undefined;
+    const result = await runSkillsCommand('uninstall', {
+      runner: missing,
+      log,
+      error,
+      packageRoot: fx.pkgRoot,
+      resolveDist: () => '/g/openclaw/dist',
+    });
+    expect(result.exitCode).toBe(1);
+  });
+});
