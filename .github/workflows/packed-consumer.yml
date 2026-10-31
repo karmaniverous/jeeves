@@ -1,0 +1,31 @@
+# Packed-consumer check (spec 5.1, Decision 88): installs the packed tarball
+# into a consumer project and a global prefix, and proves each entry point
+# imports only what it may and works from a global install.
+name: Packed Consumer Check
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  check-packed:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check the packed tarball as a consumer
+        run: npm run check:packed
