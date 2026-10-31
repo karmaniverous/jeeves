@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.0] - 2026-10-31
+
+### 🚀 Features
+
+- Add jeeves-server link-key functions (computePathKey, computeInsiderKey, computeOutsiderKeyWithExpiry)
+
+### 🐛 Bug Fixes
+
+- Close entry-guard gaps found in step 21 review
+- Follow-up review nits (entry table test, probe, guard wording)
+
+### 💼 Other
+
+- Merge main: keep main's link-key implementation (#149)
+
+main merged #149 as src/crypto.ts (same functions and output, fuller pinned-output tests); feature/135's duplicate src/linkKeys.ts, its test and README section are removed. package.json keeps feature/135's dependencies with main's dependency updates.
+
+### 🚜 Refactor
+
+- *(crypto)* Share one HMAC helper; document link keys in README
+
+### ⚙️ Miscellaneous Tasks
+
+- Update copilot review instructions
 ## [0.8.0-6] - 2026-10-30
 
 ### 🐛 Bug Fixes
@@ -11,6 +35,10 @@ All notable changes to this project will be documented in this file.
 ### 📚 Documentation
 
 - Jeeves-pr-review no longer mentions Copilot
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v0.8.0-6
 ## [0.8.0-5] - 2026-10-30
 
 ### 🚀 Features
