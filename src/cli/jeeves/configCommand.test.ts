@@ -76,18 +76,18 @@ describe('buildEffectiveConfig', () => {
   });
 
   it('flags override env and file values', () => {
-    vi.stubEnv('JEEVES_CONFIG_ROOT', 'J:/env-config');
+    vi.stubEnv('JEEVES_CONFIG_ROOT', join(testDir, 'env-config'));
     writeFileSync(
       join(testDir, WORKSPACE_CONFIG_FILE),
-      JSON.stringify({ core: { configRoot: 'J:/file-config' } }),
+      JSON.stringify({ core: { configRoot: join(testDir, 'file-config') } }),
     );
 
     const result = buildEffectiveConfig({
       workspace: testDir,
-      configRoot: 'J:/flag-config',
+      configRoot: join(testDir, 'flag-config'),
     });
     expect(result.core.configRoot).toEqual({
-      value: 'J:/flag-config',
+      value: join(testDir, 'flag-config'),
       provenance: 'flag',
     });
   });
