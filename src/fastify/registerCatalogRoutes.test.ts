@@ -250,7 +250,10 @@ describe('registerCatalogRoutes', () => {
       const app = await buildTestApp();
       const res = await app.inject('/broken');
       expect(res.statusCode).toBe(500);
-      expect(res.json()).toEqual({ error: 'Response validation failed' });
+      expect(res.json()).toEqual({
+        code: 'internal_error',
+        error: 'Response validation failed',
+      });
       await app.close();
     });
 
@@ -315,7 +318,10 @@ describe('registerCatalogRoutes', () => {
         });
         const bad = await app.inject({ method: 'DELETE', url: '/things/1' });
         expect(bad.statusCode).toBe(500);
-        expect(bad.json()).toEqual({ error: 'Response validation failed' });
+        expect(bad.json()).toEqual({
+          code: 'internal_error',
+          error: 'Response validation failed',
+        });
         body = { error: 'nope', code: 'X' };
         const good = await app.inject({ method: 'DELETE', url: '/things/1' });
         expect(good.statusCode).toBe(status);

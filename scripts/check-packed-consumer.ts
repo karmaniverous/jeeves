@@ -6,18 +6,20 @@
  * and checks the tarball's file list, then:
  *
  * 1. installs the tarball, and nothing else, into a temporary
- *    `moduleResolution: Bundler` project; proves no entry point's packed
- *    code reaches a scoped dependency it may not import (`entry-points.ts`:
- *    the root and `/catalog` never load Fastify or `zod-openapi`); then
- *    proves each entry point type-checks and imports, stage by stage (the
- *    root and `/catalog`, then `/openapi`, then `/fastify`);
- * 2. installs the tarball alone into a temporary global prefix and runs the
- *    `/openapi` and `/fastify` probes against that copy, with the consumer
- *    project's own Zod and Fastify. A service installed globally beside the
- *    `jeeves` CLI may use that top-level copy, which resolves its imports
- *    from its own location, not the service's: every package it imports
- *    must be its own dependency, and catalog schemas from the service's Zod
- *    must validate through it (Decision 88).
+ *    `moduleResolution: Bundler` project; proves npm installed none of the
+ *    optional peers and no entry point's packed code reaches a scoped
+ *    package it may not import (`entry-points.ts`); then proves each entry
+ *    point type-checks and imports, stage by stage, adding each stage's
+ *    peers first: the root and `/catalog` with no peers (a catalog client
+ *    round-trips a request), then `/openapi` with `zod-openapi`, then
+ *    `/fastify` with `fastify` (spec 5a.4);
+ * 2. installs the tarball alone into a temporary global prefix and runs
+ *    `/fastify` from that copy with the consumer project's own Zod and
+ *    Fastify. A service installed globally beside the `jeeves` CLI may use
+ *    that top-level copy, which resolves its imports from its own location,
+ *    not the service's: it must need nothing at run time it can't resolve
+ *    there, and catalog schemas from the service's Zod must validate
+ *    through it (Decisions 88, 89).
  *
  * Exits non-zero on the first failure.
  *
@@ -49,6 +51,8 @@ const pkg = JSON.parse(readFileSync(join(repo, 'package.json'), 'utf8')) as {
 interface Stage {
   label: string;
   entries: string[];
+  /** Optional peers installed (from `devDependencies`) before the stage. */
+  peers?: string[];
   /** Extra ESM code run after the imports, proving the entry point works. */
   probe?: string;
   /**
@@ -70,6 +74,15 @@ const stages: Stage[] = [
   {
     label: 'root and catalog',
     entries: ['', '/catalog'],
+    probe: [
+      `const { createCatalogClient, defineCatalog } = await import('${pkg.name}/catalog');`,
+      `const { z } = await import('zod');`,
+      `const catalog = defineCatalog([{ name: 'ping', method: 'GET', path: '/ping/:id', description: 'Ping.', params: z.object({ id: z.string() }), response: z.object({ ok: z.boolean() }), auth: 'none', kind: 'read' }]);`,
+      `let url = '';`,
+      `const fetch = (u) => { url = String(u); return Promise.resolve(new Response(JSON.stringify({ ok: true, extra: 1 }), { status: 200, headers: { 'content-type': 'application/json' } })); };`,
+      `const res = await createCatalogClient(catalog, { baseUrl: 'http://svc', fetch }).ping({ id: 'x' });`,
+      `if (url !== 'http://svc/ping/x' || JSON.stringify(res) !== '{"ok":true}') throw new Error('client failed: ' + url + ' ' + JSON.stringify(res));`,
+    ].join('\n'),
     typeProbe: [
       `import { createPluginToolset } from '${pkg.name}';`,
       `export const probeTools = (descriptor: Parameters<typeof createPluginToolset>[0]) => createPluginToolset(descriptor, { apiUrl: 'http://127.0.0.1:1', catalog: probeCatalog, tools: { ping: true } });`,
@@ -78,6 +91,7 @@ const stages: Stage[] = [
   {
     label: 'openapi',
     entries: ['/openapi'],
+    peers: ['zod-openapi'],
     typeProbe: [
       `import { buildOpenApiDocument } from '${pkg.name}/openapi';`,
       `export const probeDoc = buildOpenApiDocument(probeCatalog, { title: 'probe', version: '1.0.0' });`,
@@ -85,13 +99,18 @@ const stages: Stage[] = [
     probe: [
       `const { defineCatalog, standardEntries } = await import('${pkg.name}/catalog');`,
       `const { buildOpenApiDocument } = await import('${pkg.name}/openapi');`,
-      `const doc = buildOpenApiDocument(defineCatalog(standardEntries('probe', { auth: { config: 'none' } })), { title: 'probe', version: '1.0.0' });`,
+      `const { z } = await import('zod');`,
+      `const echo = { name: 'echo', method: 'POST', path: '/echo', description: 'Echo.', body: z.object({ n: z.number() }), response: z.object({ n: z.number() }), auth: 'none', kind: 'write' };`,
+      `const doc = buildOpenApiDocument(defineCatalog([...standardEntries('probe', { auth: { config: 'none' } }), echo]), { title: 'probe', version: '1.0.0' });`,
       `if (!doc.paths['/config/apply'].post) throw new Error('no operation');`,
+      `const echoN = doc.paths['/echo'].post?.requestBody?.content?.['application/json']?.schema?.properties?.n;`,
+      `if (echoN?.type !== 'number') throw new Error('echo body missing from the document: ' + JSON.stringify(echoN));`,
     ].join('\n'),
   },
   {
     label: 'fastify',
     entries: ['/fastify'],
+    peers: ['fastify'],
     typeProbe: [
       `import { registerCatalogRoutes } from '${pkg.name}/fastify';`,
       `import type { FastifyInstance } from 'fastify';`,
@@ -113,10 +132,11 @@ const stages: Stage[] = [
 
 /**
  * Probe run in the consumer project against the globally installed copy
- * (`ROOT` is its directory): imports each entry point by path, takes Zod and
- * Fastify from the consumer (a separate copy of each, as a service has),
- * and exercises the OpenAPI document and request validation of a schema
- * built with the consumer's Zod.
+ * (`ROOT` is its directory): proves the copy can resolve neither Fastify
+ * nor `fastify-type-provider-zod`, imports `/catalog` and `/fastify` by
+ * path, takes Zod and Fastify from the consumer (a separate copy of each,
+ * as a service has), and exercises request validation of a schema built
+ * with the consumer's Zod.
  */
 const GLOBAL_PROBE = [
   `import { createRequire } from 'node:module';`,
@@ -127,18 +147,14 @@ const GLOBAL_PROBE = [
   `const ours = createRequire(join(process.cwd(), 'package.json')).resolve('zod');`,
   `const theirs = createRequire(join(ROOT, 'package.json')).resolve('zod');`,
   `if (ours === theirs) throw new Error('one Zod copy: ' + ours);`,
+  `for (const p of ['fastify', 'fastify-type-provider-zod']) { let found = false; try { createRequire(join(ROOT, 'package.json')).resolve(p); found = true; } catch {} if (found) throw new Error('global copy resolves ' + p); }`,
   `const { z } = await import('zod');`,
   `const { default: Fastify } = await import('fastify');`,
   `const { defineCatalog, standardEntries } = await load('${pkg.exports['./catalog'].import}');`,
-  `const { buildOpenApiDocument } = await load('${pkg.exports['./openapi'].import}');`,
   `const { registerCatalogRoutes } = await load('${pkg.exports['./fastify'].import}');`,
   `const entries = standardEntries('probe', { auth: { config: 'none' } });`,
   `const echo = { name: 'echo', method: 'POST', path: '/echo', description: 'Echo.', body: z.object({ n: z.number() }), response: z.object({ n: z.number() }), auth: 'none', kind: 'write' };`,
   `const catalog = defineCatalog([...entries.filter((e) => e.name === 'status' || e.name === 'configApply'), echo]);`,
-  `const doc = buildOpenApiDocument(catalog, { title: 'probe', version: '1.0.0' });`,
-  `if (!doc.paths['/config/apply'].post) throw new Error('no operation');`,
-  `const echoBody = doc.paths['/echo'].post?.requestBody?.content?.['application/json']?.schema;`,
-  `if (JSON.stringify(echoBody ?? {}).indexOf('number') < 0) throw new Error('echo body missing from the document: ' + JSON.stringify(echoBody));`,
   `const app = Fastify();`,
   `await registerCatalogRoutes(app, catalog, { status: () => Promise.resolve({ status: 200, body: { name: 'probe', version: '1', uptime: 0, status: 'healthy', health: {} } }), configApply: () => Promise.resolve({ status: 200, body: { applied: true, config: {} } }), echo: ({ body }) => Promise.resolve({ status: 200, body }) });`,
   `const ok = await app.inject('/status');`,
@@ -310,6 +326,12 @@ writeFileSync(
 );
 npm(INSTALL_FLAGS, consumer);
 
+// npm installs no optional peer, so the root and `/catalog` run without them.
+for (const p of ['fastify', 'fastify-type-provider-zod', 'zod-openapi'])
+  if (existsSync(join(consumer, 'node_modules', p)))
+    fail(`${p} was installed with the tarball alone`);
+console.log('check-packed-consumer: tarball alone installs no optional peer');
+
 // No entry point's packed code reaches a scoped dependency it may not use.
 const installedRoot = join(consumer, 'node_modules', ...pkg.name.split('/'));
 for (const [name, { scoped }] of Object.entries(libraryEntries)) {
@@ -329,6 +351,14 @@ const proven: string[] = [];
 const typeProbes: string[] = [];
 
 for (const stage of stages) {
+  if (stage.peers)
+    npm(
+      [
+        ...INSTALL_FLAGS,
+        ...stage.peers.map((p) => `${p}@${pkg.devDependencies[p] ?? ''}`),
+      ],
+      consumer,
+    );
   proven.push(...stage.entries);
   if (stage.typeProbe) typeProbes.push(stage.typeProbe);
   const specifiers = proven.map((e) => `${pkg.name}${e}`);
@@ -397,10 +427,10 @@ try {
     stdio: ['ignore', 'pipe', 'inherit'],
   });
 } catch {
-  fail('global install: /openapi and /fastify probe failed');
+  fail('global install: /fastify probe failed');
 }
 console.log(
-  "check-packed-consumer: global install: /openapi, /fastify ok with the consumer's Zod and Fastify",
+  "check-packed-consumer: global install: /fastify ok with no peers beside it, the consumer's Zod and Fastify",
 );
 
 console.log('check-packed-consumer: all stages passed');

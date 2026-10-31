@@ -75,14 +75,14 @@ Upgrading from v0.x? See the [migration guide](guides/migrating-to-v1.md). Upgra
 
 ## Entry Points
 
-| Import | What it gives you | Loads |
+| Import | What it gives you | Needs (optional peer) |
 | --- | --- | --- |
 | `@karmaniverous/jeeves` | Plugin SDK, CLI support, managed content, service helpers, script helpers | - |
 | `@karmaniverous/jeeves/catalog` | Endpoint catalog: `defineCatalog`, `standardEntries`, `queryArray`, `createCatalogClient`, request building, tool definitions | - |
 | `@karmaniverous/jeeves/openapi` | `buildOpenApiDocument`, `writeOpenApiDocument`, `checkOpenApiDrift` | `zod-openapi` |
-| `@karmaniverous/jeeves/fastify` | `registerCatalogRoutes`, `registerOpenApiRoute`, `standardHandlers` | `fastify-type-provider-zod` (types from `fastify`) |
+| `@karmaniverous/jeeves/fastify` | `registerCatalogRoutes`, `registerOpenApiRoute`, `standardHandlers` | `fastify` (types only; your app supplies its instance) |
 
-The packages under **Loads** are dependencies of this package, imported only by that entry point: importing the root or `/catalog` never loads them. They are regular dependencies, not peers, so an entry point works wherever this package is installed, including a global install a service shares with the `jeeves` CLI.
+The packages under **Needs** are optional peers: install them in the project that imports that entry point. The root and `/catalog` need none of them, so a catalog client (e.g. a component SDK built on `createCatalogClient`) installs no web server or OpenAPI library. `/fastify` uses `fastify` only for types and validates requests itself, so it needs nothing at run time beyond this package and `zod`, even from a global install a service shares with the `jeeves` CLI. `/openapi` runs where you build the document, usually with `zod-openapi` as a dev dependency.
 
 ## Endpoint Catalog
 

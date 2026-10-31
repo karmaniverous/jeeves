@@ -10,9 +10,9 @@ export interface LibraryEntry {
   /** Source file. */
   input: string;
   /**
-   * Dependencies only this entry point may import (code and declarations).
-   * The root and `catalog` entry points import none, so importing them
-   * never loads Fastify or the OpenAPI library.
+   * Optional peers only this entry point may import (code and declarations).
+   * The root and `catalog` entry points import none, so they work without
+   * Fastify or the OpenAPI library installed (spec 5a.1).
    */
   scoped: readonly string[];
 }
@@ -24,11 +24,11 @@ export const libraryEntries = {
   'openapi/index': { input: 'src/openapi/index.ts', scoped: ['zod-openapi'] },
   'fastify/index': {
     input: 'src/fastify/index.ts',
-    scoped: ['fastify', 'fastify-type-provider-zod'],
+    scoped: ['fastify'],
   },
 } as const satisfies Record<string, LibraryEntry>;
 
-/** Every scoped dependency, de-duplicated. */
+/** Every scoped package, de-duplicated. */
 export const scopedPackages: readonly string[] = [
   ...new Set(Object.values(libraryEntries).flatMap((e) => e.scoped)),
 ];

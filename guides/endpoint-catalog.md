@@ -15,13 +15,13 @@ Adoption is optional and per component. A component that doesn't adopt keeps wor
 
 ## 1. Dependencies
 
-| Package    | Add                                                   |
-| ---------- | ----------------------------------------------------- |
-| `core`     | `@karmaniverous/jeeves` (already there), `zod` `^4.6` |
-| `service`  | `fastify` `^5` (your app)                             |
-| `openclaw` | nothing new                                           |
+| Package | Add |
+| --- | --- |
+| `core` | `@karmaniverous/jeeves` (already there), `zod` `^4.6`; `zod-openapi` `^6` as a dev dependency (writes `openapi.json`) |
+| `service` | `fastify` `^5` (your app) |
+| `openclaw` | nothing new |
 
-`fastify-type-provider-zod` (request validation) and `zod-openapi` (the document writer and drift check) are dependencies of `@karmaniverous/jeeves`, so you don't add them. Only the entry point that needs one imports it: the root and `/catalog` entry points import none of them. Add `fastify-type-provider-zod` to a service only if the service itself imports it (e.g. for `ZodTypeProvider` on routes outside the catalog).
+`fastify` and `zod-openapi` are optional peers of `@karmaniverous/jeeves`: `/fastify` needs `fastify` (types; your app's own instance does the work) and `/openapi` needs `zod-openapi`. The root and `/catalog` need neither, so an SDK built on `createCatalogClient` stays light. Core validates requests itself; you don't need `fastify-type-provider-zod` unless the service uses it for its own routes outside the catalog.
 
 Use one copy of Zod: catalog schemas are built with your `zod` and core reads them, so declare `zod` as `^4.6` wherever you declare it, and check `npm ls zod` shows a single version.
 
@@ -162,7 +162,7 @@ registerOpenApiRoute(app, openApiDocument);
 - **Handlers** get `{ params, query, body }` (parsed by the catalog schemas) and the Fastify request, and return `{ status, body, headers? }`. A missing or extra handler is a type error. Errors return a 4xx/5xx status with an `{ error: string, ... }` body.
 - **Auth hook order.** The routes are registered in an encapsulated Fastify plugin, so add your auth hook to the root app **before** `registerCatalogRoutes`. Test it: each protected entry without credentials gets 401; each `'none'` entry doesn't.
 - **Invalid requests** get 400 with `{ error: 'Request validation failed', issues }`. Pass `formatValidationError` to return your own body (the watcher keeps its `code` field). Each issue has `slot`, `path`, `code`, `message` and `params`, the Zod issue's other fields (`minimum`, `expected`, `keys`, ...).
-- **Responses are checked** against the entry's `response` schema (and the error schema for 4xx/5xx). With `responseValidation: 'strict'`, the default, a mismatch is logged at `error` and replaced with 500 `{ error: 'Response validation failed' }`. Zod also drops object keys a schema doesn't name, so **name every field, or use `z.looseObject`**. Mismatches are logged through Fastify's logger; if your app runs Fastify with `logger: false` and logs elsewhere, pass `logger` (anything with pino-style `warn(details, message)` and `error(details, message)`). While migrating, pass `responseValidation: 'log'`: a mismatch is logged at `warn` and the handler's body is sent unchanged. Add a test that each serialised response equals the handler's body, then switch to `'strict'`.
+- **Responses are checked** against the entry's `response` schema (and the error schema for 4xx/5xx). With `responseValidation: 'strict'`, the default, a mismatch is logged at `error` and replaced with 500 `{ code: 'internal_error', error: 'Response validation failed' }`. Zod also drops object keys a schema doesn't name, so **name every field, or use `z.looseObject`**. Mismatches are logged through Fastify's logger; if your app runs Fastify with `logger: false` and logs elsewhere, pass `logger` (anything with pino-style `warn(details, message)` and `error(details, message)`). While migrating, pass `responseValidation: 'log'`: a mismatch is logged at `warn` and the handler's body is sent unchanged. Add a test that each serialised response equals the handler's body, then switch to `'strict'`.
 - **Other errors** a handler throws go to your app's own error handler, and its reply is sent as you wrote it: objects as JSON, strings unchanged, without the catalog's response check.
 - **Registration errors** (for example a route your app already declared) reject the `registerCatalogRoutes` promise.
 

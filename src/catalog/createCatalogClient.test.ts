@@ -107,7 +107,10 @@ describe('createCatalogClient against the test app', () => {
     const client = createCatalogClient(testCatalog, { baseUrl });
     const error = await failure(client.broken({}));
     expect(error.status).toBe(500);
-    expect(error.body).toEqual({ error: 'Response validation failed' });
+    expect(error.body).toEqual({
+      code: 'internal_error',
+      error: 'Response validation failed',
+    });
   });
 
   it('rejects invalid input before sending, with status 0', async () => {
