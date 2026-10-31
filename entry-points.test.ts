@@ -8,6 +8,15 @@ describe('libraryEntries', () => {
     expect([...scopedPackages].sort()).toEqual(['fastify', 'zod-openapi']);
   });
 
+  it('declares fastify-type-provider-zod nowhere (core validates requests itself)', () => {
+    for (const deps of [
+      pkg.dependencies,
+      pkg.devDependencies,
+      pkg.peerDependencies,
+    ])
+      expect(Object.keys(deps)).not.toContain('fastify-type-provider-zod');
+  });
+
   it('scopes only optional peers, never regular dependencies', () => {
     for (const name of scopedPackages) {
       expect(Object.keys(pkg.peerDependencies)).toContain(name);

@@ -8,6 +8,7 @@ import {
   it,
   vi,
 } from 'vitest';
+import { z } from 'zod';
 
 import { defineCatalog } from '../catalog/defineCatalog.js';
 import { buildOpenApiDocument } from '../openapi/buildOpenApiDocument.js';
@@ -107,14 +108,16 @@ describe('registerCatalogRoutes', () => {
         payload: { name: '' },
       });
       expect(body.statusCode).toBe(400);
-      expect(body.json()).toMatchObject({
+      // Exactly 0.8.0's body: every field of the issue, nothing else.
+      expect(body.json()).toEqual({
         error: 'Request validation failed',
         issues: [
           {
             slot: 'body',
             path: ['name'],
             code: 'too_small',
-            params: expect.objectContaining({ minimum: 1 }) as unknown,
+            message: 'Too small: expected string to have >=1 characters',
+            params: { origin: 'string', minimum: 1, inclusive: true },
           },
         ],
       });
@@ -123,6 +126,33 @@ describe('registerCatalogRoutes', () => {
       expect(query.json()).toMatchObject({
         issues: [{ slot: 'query', path: ['tags'] }],
       });
+      await app.close();
+    });
+
+    it('reports a path parameter failure in the params slot', async () => {
+      const app = Fastify({ logger: false });
+      await registerCatalogRoutes(
+        app,
+        defineCatalog([
+          {
+            name: 'getN',
+            method: 'GET',
+            path: '/n/:id',
+            description: 'Get n.',
+            params: z.object({ id: z.string().regex(/^\d+$/) }),
+            response: z.object({ ok: z.boolean() }),
+            auth: 'none',
+            kind: 'read',
+          },
+        ]),
+        { getN: () => Promise.resolve({ status: 200, body: { ok: true } }) },
+      );
+      const res = await app.inject('/n/abc');
+      expect(res.statusCode).toBe(400);
+      expect(res.json()).toMatchObject({
+        issues: [{ slot: 'params', path: ['id'], code: 'invalid_format' }],
+      });
+      expect((await app.inject('/n/12')).statusCode).toBe(200);
       await app.close();
     });
 

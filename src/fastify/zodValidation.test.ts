@@ -19,28 +19,32 @@ describe('validatorCompiler', () => {
 
   it('returns one entry per issue, path as a JSON pointer, rest as params', () => {
     const result = validate({ n: 1, tags: ['a', 2] });
-    // toMatchObject: entries also carry the module-private marker symbol.
-    expect(result).toMatchObject({
-      error: [
-        {
-          keyword: 'too_small',
-          instancePath: '/n',
-          schemaPath: '#/n/too_small',
-          message: expect.any(String) as string,
-          params: expect.objectContaining({ minimum: 2 }) as object,
-        },
-        {
-          keyword: 'invalid_type',
-          instancePath: '/tags/1',
-          schemaPath: '#/tags/1/invalid_type',
-          message: expect.any(String) as string,
-          params: expect.objectContaining({ expected: 'string' }) as object,
-        },
-      ],
-    });
-    expect('error' in result && result.error[0]?.params).not.toHaveProperty(
-      'path',
+    // Every field but the module-private marker, compared exactly.
+    const fields = ('error' in result ? result.error : []).map(
+      ({ keyword, instancePath, schemaPath, message, params }) => ({
+        keyword,
+        instancePath,
+        schemaPath,
+        message,
+        params,
+      }),
     );
+    expect(fields).toEqual([
+      {
+        keyword: 'too_small',
+        instancePath: '/n',
+        schemaPath: '#/n/too_small',
+        message: 'Too small: expected number to be >=2',
+        params: { origin: 'number', minimum: 2, inclusive: true },
+      },
+      {
+        keyword: 'invalid_type',
+        instancePath: '/tags/1',
+        schemaPath: '#/tags/1/invalid_type',
+        message: 'Invalid input: expected string, received number',
+        params: { expected: 'string' },
+      },
+    ]);
   });
 
   it('points at the root for a root-level issue', () => {
@@ -85,7 +89,9 @@ describe('in a Fastify app without a catalog error handler', () => {
       payload: { n: 1, tags: [] },
     });
     expect(res.statusCode).toBe(400);
-    expect(res.json<{ message: string }>().message).toMatch(/^body\/n /);
+    expect(res.json<{ message: string }>().message).toBe(
+      'body/n Too small: expected number to be >=2',
+    );
     await app.close();
   });
 });

@@ -7,6 +7,7 @@
 import type { z } from 'zod';
 
 import type { ErrorBody } from './errorBody.js';
+import { retryAfterMs } from './retryAfter.js';
 
 /** What a {@link CatalogClientError} carries. */
 export interface CatalogClientErrorDetails {
@@ -20,24 +21,6 @@ export interface CatalogClientErrorDetails {
   cause?: unknown;
   /** Headers of the response, whenever one was received. */
   headers?: Headers;
-}
-
-/**
- * Milliseconds to wait from a `Retry-After` value: delta-seconds, or an HTTP
- * date (RFC 9110: IMF-fixdate, RFC 850 or asctime) relative to now, never
- * negative.
- *
- * @param value - Header value.
- * @returns Milliseconds, or `undefined` when missing or unparseable.
- */
-function retryAfterMsOf(value: string | null): number | undefined {
-  if (value === null) return undefined;
-  if (/^\d+$/.test(value)) return Number(value) * 1000;
-  // Every HTTP-date form (IMF-fixdate, RFC 850, asctime) starts with the day
-  // name; Date.parse alone would also accept e.g. `-5` or `1.5`.
-  if (!/^[A-Za-z]{3}/.test(value)) return undefined;
-  const date = Date.parse(value);
-  return Number.isNaN(date) ? undefined : Math.max(0, date - Date.now());
 }
 
 /**
@@ -72,8 +55,9 @@ export class CatalogClientError extends Error {
     this.body = details.body;
     this.issues = details.issues;
     this.headers = details.headers;
-    this.retryAfterMs = retryAfterMsOf(
+    this.retryAfterMs = retryAfterMs(
       details.headers?.get('retry-after') ?? null,
+      Date.now(),
     );
   }
 }

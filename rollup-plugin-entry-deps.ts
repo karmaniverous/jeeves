@@ -47,9 +47,9 @@ export function externalMatcher(
  * only for an entry point that lists it in `allowed`, so importing another
  * entry point never loads it.
  *
- * Core declares no peers today (spec Decision 88); the optional-peer rule
- * stays because it reads `package.json` generically and keeps the guard
- * correct if a future entry point (e.g. `/mcp`, #136) declares one.
+ * Core declares `fastify` and `zod-openapi` as optional peers (spec
+ * Decision 89). The rule reads `package.json` generically, so it also covers
+ * any future entry point (e.g. `/mcp`, #136).
  *
  * @param imports - Module specifiers imported by the emitted output.
  * @param pkg - Declared `dependencies` / `peerDependencies` /

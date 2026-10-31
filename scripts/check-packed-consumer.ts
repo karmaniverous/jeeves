@@ -31,6 +31,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   writeFileSync,
 } from 'node:fs';
@@ -45,13 +46,14 @@ const pkg = JSON.parse(readFileSync(join(repo, 'package.json'), 'utf8')) as {
   name: string;
   exports: Record<string, { types: string; import: string }>;
   devDependencies: Record<string, string>;
+  peerDependencies: Record<string, string>;
 };
 
 /** One stage: the entry points it proves. */
 interface Stage {
   label: string;
   entries: string[];
-  /** Optional peers installed (from `devDependencies`) before the stage. */
+  /** Optional peers installed (at their `peerDependencies` range) before the stage. */
   peers?: string[];
   /** Extra ESM code run after the imports, proving the entry point works. */
   probe?: string;
@@ -327,9 +329,17 @@ writeFileSync(
 npm(INSTALL_FLAGS, consumer);
 
 // npm installs no optional peer, so the root and `/catalog` run without them.
-for (const p of ['fastify', 'fastify-type-provider-zod', 'zod-openapi'])
-  if (existsSync(join(consumer, 'node_modules', p)))
-    fail(`${p} was installed with the tarball alone`);
+const NO_PEERS = ['fastify', 'fastify-type-provider-zod', 'zod-openapi'];
+for (const entry of readdirSync(join(consumer, 'node_modules'), {
+  recursive: true,
+  encoding: 'utf8',
+})) {
+  const parts = entry.split(/[\\/]/);
+  const name = parts.at(-1) ?? '';
+  if (parts.at(-2) === 'node_modules' || parts.length === 1)
+    if (NO_PEERS.includes(name))
+      fail(`${entry} was installed with the tarball alone`);
+}
 console.log('check-packed-consumer: tarball alone installs no optional peer');
 
 // No entry point's packed code reaches a scoped dependency it may not use.
@@ -355,7 +365,11 @@ for (const stage of stages) {
     npm(
       [
         ...INSTALL_FLAGS,
-        ...stage.peers.map((p) => `${p}@${pkg.devDependencies[p] ?? ''}`),
+        ...stage.peers.map((p) => {
+          const range = pkg.peerDependencies[p] as string | undefined;
+          if (!range) fail(`${stage.label}: ${p} is not a peer dependency`);
+          return `${p}@${range}`;
+        }),
       ],
       consumer,
     );
