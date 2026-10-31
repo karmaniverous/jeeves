@@ -179,7 +179,7 @@ const client = createCatalogClient(catalog, {
 const { hits } = await client.search({ query: 'invoices', limit: 5 });
 ```
 
-One method per entry, taking the merged `params`/`query`/`body` input (optional when no field is required) and returning the parsed response. A `z.looseObject` body also sends input fields no slot names; a `z.strictObject` body rejects them before sending. Credentials attach only to entries whose `auth` lists a scheme of the same kind; a lazy secret returning `undefined` attaches nothing. Failures throw `CatalogClientError`: `status` 0 with `issues` for invalid input, the HTTP status and parsed error `body` for non-2xx, `status` 0 with `cause` for network errors, timeouts (including while the body is arriving), malformed JSON and a failing credential resolver.
+One method per entry, taking the merged `params`/`query`/`body` input (optional when no field is required) and returning the parsed response. A `z.looseObject` body also sends input fields no slot names; a `z.strictObject` body rejects them before sending. Credentials attach only to entries whose `auth` lists a scheme of the same kind; a lazy secret returning `undefined` attaches nothing. Failures throw `CatalogClientError`: `status` 0 with `issues` for invalid input, the HTTP status and parsed error `body` for non-2xx, `status` 0 with `cause` for network errors, timeouts (including while the body is arriving), malformed JSON and a failing credential resolver. An error built from a response (non-2xx, or a 2xx body that fails its schema) also carries the response `headers` and `retryAfterMs`, parsed from `Retry-After` (seconds or an HTTP date; absent when missing or unparseable), so an SDK can back off on a 429 or 503.
 
 ## 7. Plugin tools in `openclaw`
 

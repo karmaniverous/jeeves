@@ -4,7 +4,11 @@ title: Migrating to 0.9.0
 
 # Migrating to 0.9.0
 
-0.9.0 makes the endpoint catalog light to install for clients. It changes only the `/fastify` and `/openapi` entry points; the root and `/catalog` are unchanged.
+0.9.0 makes the endpoint catalog light to install for clients. The breaking changes touch only the `/fastify` and `/openapi` entry points; `/catalog` gains an additive field on `CatalogClientError`.
+
+## New
+
+- **`CatalogClientError` keeps the response headers** (`headers`) whenever a response was received, and `retryAfterMs` from its `Retry-After` header (delta-seconds or an HTTP date, never negative; absent when the header is missing or unparseable) (#157). Additive: an SDK built on `createCatalogClient` can expose a backoff hint on 429 and 503 without parsing headers itself.
 
 ## Changed
 

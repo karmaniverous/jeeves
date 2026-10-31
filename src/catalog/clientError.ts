@@ -18,6 +18,26 @@ export interface CatalogClientErrorDetails {
   issues?: z.core.$ZodIssue[];
   /** Underlying error (abort, network failure). */
   cause?: unknown;
+  /** Headers of the response, whenever one was received. */
+  headers?: Headers;
+}
+
+/**
+ * Milliseconds to wait from a `Retry-After` value: delta-seconds, or an HTTP
+ * date (RFC 9110: IMF-fixdate, RFC 850 or asctime) relative to now, never
+ * negative.
+ *
+ * @param value - Header value.
+ * @returns Milliseconds, or `undefined` when missing or unparseable.
+ */
+function retryAfterMsOf(value: string | null): number | undefined {
+  if (value === null) return undefined;
+  if (/^\d+$/.test(value)) return Number(value) * 1000;
+  // Every HTTP-date form (IMF-fixdate, RFC 850, asctime) starts with the day
+  // name; Date.parse alone would also accept e.g. `-5` or `1.5`.
+  if (!/^[A-Za-z]{3}/.test(value)) return undefined;
+  const date = Date.parse(value);
+  return Number.isNaN(date) ? undefined : Math.max(0, date - Date.now());
 }
 
 /**
@@ -32,10 +52,18 @@ export class CatalogClientError extends Error {
   readonly body?: ErrorBody;
   /** Zod issues, when validation failed. */
   readonly issues?: z.core.$ZodIssue[];
+  /** Headers of the response; absent when none was received (status 0). */
+  readonly headers?: Headers;
+  /**
+   * Milliseconds to wait before retrying, from the response's `Retry-After`
+   * (delta-seconds, or an HTTP date relative to when the error was built);
+   * absent when the header is missing or unparseable.
+   */
+  readonly retryAfterMs?: number;
 
   /**
    * @param message - Error message.
-   * @param details - Status, body, issues and cause.
+   * @param details - Status, body, issues, cause and response headers.
    */
   constructor(message: string, details: CatalogClientErrorDetails) {
     super(message, { cause: details.cause });
@@ -43,6 +71,10 @@ export class CatalogClientError extends Error {
     this.status = details.status;
     this.body = details.body;
     this.issues = details.issues;
+    this.headers = details.headers;
+    this.retryAfterMs = retryAfterMsOf(
+      details.headers?.get('retry-after') ?? null,
+    );
   }
 }
 

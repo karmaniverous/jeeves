@@ -81,6 +81,7 @@ async function readResponse(
       {
         status: res.status,
         body: parsed.success ? parsed.data : { error: text },
+        headers: res.headers,
       },
     );
   }
@@ -92,7 +93,11 @@ async function readResponse(
   if (!parsed.success)
     throw new CatalogClientError(
       `${entry.name} returned a response that does not match its schema`,
-      { status: res.status, issues: parsed.error.issues },
+      {
+        status: res.status,
+        issues: parsed.error.issues,
+        headers: res.headers,
+      },
     );
   return parsed.data;
 }
