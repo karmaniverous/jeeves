@@ -34,9 +34,6 @@ const RFC_850 = new RegExp(
 /** `Sun Nov  6 08:49:37 1994` (obsolete; GMT by definition) */
 const ASCTIME = new RegExp(`^${DAY} ${MONTH} ( \\d|\\d{2}) ${TIME} (\\d{4})$`);
 
-/** Milliseconds in 50 years, for RFC 850's two-digit years. */
-const FIFTY_YEARS_MS = 50 * 365.25 * 24 * 3600 * 1000;
-
 /**
  * Epoch milliseconds of a UTC date, or `undefined` when a field is out of
  * range (e.g. 31 Feb or 25:00).
@@ -49,9 +46,11 @@ function utc(
 ): number | undefined {
   const mi = MONTHS.indexOf(month as (typeof MONTHS)[number]);
   const [d, hh, mm, ss] = [day, h, m, s].map(Number);
-  // 60 allows a leap second; a day past the month's end rolls the month.
   if (hh > 23 || mm > 59 || ss > 60) return undefined;
-  const ms = Date.UTC(year, mi, d, hh, mm, ss);
+  // Second 60 (a leap second) counts as 59: Date has no leap seconds, and
+  // rolling it into the next minute could cross into the next month. A day
+  // past the month's end rolls the month and is rejected below.
+  const ms = Date.UTC(year, mi, d, hh, mm, Math.min(ss, 59));
   return new Date(ms).getUTCMonth() === mi ? ms : undefined;
 }
 
@@ -68,12 +67,18 @@ function httpDateMs(value: string, now: number): number | undefined {
   if (m) return utc(Number(m[3]), m[2], m[1], m.slice(4));
   m = RFC_850.exec(value);
   if (m) {
-    // A two-digit year more than 50 years ahead means the previous century.
-    const yy = Number(m[3]);
-    let year = 100 * Math.floor(new Date(now).getUTCFullYear() / 100) + yy;
-    const at = utc(year, m[2], m[1], m.slice(4));
-    if (at !== undefined && at - now > FIFTY_YEARS_MS) year -= 100;
-    return utc(year, m[2], m[1], m.slice(4));
+    // RFC 9110: a two-digit year that appears to be more than 50 years in
+    // the future is in the past century. Of the candidate centuries, take
+    // the latest that is not more than 50 calendar years ahead of now.
+    const limit = new Date(now);
+    limit.setUTCFullYear(limit.getUTCFullYear() + 50);
+    const base = 100 * Math.floor(new Date(now).getUTCFullYear() / 100);
+    for (const century of [base + 100, base, base - 100]) {
+      const at = utc(century + Number(m[3]), m[2], m[1], m.slice(4));
+      if (at === undefined) return undefined;
+      if (at <= limit.getTime()) return at;
+    }
+    return undefined;
   }
   m = ASCTIME.exec(value);
   if (m) return utc(Number(m[6]), m[1], m[2], m.slice(3, 6));

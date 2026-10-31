@@ -8,7 +8,7 @@ title: Migrating to 0.9.0
 
 ## New
 
-- **`CatalogClientError` keeps the response headers** (`headers`) whenever a response was received, and `retryAfterMs` from its `Retry-After` header (delta-seconds or an HTTP date, never negative; absent when the header is missing or unparseable) (#157). Additive: an SDK built on `createCatalogClient` can expose a backoff hint on 429 and 503 without parsing headers itself.
+- **`CatalogClientError` keeps the response headers** (`headers`) whenever a response was received, and `retryAfterMs` from its `Retry-After` header (delta-seconds or an HTTP date, never negative; absent when the header is missing or unparseable) (#157). Additive: an SDK built on `createCatalogClient` can expose a backoff hint on 429 and 503 without parsing headers itself. It isn't capped; cap it before using it as a `setTimeout` delay.
 
 ## Changed
 

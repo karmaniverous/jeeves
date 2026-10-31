@@ -329,14 +329,21 @@ writeFileSync(
 npm(INSTALL_FLAGS, consumer);
 
 // npm installs no optional peer, so the root and `/catalog` run without them.
-const NO_PEERS = ['fastify', 'fastify-type-provider-zod', 'zod-openapi'];
+const NO_PEERS = [
+  ...Object.keys(pkg.peerDependencies),
+  'fastify-type-provider-zod',
+];
 for (const entry of readdirSync(join(consumer, 'node_modules'), {
   recursive: true,
   encoding: 'utf8',
 })) {
   const parts = entry.split(/[\\/]/);
-  const name = parts.at(-1) ?? '';
-  if (parts.at(-2) === 'node_modules' || parts.length === 1)
+  // A package directory: `node_modules/<name>` or `node_modules/@scope/<name>`.
+  const name = parts.at(-2)?.startsWith('@')
+    ? parts.slice(-2).join('/')
+    : (parts.at(-1) ?? '');
+  const parent = parts.at(name.includes('/') ? -3 : -2);
+  if (parent === 'node_modules' || parts.length <= name.split('/').length)
     if (NO_PEERS.includes(name))
       fail(`${entry} was installed with the tarball alone`);
 }

@@ -37,6 +37,26 @@ describe('retryAfterMs', () => {
     );
   });
 
+  it.each([
+    // From 2099, '00' is 2100 (an hour ahead), not 2000.
+    [Date.UTC(2099, 11, 31, 23), 'Friday, 01-Jan-00 00:00:00 GMT', 3_600_000],
+    // Exactly 50 calendar years ahead stays in this century.
+    [NOW, 'Saturday, 31-Oct-76 12:00:00 GMT', Date.UTC(2076, 9, 31, 12) - NOW],
+    // One second past 50 years ahead is the previous century: in the past.
+    [NOW, 'Saturday, 31-Oct-76 12:00:01 GMT', 0],
+  ])(
+    'picks the RFC 850 century within 50 years (now %d, %j)',
+    (now, value, ms) => {
+      expect(retryAfterMs(value, now)).toBe(ms);
+    },
+  );
+
+  it('reads a leap second as second 59', () => {
+    expect(retryAfterMs('Sat, 31 Oct 2026 23:59:60 GMT', NOW)).toBe(
+      Date.UTC(2026, 9, 31, 23, 59, 59) - NOW,
+    );
+  });
+
   it('never returns a negative wait for a past date', () => {
     expect(retryAfterMs('Sat, 31 Oct 2026 11:00:00 GMT', NOW)).toBe(0);
   });
@@ -60,6 +80,11 @@ describe('retryAfterMs', () => {
     ['day 00', 'Sat, 00 Oct 2026 12:00:00 GMT'],
     ['a junk prefix', 'xSat, 31 Oct 2026 12:01:30 GMT'],
     ['a junk suffix', 'Sat, 31 Oct 2026 12:01:30 GMTx'],
+    ['an RFC 850 date with a junk prefix', 'xSaturday, 31-Oct-26 12:01:30 GMT'],
+    ['an RFC 850 date without GMT', 'Saturday, 31-Oct-26 12:01:30'],
+    ['an asctime date with a junk prefix', 'xSat Oct 31 12:01:30 2026'],
+    ['an asctime date with a junk suffix', 'Sat Oct 31 12:01:30 2026x'],
+    ['seconds just past a safe integer of ms', '9007199254741'],
     ['an ISO date', '2026-10-31T12:01:30Z'],
     ['seconds overflowing a safe integer', '9'.repeat(400)],
   ])('is undefined for %s', (_label, value) => {

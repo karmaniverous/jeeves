@@ -41,6 +41,11 @@ export class CatalogClientError extends Error {
    * Milliseconds to wait before retrying, from the response's `Retry-After`
    * (delta-seconds, or an HTTP date relative to when the error was built);
    * absent when the header is missing or unparseable.
+   *
+   * @remarks
+   * Not capped: a server may ask for days. Cap it before passing it to
+   * `setTimeout`, which fires delays above 2^31-1 ms (about 24.8 days)
+   * after 1 ms.
    */
   readonly retryAfterMs?: number;
 
