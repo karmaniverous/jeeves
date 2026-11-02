@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.0-0] - 2026-11-02
+
+### 🚀 Features
+
+- Core request validation; fastify and zod-openapi optional peers
+
+### 💼 Other
+
+- [157] feat: CatalogClientError keeps response headers and retryAfterMs
+
+Spec 5a.5: every error built from a received response (non-2xx, or a 2xx body that fails its schema) carries the response headers, and retryAfterMs parsed from Retry-After (delta-seconds, or an HTTP date relative to now, never negative; the date branch requires a leading day name because V8's Date.parse also accepts e.g. -5 or 1.5). Absent at status 0. Additive; the parser is internal.
+- [157] fix: independent review 5722842379
+
+Retry-After: parse RFC 9110's three HTTP-date forms explicitly as GMT (asctime was read in local time), reject anything else (junk no longer becomes 0) and delta-seconds beyond a safe integer; parser in its own module with tests at a fixed now. Exact 400 issue tests (message and params), a params-slot test, ftpz-nowhere guard, check:packed installs peers at their peerDependencies range and walks node_modules for nested copies; stale Decision 88 comments.
+- [157] fix: re-review 5722921996
+
+RFC 850 two-digit years pick the latest century not more than 50 calendar years ahead (previously only ever stepped back); a leap second reads as second 59; the setTimeout cap note is on the public CatalogClientError.retryAfterMs and in both guides; check:packed's stage-0 walk takes its forbidden list from peerDependencies and matches scoped names; tests for the century and 50-year boundary, leap second, RFC 850 and asctime anchors and GMT, and an unsafe delta.
+
+### 🧪 Testing
+
+- Platform-neutral configRoot paths in configCommand.test
+
+### ⚙️ Miscellaneous Tasks
+
+- Run build, tests and check:packed on pull requests
 ## [0.8.0] - 2026-10-31
 
 ### 🚀 Features
@@ -26,6 +51,7 @@ main merged #149 as src/crypto.ts (same functions and output, fuller pinned-outp
 ### ⚙️ Miscellaneous Tasks
 
 - Update copilot review instructions
+- Release v0.8.0
 ## [0.8.0-6] - 2026-10-30
 
 ### 🐛 Bug Fixes
