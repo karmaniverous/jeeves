@@ -59,7 +59,7 @@
     "zod-openapi": "^6.0.2"
   },
   "peerDependencies": {
-    "fastify": "^5.12.7",
+    "fastify": "^5",
     "zod-openapi": "^6.0.2"
   },
   "peerDependenciesMeta": {
