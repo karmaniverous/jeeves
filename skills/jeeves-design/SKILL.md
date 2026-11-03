@@ -1,7 +1,7 @@
 ---
 name: jeeves-design
 description: >
-  Spec-driven design process for deciding WHAT code to create. Use when deciding whether work needs a spec, creating or revising a product spec, planning a new version, making design or architecture decisions, breaking work into a dev plan, onboarding to a project, preparing a release, or when asked about the development process. Bundles the spec-to-code guide and a spec template.
+  Spec-driven design: does work need a spec, product specs, version planning, design and architecture decisions, dev plans, project onboarding, releases.
 ---
 
 # Design: Spec-Driven Development

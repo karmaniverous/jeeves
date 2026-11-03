@@ -1,7 +1,7 @@
 ---
 name: jeeves-coding
 description: >
-  Engineering standards for the mechanics of writing code. Use when writing code, reviewing PRs, or spawning coding sub-agents. Covers core coding rules, schema-first patterns, testing, dependency management, and the pre-PR checklist. For deciding what to build, see jeeves-design.
+  Engineering standards for writing code: coding rules, schema-first Zod, testing, dependencies, GitHub bot auth, pre-PR checklist, briefing coding sub-agents.
 ---
 
 # Engineering Standards
