@@ -1,7 +1,7 @@
 ---
 name: jeeves-pr-review
 description: >
-  Finish and review a pull request before any human review: SOLID/DRY, test adequacy with mutation checks, docs sync, gates, CI, then an independent review by a fresh subagent posted to GitHub, and an evidence-based PR description. Use before calling any PR ready or requesting review.
+  Finish and review a PR before human review: SOLID/DRY, test adequacy, mutation checks, docs sync, gates, CI, independent subagent review, PR description.
 ---
 
 # Finishing and Reviewing a PR

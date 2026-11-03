@@ -1,7 +1,7 @@
 ---
 name: aws-ssm-remote-ops
 description: >
-  Run commands on EC2 instances through AWS Systems Manager (SSM) safely: scripts without quoting failures, comparing secrets without printing them, approved Secrets Manager changes with rollback, minimal box edits, and stopping on AccessDenied. Use when operating or inspecting EC2 hosts via SSM.
+  Run commands on EC2 via AWS SSM: scripts without quoting failures, comparing secrets unprinted, approved Secrets Manager changes, box edits, AccessDenied.
 ---
 
 # Remote Operations Through AWS SSM

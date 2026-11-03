@@ -1,7 +1,7 @@
 ---
 name: jeeves-platform
 description: >
-  Jeeves platform architecture, data flow, component interaction, and coordination knowledge. Use when making architectural decisions, coordinating across components, checking platform health, or managing service lifecycle.
+  Jeeves platform architecture: data flow, components, service discovery, managed blocks, jeeves CLI plugin install/update, platform health, service lifecycle.
 ---
 
 # Jeeves Platform Skill

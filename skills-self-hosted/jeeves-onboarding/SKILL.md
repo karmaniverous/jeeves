@@ -1,7 +1,7 @@
 ---
 name: jeeves-onboarding
 description: >
-  State-driven, resumable walkthrough for setting up a new self-hosted Jeeves instance: identity, Slack, jeeves-server, Google Workspace, GitHub, and additional integrations. Use on first run, when the owner wants to set up Slack, Google or GitHub, or to resume onboarding.
+  Resumable setup walkthrough for a new self-hosted Jeeves instance: identity, Slack, jeeves-server, Google Workspace, GitHub, integrations. First run or resume.
 ---
 
 # Instance Onboarding (Self-Hosted)

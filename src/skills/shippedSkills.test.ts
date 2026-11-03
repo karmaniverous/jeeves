@@ -22,6 +22,13 @@ const root: string = packageRoot;
 /** Upper bound on a SKILL.md body, in characters. */
 const MAX_SKILL_CHARS = 20_000;
 
+/**
+ * Upper bound on a skill description, in characters. OpenClaw cuts every
+ * description in the catalog to a compact form once the full catalog exceeds
+ * `skills.limits.maxSkillsPromptChars`, so shipped descriptions stay short.
+ */
+const MAX_DESCRIPTION_CHARS = 160;
+
 /** Managed-fleet detail that must not appear in a generic skill. */
 const FLEET_PATTERNS = [
   /\/opt\//,
@@ -95,6 +102,12 @@ describe('shipped skills', () => {
 
         it('has valid frontmatter naming its folder', () => {
           expect(validateSkillFrontmatter(content).name).toBe(name);
+        });
+
+        it(`keeps its description within ${String(MAX_DESCRIPTION_CHARS)} characters`, () => {
+          expect(
+            validateSkillFrontmatter(content).description.length,
+          ).toBeLessThanOrEqual(MAX_DESCRIPTION_CHARS);
         });
 
         it('stays thin', () => {
