@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.0] - 2026-11-04
+
+### 📚 Documentation
+
+- Trim shipped skill descriptions to 160 characters
+
+### ⚙️ Miscellaneous Tasks
+
+- Widen fastify peer range to ^5
 ## [0.9.0-0] - 2026-11-02
 
 ### 🚀 Features
@@ -27,6 +36,7 @@ RFC 850 two-digit years pick the latest century not more than 50 calendar years 
 ### ⚙️ Miscellaneous Tasks
 
 - Run build, tests and check:packed on pull requests
+- Release v0.9.0-0
 ## [0.8.0] - 2026-10-31
 
 ### 🚀 Features
