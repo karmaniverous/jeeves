@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.1] - 2026-11-10
+
+### 📚 Documentation
+
+- *(skills)* Add worker-thread coverage, every-mention docs and Node-switch skill rewiring checks
+- *(skills)* Say why managed blocks are refreshed after a Node switch; tighten README wording
 ## [0.9.0] - 2026-11-04
 
 ### 📚 Documentation
@@ -11,6 +17,7 @@ All notable changes to this project will be documented in this file.
 ### ⚙️ Miscellaneous Tasks
 
 - Widen fastify peer range to ^5
+- Release v0.9.0
 ## [0.9.0-0] - 2026-11-02
 
 ### 🚀 Features
