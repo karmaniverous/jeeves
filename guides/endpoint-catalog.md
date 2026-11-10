@@ -65,7 +65,7 @@ export const catalog = defineCatalog([
 ]);
 ```
 
-Each entry has a camelCase `name`, a `method` (`GET`, `POST`, `PUT`, `PATCH` or `DELETE`; Fastify answers `HEAD` for every `GET` route), a Fastify-syntax `path` (`:param`, or `*` for the rest of the path), a `description`, optional `params`/`query`/`body` Zod objects, a `response` schema, an `auth` description and a `kind` (`read`, `write` or `destructive`). Non-JSON entries set `contentType` and respond with `z.instanceof(Uint8Array)` or `z.string()`. A content type's media type is lowercase (parameters such as `charset=UTF-8` may not be), and it contains `json`, in lowercase, exactly when it is JSON: a `json` subtype or a `+json` suffix, such as `application/json`, `application/problem+json` or `application/json-seq`.
+Each entry has a camelCase `name`, a `method` (`GET`, `POST`, `PUT`, `PATCH` or `DELETE`; by default Fastify answers `HEAD` for every `GET` route), a Fastify-syntax `path` (`:param`, or `*` for the rest of the path), a `description`, optional `params`/`query`/`body` Zod objects, a `response` schema, an `auth` description and a `kind` (`read`, `write` or `destructive`). Non-JSON entries set `contentType` and respond with `z.instanceof(Uint8Array)` or `z.string()`. A content type's media type is lowercase (parameters such as `charset=UTF-8` may not be), and it contains `json`, in lowercase, exactly when it is JSON: a `json` subtype or a `+json` suffix, such as `application/json`, `application/problem+json` or `application/json-seq`.
 
 `defineCatalog` checks the rules MCP and the tools rely on, and throws `CatalogDefinitionError` listing every violation:
 

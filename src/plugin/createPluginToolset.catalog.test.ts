@@ -196,6 +196,39 @@ describe('createPluginToolset with a catalog', () => {
     });
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  it('sends a PATCH tool call with its JSON body', async () => {
+    const fetchMock = stubFetch({ id: 'j1', enabled: false });
+    const tool = byName(
+      createPluginToolset(descriptor, {
+        apiUrl: 'http://svc',
+        catalog: defineCatalog([
+          ...standardEntries('acme', { auth: { config: bearer } }),
+          {
+            name: 'setEnabled',
+            method: 'PATCH',
+            path: '/jobs/:id',
+            description: 'Set enabled.',
+            params: z.object({ id: z.string() }),
+            body: z.object({ enabled: z.boolean() }),
+            response: z.object({ id: z.string(), enabled: z.boolean() }),
+            auth: 'none',
+            kind: 'write',
+          },
+        ]),
+        tools: { setEnabled: true },
+      }),
+    );
+    const result = await tool.acme_set_enabled.execute('1', {
+      id: 'j1',
+      enabled: false,
+    });
+    expect(result.isError).toBeUndefined();
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('http://svc/jobs/j1');
+    expect(init?.method).toBe('PATCH');
+    expect(JSON.parse(init?.body as string)).toEqual({ enabled: false });
+  });
 });
 
 describe('createPluginToolset catalog checks', () => {

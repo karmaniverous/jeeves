@@ -61,8 +61,9 @@ export interface CatalogEntry {
   /** Unique camelCase name; the OpenAPI `operationId`. */
   readonly name: string;
   /**
-   * HTTP method. `HEAD` is answered for every `GET` route and `OPTIONS` by
-   * the server's CORS layer, so neither is declared.
+   * HTTP method. Neither `HEAD` nor `OPTIONS` is declared: Fastify answers
+   * `HEAD` for every `GET` route by default (`exposeHeadRoutes`), and
+   * `OPTIONS` preflight belongs to the app's CORS plugin.
    */
   readonly method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   /** Route path in Fastify syntax (`:param` segments, `*` wildcard). */

@@ -32,6 +32,15 @@ function violations(entries: readonly CatalogEntry[]): readonly string[] {
 }
 
 describe('defineCatalog', () => {
+  it('accepts PUT and PATCH on the same path (routes key on method and path)', () => {
+    expect(
+      violations([
+        entry({ method: 'PUT' }),
+        entry({ name: 'other', method: 'PATCH' }),
+      ]),
+    ).toEqual([]);
+  });
+
   it('accepts a valid catalog and freezes it', () => {
     const catalog = defineCatalog([entry()]);
     expect(catalog.entries).toHaveLength(1);
@@ -58,6 +67,11 @@ describe('defineCatalog', () => {
       'rule 2: duplicate route',
       [entry(), entry({ name: 'other' })],
       /duplicate route GET \/things\/:id \(also "getThing"\)/,
+    ],
+    [
+      'rule 2: duplicate PATCH route',
+      [entry({ method: 'PATCH' }), entry({ name: 'other', method: 'PATCH' })],
+      /duplicate route PATCH \/things\/:id \(also "getThing"\)/,
     ],
     [
       'rule 2: same route under other parameter names',

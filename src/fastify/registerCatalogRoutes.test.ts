@@ -37,9 +37,7 @@ const hit = (
   app.inject({
     method: entry.method,
     url: entry.path.replace(':id', 'k').replace('*', 'p'),
-    ...(entry.method === 'GET' || entry.method === 'DELETE'
-      ? {}
-      : { payload: {} }),
+    ...('body' in entry ? { payload: {} } : {}),
   });
 
 describe('registerCatalogRoutes', () => {
