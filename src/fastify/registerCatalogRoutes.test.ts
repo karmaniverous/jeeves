@@ -37,7 +37,9 @@ const hit = (
   app.inject({
     method: entry.method,
     url: entry.path.replace(':id', 'k').replace('*', 'p'),
-    ...(entry.method === 'POST' ? { payload: {} } : {}),
+    ...(entry.method === 'GET' || entry.method === 'DELETE'
+      ? {}
+      : { payload: {} }),
   });
 
 describe('registerCatalogRoutes', () => {
@@ -153,6 +155,55 @@ describe('registerCatalogRoutes', () => {
         issues: [{ slot: 'params', path: ['id'], code: 'invalid_format' }],
       });
       expect((await app.inject('/n/12')).statusCode).toBe(200);
+      await app.close();
+    });
+
+    it('registers, validates and answers a PATCH entry', async () => {
+      const app = Fastify({ logger: false });
+      await registerCatalogRoutes(
+        app,
+        defineCatalog([
+          {
+            name: 'setEnabled',
+            method: 'PATCH',
+            path: '/jobs/:id',
+            description: 'Set enabled.',
+            params: z.object({ id: z.string() }),
+            body: z.object({ enabled: z.boolean() }),
+            response: z.object({ id: z.string(), enabled: z.boolean() }),
+            auth: 'none',
+            kind: 'write',
+          },
+        ]),
+        {
+          setEnabled: ({ params, body }) =>
+            Promise.resolve({
+              status: 200,
+              body: { id: params.id, enabled: body.enabled },
+            }),
+        },
+      );
+      const bad = await app.inject({
+        method: 'PATCH',
+        url: '/jobs/j1',
+        payload: { enabled: 'yes' },
+      });
+      expect(bad.statusCode).toBe(400);
+      expect(bad.json()).toMatchObject({
+        issues: [{ slot: 'body', path: ['enabled'] }],
+      });
+      const good = await app.inject({
+        method: 'PATCH',
+        url: '/jobs/j1',
+        payload: { enabled: false },
+      });
+      expect(good.statusCode).toBe(200);
+      expect(good.json()).toEqual({ id: 'j1', enabled: false });
+      // Only PATCH is registered for the path.
+      expect(
+        (await app.inject({ method: 'PUT', url: '/jobs/j1', payload: {} }))
+          .statusCode,
+      ).toBe(404);
       await app.close();
     });
 

@@ -274,6 +274,33 @@ describe('createCatalogClient with a fetch spy', () => {
       Promise.resolve(new Response(body, { status, headers })),
     );
 
+  it('sends a PATCH entry with its JSON body', async () => {
+    const fetchSpy = spy();
+    const client = createCatalogClient(
+      defineCatalog([
+        {
+          name: 'setEnabled',
+          method: 'PATCH',
+          path: '/jobs/:id',
+          description: 'Set enabled.',
+          params: z.object({ id: z.string() }),
+          body: z.object({ enabled: z.boolean() }),
+          response: z.object({ ok: z.boolean() }),
+          auth: 'none',
+          kind: 'write',
+        },
+      ]),
+      { baseUrl: 'http://svc', fetch: fetchSpy },
+    );
+    expect(await client.setEnabled({ id: 'j 1', enabled: true })).toEqual({
+      ok: true,
+    });
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(url).toBe('http://svc/jobs/j%201');
+    expect(init?.method).toBe('PATCH');
+    expect(JSON.parse(init?.body as string)).toEqual({ enabled: true });
+  });
+
   it('keeps the headers of a non-2xx response and parses Retry-After', async () => {
     const error = await failure(
       createCatalogClient(catalog, {

@@ -60,8 +60,11 @@ export type AuthSpec =
 export interface CatalogEntry {
   /** Unique camelCase name; the OpenAPI `operationId`. */
   readonly name: string;
-  /** HTTP method. */
-  readonly method: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  /**
+   * HTTP method. `HEAD` is answered for every `GET` route and `OPTIONS` by
+   * the server's CORS layer, so neither is declared.
+   */
+  readonly method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   /** Route path in Fastify syntax (`:param` segments, `*` wildcard). */
   readonly path: string;
   /** What the endpoint does; used for OpenAPI and tool descriptions. */
