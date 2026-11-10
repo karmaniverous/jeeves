@@ -2,12 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.2] - 2026-11-10
+
+### 🚀 Features
+
+- Catalog entries accept PATCH
+
+### 🐛 Bug Fixes
+
+- Review 5837502032
 ## [0.9.1] - 2026-11-10
 
 ### 📚 Documentation
 
 - *(skills)* Add worker-thread coverage, every-mention docs and Node-switch skill rewiring checks
 - *(skills)* Say why managed blocks are refreshed after a Node switch; tighten README wording
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v0.9.1
 ## [0.9.0] - 2026-11-04
 
 ### 📚 Documentation
