@@ -320,7 +320,7 @@ With the gateway running, OpenClaw applies plugin changes live, and the CLI says
 - `status` shows the mode, each folder as wired, missing or stale, the skills each provides, and every other skill source holding a skill with the same name: the workspace `skills/` and `.agents/skills/`, `~/.agents/skills`, OpenClaw's managed `skills/` and each agent's workshop skills (all of which outrank `extraDirs`, so they shadow the package's copy), and, at the same level (a collision rather than shadowing), any other `extraDirs` entry and every enabled plugin's skills (read from OpenClaw's generated `<state dir>/plugin-skills/` index). OpenClaw's own bundled skills aren't checked. It only reports.
 - No prompts: changes apply directly; `--dry-run` previews the exact `openclaw config` commands.
 - `jeeves install` and `jeeves update` run `skills install`, `jeeves uninstall` runs `skills uninstall`, and `jeeves status` includes `skills status`.
-- After switching Node versions, `status` shows the folders as stale (still wired under the old Node's global `node_modules`). Reinstall the package globally under the new Node and run `jeeves skills install` to rewire them. `jeeves install --content-only` skips the skills step, so it doesn't do this.
+- After switching Node versions, `status` shows the folders as stale (still wired under the old Node's global `node_modules`). Reinstall the package globally under the new Node and run `jeeves skills install` to rewire them. `jeeves install --content-only` skips the skills step, so it doesn't rewire them.
 
 ### OpenClaw dist patches
 
