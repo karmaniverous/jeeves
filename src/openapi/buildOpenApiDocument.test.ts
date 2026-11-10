@@ -195,6 +195,39 @@ describe('buildOpenApiDocument', () => {
     ]);
   });
 
+  it('writes a PATCH entry as a patch operation with its request body', () => {
+    const doc = buildOpenApiDocument(
+      defineCatalog([
+        {
+          name: 'updateItem',
+          method: 'PATCH',
+          path: '/items/:id',
+          description: 'Update an item.',
+          params: z.object({ id: z.string() }),
+          body: z.object({ enabled: z.boolean() }),
+          response: z.object({ ok: z.boolean() }),
+          auth: 'none',
+          kind: 'write',
+        },
+      ]),
+      info,
+    );
+    const operation = (
+      (doc.paths ?? {})['/items/{id}'] as Record<
+        string,
+        { operationId?: string; requestBody?: unknown }
+      >
+    ).patch;
+    expect(operation.operationId).toBe('updateItem');
+    expect(operation.requestBody).toMatchObject({
+      content: {
+        'application/json': {
+          schema: { properties: { enabled: { type: 'boolean' } } },
+        },
+      },
+    });
+  });
+
   it('helpers map paths and scheme keys', () => {
     expect(toOpenApiPath('/a/:b/c/:d_e/*')).toBe('/a/{b}/c/{d_e}/{*}');
     expect(securitySchemeKey({ in: 'header', name: 'X-Api.Key' })).toBe(
