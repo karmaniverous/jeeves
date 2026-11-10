@@ -30,6 +30,7 @@ Done when the findings (or "none") are in the notes.
 ### 2. Test adequacy
 
 - **Coverage per touched file**, read file by file rather than from the `All files` row. Aim for full branch coverage of changed logic; give a written reason for any uncovered branch. An uncovered fallback arm is often dead code: tighten the types instead of testing it.
+- **Code in worker threads or child processes.** V8 coverage doesn't see code that only runs in a worker thread or a child process, so a touched file can read low (or its gaps hide) while its tests pass. Don't trust the `All files` row for it: make sure each changed path, including rollback, error and branch paths, is exercised by a test that runs it in-process or asserts its observable effects.
 - **No trivial tests.** Remove tests that restate the implementation (a constant equals itself, a mock returns what it was told to). Collapse copy-pasted cases into table-driven tests.
 - **Mutation check on changed logic.** For each decision the change introduces, apply a small mutant (flip a condition, drop a branch, change a constant), run the relevant tests, restore the file. Every mutant must fail a test. A survivor is either a missing test (write it) or equivalent code (simplify it).
 - Never lower an existing coverage threshold.
@@ -43,6 +44,7 @@ README, guides, skills and TSDoc describe what the code now does.
 - Capture real behaviour (`--help`, the built `.d.ts`), not memory of it.
 - Every example still runs or typechecks; links resolve.
 - Remove documentation of anything removed.
+- **One value, every mention.** When the change alters a default, an option or a behaviour, `git grep` the repo (and any downstream repos the change names) for that value and option: every README, guide and skill mentioning it gets the same fix, not just the one you were in.
 - The changelog is generated: never edit it by hand.
 
 Done when the docs changed (or "none needed", with why) are in the notes.
