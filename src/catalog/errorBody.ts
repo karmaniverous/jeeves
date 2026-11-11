@@ -16,8 +16,10 @@ export const errorBodySchema = z.object({
   statusCode: z.number().int(),
   /**
    * Machine-readable code (e.g. `FST_ERR_VALIDATION`, `RUNNER_JOB_EXISTS`).
-   * Present on Fastify's own errors and on every deliberate error; clients
-   * branch on it, never on `message`.
+   * Present on Fastify's own errors and on every deliberate error made with
+   * a code; absent otherwise (an unexpected crash, Fastify's unknown-route
+   * 404, an error sent without one), so clients must tolerate its absence.
+   * Clients branch on it, never on `message`.
    */
   code: z.string().optional(),
   /** Standard HTTP status text (`Bad Request`, `Conflict`, ...). */

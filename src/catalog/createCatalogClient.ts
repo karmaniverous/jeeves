@@ -77,7 +77,9 @@ async function readResponse(
     }
     const parsed = errorBodySchema.safeParse(json);
     // A body that isn't Fastify's (a proxy's HTML page, say) keeps its text
-    // as the message.
+    // as the message. Its `error` is `HTTP <status>`, not the standard
+    // status text: /catalog can't import node:http, and fetch's statusText
+    // is often empty.
     const body = parsed.success
       ? parsed.data
       : {

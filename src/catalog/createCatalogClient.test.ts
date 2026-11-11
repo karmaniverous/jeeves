@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify';
+import Fastify, { type FastifyInstance } from 'fastify';
 import {
   afterAll,
   beforeAll,
@@ -14,6 +14,7 @@ import {
   JEEVES_RESPONSE_VALIDATION,
   SERVER_ERROR_MESSAGE,
 } from '../api/errorBody.js';
+import { registerCatalogRoutes } from '../fastify/registerCatalogRoutes.js';
 import {
   buildTestApp,
   TEST_BYTES,
@@ -364,6 +365,30 @@ describe('createCatalogClient with a fetch spy', () => {
     expect(error.status).toBe(503);
     expect(error.headers?.get('retry-after')).toBe('30');
     expect(error.retryAfterMs).toBe(30_000);
+  });
+
+  it('reads Retry-After and code from a 429 a catalog route throws', async () => {
+    const app = Fastify({ logger: false });
+    const broken = defineCatalog([testCatalog.byName('broken')]);
+    await registerCatalogRoutes(app, broken, {
+      broken: () =>
+        Promise.reject(
+          Object.assign(new Error('Slow down'), {
+            statusCode: 429,
+            code: 'ACME_SLOW',
+            headers: { 'retry-after': '7' },
+          }),
+        ),
+    });
+    const url = await app.listen({ port: 0, host: '127.0.0.1' });
+    const error = await failure(
+      createCatalogClient(broken, { baseUrl: url }).broken({}),
+    );
+    expect(error.status).toBe(429);
+    expect(error.code).toBe('ACME_SLOW');
+    expect(error.message).toBe('Slow down');
+    expect(error.retryAfterMs).toBe(7_000);
+    await app.close();
   });
 
   it('keeps the headers of a 2xx response that fails its schema', async () => {

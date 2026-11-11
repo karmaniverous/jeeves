@@ -15,13 +15,13 @@ title: Migrating to 0.10.0
 }
 ```
 
-`statusCode` is the HTTP status, `code` a machine-readable code (absent only on an unexpected crash), `error` the standard status text and `message` a human-readable message, generic on every 5xx. Nothing else is ever sent. Clients branch on `code`, never on `message`. See [Errors](./endpoint-catalog.md#errors) in the catalog guide.
+`statusCode` is the HTTP status, `code` a machine-readable code (present on Fastify's errors and on every deliberate error made with a code; clients must tolerate its absence), `error` the standard status text and `message` a human-readable message, generic on every 5xx. Nothing else is ever sent. Clients branch on `code`, never on `message`. See [Errors](./endpoint-catalog.md#errors) in the catalog guide.
 
 Every change below is breaking for a service or client that reads core's 0.9 error bodies.
 
 ## Services (`/fastify`)
 
-- **The catalog scope answers every error itself**, in Fastify's body. 0.9 passed errors a handler threw to your app's error handler and sent its reply unchanged; that handler is **no longer consulted for catalog routes**, and there is no option to restore it. 4xx errors keep their `message` and `code`; 5xx errors keep their `code`, get the generic `message` (`SERVER_ERROR_MESSAGE`) and are logged through `logger` (or Fastify's logger). Throw deliberate errors made with `@fastify/error`'s `createError`, with an upper-case code:
+- **The catalog scope answers every error itself**, in Fastify's body. 0.9 passed errors a handler threw to your app's error handler and sent its reply unchanged; that handler is **no longer consulted for catalog routes**, and there is no option to restore it. 4xx errors keep their `message` and `code`; 5xx errors keep their `code`, get the generic `message` (`SERVER_ERROR_MESSAGE`) and are logged through `logger` (or Fastify's logger). As in Fastify, the status is the error's `statusCode`, or its `status` when it has none, and the error's `headers` (for example `Retry-After` on a 429 or 503) are applied. Throw deliberate errors made with `@fastify/error`'s `createError`, with an upper-case code:
 
   ```ts
   import createError from '@fastify/error';
@@ -44,7 +44,11 @@ Every change below is breaking for a service or client that reads core's 0.9 err
 
 - **Handler error results are `{ message, code? }`.** A handler returns `{ status: 404, body: { message: 'No job j1', code: 'RUNNER_JOB_NOT_FOUND' } }`; route registration adds `statusCode` and `error` from the status (`HandlerErrorBody`). A 5xx result's `message` is logged and replaced with the generic one. 0.9's `{ error: '...' }` bodies no longer type-check.
 
-- **Replies your own hooks send for catalog routes** go through the `4xx`/`5xx` error-body schema. In `'strict'` mode a body that isn't Fastify's (for example an auth hook's `{ error: 'Unauthorized' }`) becomes the mismatch 500. Send `errorBody(401, 'Unauthorized')`, or throw a `createError` error from the hook: the catalog scope answers it.
+- **Replies your own hooks send for catalog routes are rebuilt from the reply status**, JSON entries or not: `statusCode` and `error` from the status, a string `code` kept, other fields dropped, and a 5xx's `message` replaced with the generic one and logged (in `'log'` mode too). A body without a string `message` (for example an auth hook's 0.9-style `{ error: 'Unauthorized' }`) is **not** repaired: in `'strict'` mode it becomes the mismatch 500; in `'log'` mode it goes out with the status text as its `message` and a warning. A string, bytes or stream sent with an error status becomes the standard JSON body (a 4xx keeps the text as its `message`; a 5xx is masked). Send `errorBody(401, 'Unauthorized')`, or throw a `createError` error from the hook: the catalog scope answers it. Check your auth hooks before switching to `'strict'`.
+
+- **`'log'` mode** still sends a mismatched 2xx body unparsed, but error bodies are always rebuilt as above.
+
+- **5xx log lines:** a handler result's or hook's 5xx is logged at `error` as `Error reply masked` with `{ statusCode, code, message }`; a thrown error as `Request failed` with `{ err }`. 4xx errors are not logged.
 
 - **New:** `registerErrorHandlers(app, { logger? })` gives the app's other routes the same handling (Fastify's body, 5xx masked and logged). `errorBody(statusCode, message, code?)`, `SERVER_ERROR_MESSAGE` and `JEEVES_RESPONSE_VALIDATION` are exported from the root and `/fastify`.
 

@@ -73,6 +73,26 @@ describe('registerErrorHandlers', () => {
     await app.close();
   });
 
+  it('applies a thrown error’s headers and honours its status', async () => {
+    const app = Fastify({ logger: false });
+    registerErrorHandlers(app, { logger: { error: vi.fn() } });
+    app.get('/x', () => {
+      throw Object.assign(new Error('Missing'), {
+        status: 404,
+        headers: { 'x-a': '1' },
+      });
+    });
+    const res = await app.inject('/x');
+    expect(res.statusCode).toBe(404);
+    expect(res.headers['x-a']).toBe('1');
+    expect(res.json()).toEqual({
+      statusCode: 404,
+      error: 'Not Found',
+      message: 'Missing',
+    });
+    await app.close();
+  });
+
   it('logs through the request logger by default', async () => {
     const lines: string[] = [];
     const app = Fastify({

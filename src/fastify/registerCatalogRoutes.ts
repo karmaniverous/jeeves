@@ -7,16 +7,20 @@
 import type { FastifyInstance, FastifyReply, FastifySchema } from 'fastify';
 import type { z } from 'zod';
 
-import { errorBody, SERVER_ERROR_MESSAGE } from '../api/errorBody.js';
 import { errorBodySchema } from '../catalog/errorBody.js';
 import { isJsonContentType } from '../catalog/schemaHelpers.js';
 import type { Catalog, CatalogEntry } from '../catalog/types.js';
-import { errorHandlerFor, ResponseMismatchError } from './errorHandler.js';
+import { errorHandlerFor } from './errorHandler.js';
+import {
+  isBuiltErrorBody,
+  normaliseErrorPayload,
+  rawErrorPayloadBody,
+  ResponseMismatchError,
+  setErrorHeaders,
+} from './errorReply.js';
 import type {
   CatalogHandler,
   CatalogHandlers,
-  CatalogRouteLogger,
-  HandlerErrorBody,
   HandlerResult,
   RegisterCatalogRoutesOptions,
   RequestInput,
@@ -46,7 +50,8 @@ function serializerFor(
 }
 
 /**
- * Fastify route schema for an entry.
+ * Fastify route schema for an entry. Every entry's `4xx`/`5xx` responses
+ * use the error body; `2xx` is checked for JSON entries only.
  *
  * @param entry - Catalog entry.
  * @returns Its schema.
@@ -56,44 +61,37 @@ function routeSchema(entry: CatalogEntry): FastifySchema {
     ...(entry.params ? { params: entry.params } : {}),
     ...(entry.query ? { querystring: entry.query } : {}),
     ...(entry.body ? { body: entry.body } : {}),
-    ...(isJsonContentType(entry.contentType)
-      ? {
-          response: {
-            '2xx': entry.response,
-            '4xx': errorBodySchema,
-            '5xx': errorBodySchema,
-          },
-        }
-      : {}),
+    response: {
+      ...(isJsonContentType(entry.contentType)
+        ? { '2xx': entry.response }
+        : {}),
+      '4xx': errorBodySchema,
+      '5xx': errorBodySchema,
+    },
   };
 }
 
 /**
- * Send a handler result. An error result goes out as Fastify's body, built
- * from the status; a 5xx's message is logged and replaced with the generic
- * one.
+ * Send a handler result. An error result's body goes out as JSON, and the
+ * scope's `preSerialization` hook rebuilds it from the status (Fastify's
+ * body, a 5xx masked and logged), like every other error reply.
  *
  * @param entry - Catalog entry.
  * @param result - Handler result.
  * @param reply - Fastify reply.
- * @param log - Where a 5xx's message is logged.
  * @returns The sent reply.
  */
 function send(
   entry: CatalogEntry,
   result: HandlerResult<CatalogEntry>,
   reply: FastifyReply,
-  log: CatalogRouteLogger,
 ): FastifyReply {
-  const { status } = result;
-  reply.status(status);
-  if (result.headers) void reply.headers(result.headers);
-  if (status >= 400) {
-    const { code, message } = result.body as HandlerErrorBody;
-    if (status < 500) return reply.send(errorBody(status, message, code));
-    log.error({ statusCode: status, code, message }, 'Handler returned 5xx');
-    return reply.send(errorBody(status, SERVER_ERROR_MESSAGE, code));
+  reply.status(result.status);
+  if (result.status >= 400) {
+    setErrorHeaders(reply, result.headers);
+    return reply.send(result.body);
   }
+  if (result.headers) void reply.headers(result.headers);
   if (isJsonContentType(entry.contentType)) return reply.send(result.body);
   if (!reply.hasHeader('content-type'))
     void reply.type(entry.contentType as string);
@@ -111,9 +109,11 @@ function send(
  *
  * @remarks
  * Every error in the scope (a thrown error, a request-validation failure, a
- * strict response mismatch, an error result) is answered in Fastify's body,
- * `{ statusCode, code?, error, message }`, with 5xx messages masked and
- * logged; the app's own error handler is not consulted (spec 5c.5).
+ * strict response mismatch, an error result, a reply one of the app's hooks
+ * sends for a catalog route) is answered in Fastify's body,
+ * `{ statusCode, code?, error, message }`, rebuilt from the reply status,
+ * with 5xx messages masked and logged; the app's own error handler is not
+ * consulted (spec 5c.5).
  *
  * Auth isn't enforced here: register the component's auth hook on the root
  * app before calling this, so it applies to the catalog routes.
@@ -154,6 +154,46 @@ export async function registerCatalogRoutes<C extends Catalog>(
           }),
         );
         scope.setErrorHandler(errorHandlerFor(options.logger));
+        // The one choke point for error bodies (spec 5c.1): every error
+        // reply on a catalog route, from a handler result, the error
+        // handler or a hook (the app's own included), is rebuilt from the
+        // reply status.
+        const normalised = new WeakSet<FastifyReply>();
+        scope.addHook('preSerialization', (request, reply, payload, done) => {
+          let body = payload;
+          if (reply.statusCode >= 400 && !isBuiltErrorBody(payload))
+            try {
+              body = normaliseErrorPayload(
+                reply.statusCode,
+                payload,
+                mode,
+                options.logger ?? request.log,
+              );
+            } catch (error) {
+              done(error as Error);
+              return;
+            }
+          normalised.add(reply);
+          done(null, body);
+        });
+        // Payloads Fastify doesn't serialize (a string, bytes, a stream,
+        // nothing) skip `preSerialization`; under an error status they are
+        // replaced with the standard body here.
+        scope.addHook('onSend', (request, reply, payload, done) => {
+          if (reply.statusCode < 400 || normalised.has(reply)) {
+            done(null, payload);
+            return;
+          }
+          void reply.type('application/json; charset=utf-8');
+          done(
+            null,
+            rawErrorPayloadBody(
+              reply.statusCode,
+              payload,
+              options.logger ?? request.log,
+            ),
+          );
+        });
 
         for (const entry of catalog.entries) {
           const handler = byName[entry.name];
@@ -167,12 +207,7 @@ export async function registerCatalogRoutes<C extends Catalog>(
                 query: request.query,
                 body: request.body ?? {},
               } as RequestInput<CatalogEntry>;
-              return send(
-                entry,
-                await handler(input, request),
-                reply,
-                options.logger ?? request.log,
-              );
+              return send(entry, await handler(input, request), reply);
             },
           });
         }

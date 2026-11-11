@@ -5,63 +5,60 @@
  */
 
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import type { z } from 'zod';
 
 import {
-  errorBody,
   JEEVES_RESPONSE_VALIDATION,
   SERVER_ERROR_MESSAGE,
 } from '../api/errorBody.js';
+import {
+  errorReplyBody,
+  ResponseMismatchError,
+  setErrorHeaders,
+} from './errorReply.js';
 import type {
   CatalogRouteLogger,
   RegisterErrorHandlersOptions,
 } from './types.js';
 
-/** Thrown by the serializer on a strict-mode mismatch; never escapes the scope. */
-export class ResponseMismatchError extends Error {
-  /**
-   * @param issues - Zod issues from the response parse.
-   */
-  constructor(readonly issues: z.core.$ZodIssue[]) {
-    super('Response validation failed');
-    this.name = 'ResponseMismatchError';
-  }
-}
-
 /** The fields of a thrown value the reply is built from. */
 interface ThrownFields {
   statusCode?: unknown;
+  status?: unknown;
   code?: unknown;
   message?: unknown;
+  headers?: unknown;
 }
 
 /**
- * The reply status for a thrown value: its `statusCode` when an integer
- * from 400 to 599, else 500.
+ * The reply status for a thrown value: its `statusCode` (or, when absent,
+ * its `status`, as Fastify reads it) when an integer from 400 to 599, else
+ * 500.
  *
- * @param statusCode - The thrown value's `statusCode`.
+ * @param thrown - The thrown value's fields.
  * @returns The status.
  */
-function statusOf(statusCode: unknown): number {
-  return typeof statusCode === 'number' &&
-    Number.isInteger(statusCode) &&
-    statusCode >= 400 &&
-    statusCode <= 599
-    ? statusCode
+function statusOf({ statusCode, status }: ThrownFields): number {
+  const candidate = statusCode ?? status;
+  return typeof candidate === 'number' &&
+    Number.isInteger(candidate) &&
+    candidate >= 400 &&
+    candidate <= 599
+    ? candidate
     : 500;
 }
 
 /**
  * An error handler answering every error in Fastify's body: 4xx keep their
  * `message` and `code`; 5xx keep their `code`, get a generic `message`, and
- * the error is logged. A strict response mismatch is a 500 with code
+ * the error is logged. The error's `headers` (e.g. `Retry-After`) are
+ * applied. A strict response mismatch is a 500 with code
  * `JEEVES_RESPONSE_VALIDATION`; its Zod issues are logged only.
  *
  * @param logger - Where 5xx causes are logged; default the request's logger.
  * @returns The handler, for `setErrorHandler`.
  */
 export function errorHandlerFor(
-  logger: CatalogRouteLogger | undefined,
+  logger: Pick<CatalogRouteLogger, 'error'> | undefined,
 ): (
   error: unknown,
   request: FastifyRequest,
@@ -69,27 +66,34 @@ export function errorHandlerFor(
 ) => FastifyReply {
   return (error, request, reply) => {
     const log = logger ?? request.log;
-    if (error instanceof ResponseMismatchError) {
-      log.error({ issues: error.issues }, 'Response validation failed');
-      return reply
-        .status(500)
-        .send(errorBody(500, SERVER_ERROR_MESSAGE, JEEVES_RESPONSE_VALIDATION));
-    }
-    const { statusCode, code, message } = (
+    if (error instanceof ResponseMismatchError)
+      return reply.status(500).send(
+        errorReplyBody(
+          500,
+          SERVER_ERROR_MESSAGE,
+          JEEVES_RESPONSE_VALIDATION,
+          log,
+          {
+            details: { issues: error.issues },
+            message: 'Response validation failed',
+          },
+        ),
+      );
+    const fields = (
       typeof error === 'object' && error !== null ? error : {}
     ) as ThrownFields;
-    const status = statusOf(statusCode);
-    const kept = typeof code === 'string' ? code : undefined;
-    if (status >= 500) {
-      log.error({ err: error }, 'Request failed');
-      return reply
-        .status(status)
-        .send(errorBody(status, SERVER_ERROR_MESSAGE, kept));
-    }
+    const status = statusOf(fields);
+    setErrorHeaders(reply, fields.headers);
     return reply
       .status(status)
       .send(
-        errorBody(status, typeof message === 'string' ? message : '', kept),
+        errorReplyBody(
+          status,
+          typeof fields.message === 'string' ? fields.message : '',
+          fields.code,
+          log,
+          { details: { err: error }, message: 'Request failed' },
+        ),
       );
   };
 }

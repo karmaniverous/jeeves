@@ -86,8 +86,9 @@ export type HandlerErrorBody = Pick<ErrorBody, 'code' | 'message'>;
  *
  * @remarks
  * An error result is sent as Fastify's body,
- * `{ statusCode, code?, error, message }`; on a 5xx the `message` is logged
- * and replaced with a generic one (spec 5c.5).
+ * `{ statusCode, code?, error, message }`, always JSON (a `content-type` in
+ * its `headers` is ignored); on a 5xx the `message` is logged and replaced
+ * with a generic one (spec 5c.5).
  */
 export type HandlerResult<E extends CatalogEntry> =
   | {
@@ -122,19 +123,20 @@ export type CatalogHandlers<C extends Catalog> = {
 
 /** Where catalog routes log, when not Fastify's own logger (pino-compatible). */
 export interface CatalogRouteLogger {
-  /** Logs a `'log'`-mode response mismatch. */
+  /** Logs a `'log'`-mode response mismatch (an error body without a `message` included). */
   warn: (details: object, message: string) => void;
-  /** Logs a `'strict'`-mode response mismatch and the cause of every 5xx. */
+  /** Logs a `'strict'`-mode response mismatch and the cause of every 5xx. 4xx errors are not logged. */
   error: (details: object, message: string) => void;
 }
 
 /** Options for `registerErrorHandlers`. */
 export interface RegisterErrorHandlersOptions {
   /**
-   * Where the cause of a 5xx is logged. Default: Fastify's logger, which
-   * logs nothing when the app was created with `logger: false`.
+   * Where the cause of a 5xx is logged (only `error` is called). Default:
+   * Fastify's logger, which logs nothing when the app was created with
+   * `logger: false`.
    */
-  logger?: CatalogRouteLogger;
+  logger?: Pick<CatalogRouteLogger, 'error'>;
 }
 
 /** Options for `registerCatalogRoutes`. */
@@ -143,6 +145,12 @@ export interface RegisterCatalogRoutesOptions extends RegisterErrorHandlersOptio
    * What a response that doesn't match its schema does: `'strict'`
    * (default) logs at `error` and replies 500; `'log'` logs at `warn` and
    * sends the handler's body unchanged.
+   *
+   * @remarks
+   * Error bodies (any 4xx/5xx reply on a catalog route, a hook's included)
+   * are always rebuilt from the reply status, a 5xx masked, in both modes.
+   * One without a string `message` is a mismatch in `'strict'` mode; in
+   * `'log'` mode it is sent with the status's generic message.
    */
   responseValidation?: 'strict' | 'log';
   /**

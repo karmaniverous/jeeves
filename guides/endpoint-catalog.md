@@ -181,7 +181,7 @@ Every non-2xx response from a catalog route is exactly Fastify's default error b
 | Field | Meaning |
 | --- | --- |
 | `statusCode` | The HTTP status. |
-| `code` | Machine-readable code: Fastify's own (`FST_ERR_*`) or your service's. Absent only on an unexpected crash. |
+| `code` | Machine-readable code: Fastify's own (`FST_ERR_*`) or your service's. Present on Fastify's errors and on every deliberate error made with a code; absent otherwise (an unexpected crash, Fastify's unknown-route 404, an error sent without one). Clients must tolerate its absence. |
 | `error` | The standard status text (`Bad Request`, `Conflict`, ...). |
 | `message` | Human-readable. On every 5xx it is the generic `SERVER_ERROR_MESSAGE`; the cause is logged, never sent. |
 
@@ -201,8 +201,8 @@ Every non-2xx response from a catalog route is exactly Fastify's default error b
   Or return `{ status: 409, body: { message, code } }` from the handler; the route adds `statusCode` and `error`.
 
 - **Clients branch on `code`**, never on `message`.
-- **The catalog scope answers every error itself.** A thrown error's `statusCode` is used when it is 400 to 599, else the reply is 500; a 4xx keeps its `message` and `code`; a 5xx keeps its `code`, its `message` is replaced and the error is logged (through `logger`, else Fastify's logger). Your app's own error handler is not consulted for catalog routes. `registerErrorHandlers(app, { logger? })` gives your other routes the same handling.
-- **Your hooks' replies** to catalog routes go through the error-body schema too: send `errorBody(status, message, code?)` (exported from `/fastify`) or throw a `createError` error. In `'strict'` mode any other body becomes the mismatch 500.
+- **The catalog scope answers every error itself.** A thrown error's `statusCode` (or, when it has none, its `status`) is used when it is 400 to 599, else the reply is 500; a 4xx keeps its `message` and `code`; a 5xx keeps its `code`, its `message` is replaced and the error is logged (through `logger`, else Fastify's logger). The error's `headers` (string or number values, never `content-type`) are applied, as Fastify does, so a thrown 429 or 503 can carry `Retry-After`. 4xx errors are not logged. Your app's own error handler is not consulted for catalog routes. `registerErrorHandlers(app, { logger? })` gives your other routes the same handling.
+- **Every error reply is rebuilt from the reply status**, whoever sent it: a handler result, the scope's error handler, or one of your hooks (root `onRequest`, `preHandler`, ...). `statusCode` and `error` come from the status, a string `code` is kept, other fields are dropped, and a 5xx's `message` is replaced with the generic one and logged, in `'strict'` and `'log'` mode alike. So send `errorBody(status, message, code?)` (exported from `/fastify`), or throw a `createError` error. A body without a string `message` (0.9's `{ error: 'Unauthorized' }`) is not repaired: in `'strict'` mode it becomes the mismatch 500 (issues logged); in `'log'` mode it goes out with the status text as its `message` and a warning is logged. A string, bytes, a stream or no body under an error status is replaced with the standard JSON body: a 4xx keeps the text as its `message`, a 5xx is masked and its text logged. This applies to every entry, JSON or not.
 - **Core's codes:** `FST_ERR_VALIDATION` (Fastify's, invalid request), `JEEVES_RESPONSE_VALIDATION` (response mismatch), `JEEVES_CONFIG_INVALID` (`/config/apply` patch fails the config schema; the issues are in `message`), `JEEVES_CONFIG_QUERY_INVALID` (`/config` JSONPath invalid).
 
 ## 6. Client
