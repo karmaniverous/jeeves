@@ -2,7 +2,8 @@
  * The one place a catalog error reply's body is built (spec 5c.1, 5c.5,
  * 5d.1): `statusCode` and `error` from the reply status, `code` kept,
  * `message` kept on a 4xx and on a deliberate 5xx, and replaced with the
- * generic one on any other 5xx. Every 5xx's cause is logged.
+ * generic one on any other 5xx. Which thrown errors are trusted is decided
+ * before (`errorHandler.ts`). Every 5xx's cause is logged.
  *
  * @module
  */
@@ -36,8 +37,11 @@ export class ResponseMismatchError extends Error {
 export interface ErrorCause {
   /** Log details (e.g. `{ err }`). */
   details: object;
-  /** Log message. */
-  message: string;
+  /**
+   * Log message; default `Error reply` when the message is kept,
+   * `Error reply masked` when it is masked.
+   */
+  message?: string;
 }
 
 /** How {@link errorReplyBody} treats a reply. */
@@ -48,8 +52,7 @@ interface ErrorReplyOptions {
    */
   deliberate: boolean;
   /**
-   * What a 5xx's cause is logged as. Default its status, code and message,
-   * as `Error reply` when kept or `Error reply masked` when masked.
+   * What a 5xx's cause is logged as. Default its status, code and message.
    */
   cause?: ErrorCause;
 }
@@ -63,8 +66,8 @@ const builtBodies = new WeakSet();
 
 /**
  * The `code` an error reply keeps: any string `code` it is given. Callers
- * pass none for a reply that must not carry one (a thrown error that is not
- * deliberate, on a 5xx: spec 5d.1).
+ * pass none for a reply that must not carry one (an untrusted thrown error:
+ * spec 5d.1).
  *
  * @param code - The error's `code`.
  * @returns The code sent, or `undefined`.
@@ -77,10 +80,10 @@ function keptCode(code: unknown): string | undefined {
  * The body of an error reply with this status: Fastify's
  * `{ statusCode, code?, error, message }`. Every 5xx's cause is logged at
  * `error`. A 5xx's message is kept when the reply is deliberate (spec 5d.1:
- * a deliberate thrown error, a handler error result, a
+ * a trusted thrown error, a handler error result, a
  * standard error body sent from a hook) and replaced with
- * {@link SERVER_ERROR_MESSAGE} otherwise (an undeclared crash, raw text, a
- * stream, a web `Response`, no body, a response mismatch).
+ * {@link SERVER_ERROR_MESSAGE} otherwise (an untrusted thrown error, raw
+ * text, a stream, a web `Response`, no body, a response mismatch).
  *
  * @param status - Reply status (400 to 599).
  * @param message - The error's message.
@@ -100,11 +103,16 @@ export function errorReplyBody(
   const { deliberate } = options;
   const kept = keptCode(code);
   const masked = status >= 500 && !deliberate;
-  const cause = options.cause ?? {
-    details: { statusCode: status, code, message },
-    message: masked ? 'Error reply masked' : 'Error reply',
+  const details = options.cause?.details ?? {
+    statusCode: status,
+    code,
+    message,
   };
-  if (status >= 500) log.error(cause.details, cause.message);
+  if (status >= 500)
+    log.error(
+      details,
+      options.cause?.message ?? (masked ? 'Error reply masked' : 'Error reply'),
+    );
   const body = errorBody(status, masked ? SERVER_ERROR_MESSAGE : message, kept);
   builtBodies.add(body);
   return body;

@@ -10,9 +10,10 @@ import { STATUS_CODES } from 'node:http';
 import type { ErrorBody } from '../catalog/errorBody.js';
 
 /**
- * The `message` of a 5xx that is not deliberate (an undeclared crash, raw
- * text, a stream, no body, a response mismatch); the cause is logged. A
- * deliberate 5xx keeps its own message (spec 5d.1).
+ * The `message` of a masked 5xx (an untrusted thrown error, raw text, a
+ * stream, no body, a response mismatch); the cause is logged. A trusted
+ * thrown error (`defineError`) and an error result keep their own message
+ * (spec 5d.1).
  */
 export const SERVER_ERROR_MESSAGE =
   'The server could not complete the request.';

@@ -115,16 +115,19 @@ function send(
  * sends for a catalog route) is answered in Fastify's body,
  * `{ statusCode, code?, error, message }`, rebuilt from the reply status,
  * every 5xx logged; the app's own error handler is not consulted (spec
- * 5c.5). A deliberate 5xx (a thrown error with its own `statusCode` from
- * 400 to 599 and not `expose: false`, as `createError` makes; an error
- * result; a standard body a hook sends) keeps its `message` and `code`; any
- * other thrown 5xx (no error status, `status` only, `expose: false`), raw
- * text, a stream, no body or a response mismatch gets the generic message
- * (spec 5d.1). Pre-serialized JSON text is parsed and treated like an
+ * 5c.5). A thrown error made by a `defineError` class keeps its status,
+ * `message`, `code` and allowlisted headers (`Retry-After`,
+ * `WWW-Authenticate`, `Allow`), and so does a 4xx of Fastify's own
+ * (`FST_ERR_*`); every other thrown error is a 500 with the generic
+ * message, no `code` and none of its headers (spec 5d.1). An error result
+ * or a standard body a hook sends keeps its status, `message` and `code`;
+ * raw text, a stream, no body or a response mismatch gets the generic
+ * message on a 5xx. Pre-serialized JSON text is parsed and treated like an
  * object; other text, a stream, a web `Response` with an error status or
  * no body gets the standard body. Routes outside the scope are untouched.
- * The error's (or error result's) headers are applied, except body headers
- * and any Node would reject.
+ * An error result's headers (and a trusted error's allowlisted ones) are
+ * applied, except body headers and any Node would reject; headers already
+ * on the reply are left alone.
  *
  * Auth isn't enforced here: register the component's auth hook on the root
  * app before calling this, so it applies to the catalog routes.

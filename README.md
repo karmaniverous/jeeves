@@ -80,15 +80,15 @@ Upgrading from v0.x? See the [migration guide](guides/migrating-to-v1.md). Upgra
 | `@karmaniverous/jeeves` | Plugin SDK, CLI support, managed content, service helpers, script helpers | - |
 | `@karmaniverous/jeeves/catalog` | Endpoint catalog: `defineCatalog`, `standardEntries`, `queryArray`, `createCatalogClient`, request building, tool definitions | - |
 | `@karmaniverous/jeeves/openapi` | `buildOpenApiDocument`, `writeOpenApiDocument`, `checkOpenApiDrift` | `zod-openapi` |
-| `@karmaniverous/jeeves/fastify` | `registerCatalogRoutes`, `registerOpenApiRoute`, `standardHandlers`, `registerErrorHandlers`, `errorBody` | `fastify` (types only; your app supplies its instance) |
+| `@karmaniverous/jeeves/fastify` | `registerCatalogRoutes`, `registerOpenApiRoute`, `standardHandlers`, `registerErrorHandlers`, `defineError`, `errorBody` | `fastify` (types only; your app supplies its instance) |
 
-The packages under **Needs** are optional peers: install them in the project that imports that entry point. The root and `/catalog` need none of them, so a catalog client (e.g. a component SDK built on `createCatalogClient`) installs no web server or OpenAPI library. `/fastify` uses `fastify` only for types and validates requests itself, so it needs nothing at run time beyond this package and `zod`, even from a global install a service shares with the `jeeves` CLI. `/openapi` runs where you build the document, usually with `zod-openapi` as a dev dependency.
+The packages under **Needs** are optional peers: install them in the project that imports that entry point. The root and `/catalog` need none of them, so a catalog client (e.g. a component SDK built on `createCatalogClient`) installs no web server or OpenAPI library. `/fastify` uses `fastify` only for types and validates requests itself, so it needs nothing at run time beyond this package, `zod` and `@fastify/error` (a dependency of this package, which `defineError` wraps), even from a global install a service shares with the `jeeves` CLI. `/openapi` runs where you build the document, usually with `zod-openapi` as a dev dependency.
 
 ## Endpoint Catalog
 
 A component can describe its HTTP API once, as a catalog of entries (method, path, Zod schemas for params, query, body and response, an `auth` description and a `kind`). From that one catalog:
 
-- `registerCatalogRoutes` registers the Fastify routes with request validation and checked responses (`responseValidation: 'strict'` by default, or `'log'` while migrating), answering every error in Fastify's standard body `{ statusCode, code?, error, message }`, a deliberate 5xx (a `createError` error, an error result) keeping its message and any other 5xx masked ([Errors](guides/endpoint-catalog.md#errors));
+- `registerCatalogRoutes` registers the Fastify routes with request validation and checked responses (`responseValidation: 'strict'` by default, or `'log'` while migrating), answering every error in Fastify's standard body `{ statusCode, code?, error, message }`, a thrown error trusted only when its class was made with `defineError` (status, code, message and `Retry-After`/`WWW-Authenticate`/`Allow` kept, a 5xx included) and any other thrown error a masked 500 with no code or headers, while error results keep what the handler wrote ([Errors](guides/endpoint-catalog.md#errors));
 - `writeOpenApiDocument` and `checkOpenApiDrift` keep a committed OpenAPI 3.1 document in step;
 - `createCatalogClient` gives a typed client with one method per entry;
 - `createPluginToolset` builds plugin tools for the entries you select.

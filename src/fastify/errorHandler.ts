@@ -9,8 +9,8 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import {
   JEEVES_RESPONSE_VALIDATION,
   SERVER_ERROR_MESSAGE,
-  statusText,
 } from '../api/errorBody.js';
+import { isDeliberateError } from './defineError.js';
 import {
   errorReplyBody,
   ResponseMismatchError,
@@ -21,87 +21,143 @@ import type {
   RegisterErrorHandlersOptions,
 } from './types.js';
 
-/** The fields of a thrown value the reply is built from. */
+/** The fields of a thrown value a trusted reply is built from. */
 interface ThrownFields {
   statusCode?: unknown;
-  status?: unknown;
-  expose?: unknown;
   code?: unknown;
   message?: unknown;
   headers?: unknown;
 }
 
 /**
- * Whether a value is an error status: an integer from 400 to 599.
+ * The only headers a trusted thrown error sets (lower case): they tell the
+ * caller when to retry, how to authenticate and which methods are allowed.
+ */
+const ALLOWED_ERROR_HEADERS = new Set([
+  'retry-after',
+  'www-authenticate',
+  'allow',
+]);
+
+/** Prefix of Fastify's own error codes. */
+const FASTIFY_CODE_PREFIX = 'FST_ERR_';
+
+/**
+ * Whether a value is an integer HTTP status from 400 to `max`.
  *
  * @param value - The candidate.
- * @returns `true` for an error status.
+ * @param max - Highest status accepted.
+ * @returns `true` when in range.
  */
-function isErrorStatus(value: unknown): value is number {
+function isStatusUpTo(value: unknown, max: number): value is number {
   return (
     typeof value === 'number' &&
     Number.isInteger(value) &&
     value >= 400 &&
-    value <= 599
+    value <= max
+  );
+}
+
+/**
+ * Whether a thrown value is trusted (spec 5d.1): branded by
+ * {@link defineError} (from any copy of core), or one of Fastify's own
+ * errors (`FST_ERR_*`) with a 4xx status, such as a validation failure or a
+ * malformed, oversized or wrongly typed body. Fastify's 5xx are internal.
+ *
+ * @param thrown - The thrown value.
+ * @param fields - Its fields.
+ * @returns `true` when its status, code and message are sent as written.
+ */
+function isTrusted(thrown: unknown, fields: ThrownFields): boolean {
+  if (isDeliberateError(thrown)) return true;
+  return (
+    typeof fields.code === 'string' &&
+    fields.code.startsWith(FASTIFY_CODE_PREFIX) &&
+    isStatusUpTo(fields.statusCode, 499)
+  );
+}
+
+/**
+ * A thrown error's headers on the allowlist (`Retry-After`,
+ * `WWW-Authenticate`, `Allow`, any case).
+ *
+ * @param headers - The error's `headers`.
+ * @returns The allowed ones; `undefined` unless an object.
+ */
+function allowedHeaders(headers: unknown): object | undefined {
+  if (typeof headers !== 'object' || headers === null) return undefined;
+  return Object.fromEntries(
+    Object.entries(headers).filter(([name]) =>
+      ALLOWED_ERROR_HEADERS.has(name.toLowerCase()),
+    ),
   );
 }
 
 /** How a thrown value is answered. */
 interface ThrownReply {
-  /**
-   * Reply status: the error's `statusCode` (or, when absent, its `status`,
-   * as Fastify reads it) when an error status, else 500.
-   */
+  /** Reply status. */
   status: number;
-  /**
-   * Whether the error is deliberate, so its `message` and `code` were
-   * written for the caller: it has its own error-status `statusCode` (as
-   * `createError` sets it) and is not marked `expose: false` (the
-   * `http-errors` convention).
-   */
-  deliberate: boolean;
+  /** Body `message`. */
+  message: string;
+  /** Body `code`, if any. */
+  code: unknown;
+  /** Headers the reply takes from the error. */
+  headers: object | undefined;
+  /** Whether the reply is masked (the error is not trusted). */
+  masked: boolean;
 }
 
 /**
- * The one decision on a thrown value (spec 5d.1): its reply status, and
- * whether it is deliberate. An error carrying only `status` (a third-party
- * client's, such as Qdrant's `ApiError` or axios's) or marked
- * `expose: false` sets the status but is not deliberate.
+ * The one decision on a thrown value (spec 5d.1).
  *
- * @param thrown - The thrown value's fields.
- * @returns The status and whether it is deliberate.
+ * - **Trusted** (a {@link defineError} error; a 4xx `FST_ERR_*`): its
+ *   `statusCode` when an integer from 400 to 599, else 500; its `code` and
+ *   `message`; its allowlisted headers.
+ * - **Anything else**, whatever status, code or headers it carries: a 500
+ *   with {@link SERVER_ERROR_MESSAGE}, no `code` and no headers.
+ *
+ * @param thrown - The thrown value.
+ * @returns How it is answered.
  */
-function thrownReply({
-  statusCode,
-  status,
-  expose,
-}: ThrownFields): ThrownReply {
-  const candidate = statusCode ?? status;
+function thrownReply(thrown: unknown): ThrownReply {
+  const fields = (
+    typeof thrown === 'object' && thrown !== null ? thrown : {}
+  ) as ThrownFields;
+  if (!isTrusted(thrown, fields))
+    return {
+      status: 500,
+      message: SERVER_ERROR_MESSAGE,
+      code: undefined,
+      headers: undefined,
+      masked: true,
+    };
   return {
-    status: isErrorStatus(candidate) ? candidate : 500,
-    deliberate: isErrorStatus(statusCode) && expose !== false,
+    status: isStatusUpTo(fields.statusCode, 599) ? fields.statusCode : 500,
+    message: typeof fields.message === 'string' ? fields.message : '',
+    code: fields.code,
+    headers: allowedHeaders(fields.headers),
+    masked: false,
   };
 }
 
 /**
  * An error handler answering every error in Fastify's body (spec 5d.1).
  *
- * - **Status:** the error's `statusCode`, or when absent its `status`, when
- *   an integer from 400 to 599; else 500.
- * - **Deliberate** (its own `statusCode` from 400 to 599, as `createError`
- *   sets it, and not `expose: false`): keeps its `message` and `code` on a
- *   4xx or a 5xx, so a deliberate 5xx's message reaches the client and must
- *   be written for the caller.
- * - **Not deliberate, 5xx** (no error status, `status` only, or
- *   `expose: false`): the generic `message` and no `code`, so neither a
- *   library's text (e.g. an internal URL) nor a system code such as
- *   `ENOENT` reaches the client.
- * - **Not deliberate, 4xx:** keeps its `code`, and its `message` unless
- *   marked `expose: false`, when the message is the status text.
+ * - **Trusted:** an error made by a {@link defineError} class keeps its
+ *   status (400 to 599, else 500), `code`, `message` and its `Retry-After`,
+ *   `WWW-Authenticate` and `Allow` headers, on a 4xx or a 5xx. Fastify's
+ *   own 4xx errors (`FST_ERR_*`: validation, malformed or oversized body,
+ *   media type) keep theirs too.
+ * - **Masked:** every other thrown error (a plain `Error`, a plain
+ *   `createError` error, `http-errors`, a client library's error such as
+ *   undici's or axios's, Fastify's own 5xx) is a 500 with the generic
+ *   `message`, no `code` and none of its headers, whatever it carries.
  *
- * Every 5xx is logged. The error's `headers` (e.g. `Retry-After`) are
- * applied. A strict response mismatch is a 500 with the generic message and
- * code `JEEVES_RESPONSE_VALIDATION`; its Zod issues are logged only.
+ * Every 5xx is logged with the error, as `Error reply` when its message is
+ * sent and `Error reply masked` when it is not. Headers already on the reply
+ * are left alone. A strict response mismatch is a 500 with the generic
+ * message and code `JEEVES_RESPONSE_VALIDATION`; its Zod issues are logged
+ * only.
  *
  * @param logger - Where 5xx causes are logged; default the request's logger.
  * @returns The handler, for `setErrorHandler`.
@@ -131,35 +187,24 @@ export function errorHandlerFor(
           },
         ),
       );
-    const fields = (
-      typeof error === 'object' && error !== null ? error : {}
-    ) as ThrownFields;
-    const { status, deliberate } = thrownReply(fields);
-    const crash = status >= 500 && !deliberate;
-    const hidden = status < 500 && fields.expose === false;
-    const message = typeof fields.message === 'string' ? fields.message : '';
-    setErrorHeaders(reply, fields.headers);
+    const { status, message, code, headers, masked } = thrownReply(error);
+    setErrorHeaders(reply, headers);
     return reply.status(status).send(
-      errorReplyBody(
-        status,
-        hidden ? statusText(status) : message,
-        crash ? undefined : fields.code,
-        log,
-        {
-          deliberate,
-          cause: { details: { err: error }, message: 'Request failed' },
-        },
-      ),
+      errorReplyBody(status, message, code, log, {
+        deliberate: !masked,
+        cause: { details: { err: error } },
+      }),
     );
   };
 }
 
 /**
  * Make the app's error handler send Fastify's standard error body, by the
- * catalog's rule (spec 5d.1): a deliberate error (its own `statusCode` from
- * 400 to 599, not `expose: false`; a `createError` error) keeps its
- * `message` and `code`, a 5xx included; any other 5xx gets a generic
- * `message` and no `code`. Every 5xx is logged.
+ * catalog's rule (spec 5d.1): an error made by a {@link defineError} class
+ * (or a 4xx of Fastify's own) keeps its status, `message`, `code` and
+ * allowlisted headers, a 5xx included; every other thrown error is a 500
+ * with a generic `message`, no `code` and none of its headers. Every 5xx is
+ * logged.
  *
  * @remarks
  * Catalog routes answer their own errors this way already; this covers the

@@ -1,13 +1,33 @@
-import { STATUS_CODES } from 'node:http';
-
 import createError from '@fastify/error';
-import Fastify from 'fastify';
+import Fastify, { type FastifyInstance } from 'fastify';
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
 import { SERVER_ERROR_MESSAGE } from '../api/errorBody.js';
+import { defineCatalog } from '../catalog/defineCatalog.js';
+import { testCatalog } from '../test/catalogTestApp.js';
+import { defineError } from './defineError.js';
 import { registerErrorHandlers } from './errorHandler.js';
+import { registerCatalogRoutes } from './registerCatalogRoutes.js';
 import { validatorCompiler } from './zodValidation.js';
+
+const ScanInProgress = defineError(
+  'WATCHER_SCAN_IN_PROGRESS',
+  'A scan is in progress; retry when it finishes',
+  503,
+);
+const JobExists = defineError(
+  'RUNNER_JOB_EXISTS',
+  'Job %s already exists',
+  409,
+);
+
+/** The masked 500. */
+const MASKED = {
+  statusCode: 500,
+  error: 'Internal Server Error',
+  message: SERVER_ERROR_MESSAGE,
+};
 
 /** An app with `registerErrorHandlers` and plain (non-catalog) routes. */
 async function buildApp(options?: Parameters<typeof registerErrorHandlers>[1]) {
@@ -18,13 +38,20 @@ async function buildApp(options?: Parameters<typeof registerErrorHandlers>[1]) {
     throw Object.assign(new Error('secret detail'), { extra: 'leak?' });
   });
   app.get('/conflict', () => {
-    throw new (createError('ACME_BUSY', 'Busy with %s', 409))('j1');
-  });
-  app.get('/enoent', () => {
-    throw Object.assign(new Error('open /etc/secret'), { code: 'ENOENT' });
+    throw new JobExists('j1');
   });
   app.get('/down', () => {
+    throw Object.assign(new ScanInProgress(), {
+      headers: { 'retry-after': '30', 'set-cookie': 'a=1' },
+    });
+  });
+  app.get('/forgot', () => {
     throw new (createError('ACME_DOWN', 'Store %s down', 503))('db1');
+  });
+  app.get('/invalid-payload', (_request, reply) => {
+    void reply.header('content-type', 'application/octet-stream');
+    // Fastify's own 5xx: FST_ERR_REP_INVALID_PAYLOAD_TYPE.
+    return reply.send(12345);
   });
   app.post('/n', { schema: { body: z.object({ n: z.number() }) } }, () => ({
     ok: true,
@@ -34,130 +61,75 @@ async function buildApp(options?: Parameters<typeof registerErrorHandlers>[1]) {
 }
 
 describe('registerErrorHandlers', () => {
-  it('masks a 5xx and logs the error through the logger option', async () => {
+  it('masks a plain Error and logs it through the logger option', async () => {
     const logger = { warn: vi.fn(), error: vi.fn() };
     const app = await buildApp({ logger });
     const res = await app.inject('/boom');
     expect(res.statusCode).toBe(500);
-    expect(res.json()).toEqual({
-      statusCode: 500,
-      error: 'Internal Server Error',
-      message: SERVER_ERROR_MESSAGE,
-    });
-    expect(logger.error).toHaveBeenCalledWith(
+    expect(res.json()).toEqual(MASKED);
+    expect(logger.error).toHaveBeenCalledExactlyOnceWith(
       { err: expect.any(Error) as unknown },
-      'Request failed',
+      'Error reply masked',
     );
     await app.close();
   });
 
-  it('drops the code of a 5xx crash with no error status', async () => {
-    const app = await buildApp({ logger: { error: vi.fn() } });
-    const res = await app.inject('/enoent');
-    expect(res.statusCode).toBe(500);
-    expect(res.json()).toEqual({
-      statusCode: 500,
-      error: 'Internal Server Error',
-      message: SERVER_ERROR_MESSAGE,
-    });
-    await app.close();
-  });
-
-  it('keeps the code and message of a 5xx with its own statusCode, and logs it once', async () => {
+  it('keeps a defineError 503: message, code, Retry-After; drops set-cookie; logged once', async () => {
     const logger = { error: vi.fn() };
     const app = await buildApp({ logger });
     const res = await app.inject('/down');
     expect(res.statusCode).toBe(503);
     expect(res.json()).toEqual({
       statusCode: 503,
-      code: 'ACME_DOWN',
+      code: 'WATCHER_SCAN_IN_PROGRESS',
       error: 'Service Unavailable',
-      message: 'Store db1 down',
+      message: 'A scan is in progress; retry when it finishes',
     });
+    expect(res.headers['retry-after']).toBe('30');
+    expect(res.headers['set-cookie']).toBeUndefined();
     expect(logger.error).toHaveBeenCalledExactlyOnceWith(
       { err: expect.any(Error) as unknown },
-      'Request failed',
+      'Error reply',
     );
     await app.close();
   });
 
-  it.each([
-    [
-      'a status-only 5xx (Qdrant ApiError, axios)',
-      {
-        status: 503,
-        code: 'ERR_BAD_RESPONSE',
-        message:
-          'Unexpected upstream reply from http://qdrant.internal:6333/collections/acme',
-      },
-      503,
-    ],
-    [
-      'an expose: false 5xx (http-errors)',
-      {
-        statusCode: 500,
-        expose: false,
-        code: 'EAUTH',
-        message: 'password authentication failed for user "svc"',
-      },
-      500,
-    ],
-  ])(
-    'masks %s: its status, no code, logged once',
-    async (_label, fields, status) => {
-      const logger = { error: vi.fn() };
-      const app = Fastify({ logger: false });
-      registerErrorHandlers(app, { logger });
-      const error = Object.assign(new Error(), fields);
-      app.get('/x', () => {
-        throw error;
-      });
-      const res = await app.inject('/x');
-      expect(res.statusCode).toBe(status);
-      expect(res.json()).toEqual({
-        statusCode: status,
-        error: STATUS_CODES[status],
-        message: SERVER_ERROR_MESSAGE,
-      });
-      expect(logger.error).toHaveBeenCalledExactlyOnceWith(
-        { err: error },
-        'Request failed',
-      );
-      await app.close();
-    },
-  );
-
-  it('sends the status text for an expose: false 4xx, keeping its code', async () => {
-    const app = Fastify({ logger: false });
-    registerErrorHandlers(app, { logger: { error: vi.fn() } });
-    app.get('/x', () => {
-      throw Object.assign(new Error('token for svc@10.0.0.5 expired'), {
-        statusCode: 401,
-        expose: false,
-        code: 'ACME_AUTH',
-      });
-    });
-    const res = await app.inject('/x');
-    expect(res.statusCode).toBe(401);
-    expect(res.json()).toEqual({
-      statusCode: 401,
-      code: 'ACME_AUTH',
-      error: 'Unauthorized',
-      message: 'Unauthorized',
-    });
-    await app.close();
-  });
-
-  it('keeps a 4xx message and code', async () => {
+  it('keeps a defineError 409', async () => {
     const app = await buildApp();
     const res = await app.inject('/conflict');
     expect(res.statusCode).toBe(409);
     expect(res.json()).toEqual({
       statusCode: 409,
-      code: 'ACME_BUSY',
+      code: 'RUNNER_JOB_EXISTS',
       error: 'Conflict',
-      message: 'Busy with j1',
+      message: 'Job j1 already exists',
     });
+    await app.close();
+  });
+
+  it('the cost of forgetting defineError: a createError 503 becomes a codeless 500', async () => {
+    const app = await buildApp({ logger: { error: vi.fn() } });
+    const res = await app.inject('/forgot');
+    expect(res.statusCode).toBe(500);
+    expect(res.json()).toEqual(MASKED);
+    await app.close();
+  });
+
+  it('masks Fastify’s own 5xx', async () => {
+    const logger = { error: vi.fn() };
+    const app = await buildApp({ logger });
+    const res = await app.inject('/invalid-payload');
+    expect(res.statusCode).toBe(500);
+    expect(res.json()).toEqual(MASKED);
+    expect(logger.error).toHaveBeenCalledExactlyOnceWith(
+      {
+        err: expect.objectContaining({
+          code: 'FST_ERR_REP_INVALID_PAYLOAD_TYPE',
+          statusCode: 500,
+        }) as unknown,
+      },
+      'Error reply masked',
+    );
     await app.close();
   });
 
@@ -178,22 +150,21 @@ describe('registerErrorHandlers', () => {
     await app.close();
   });
 
-  it('applies a thrown error’s headers and honours its status', async () => {
-    const app = Fastify({ logger: false });
-    registerErrorHandlers(app, { logger: { error: vi.fn() } });
-    app.get('/x', () => {
-      throw Object.assign(new Error('Missing'), {
-        status: 404,
-        headers: { 'x-a': '1' },
-      });
+  it('sends Fastify’s invalid-JSON 400', async () => {
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/n',
+      headers: { 'content-type': 'application/json' },
+      payload: '{"n":',
     });
-    const res = await app.inject('/x');
-    expect(res.statusCode).toBe(404);
-    expect(res.headers['x-a']).toBe('1');
+    expect(res.statusCode).toBe(400);
     expect(res.json()).toEqual({
-      statusCode: 404,
-      error: 'Not Found',
-      message: 'Missing',
+      statusCode: 400,
+      code: 'FST_ERR_CTP_INVALID_JSON_BODY',
+      error: 'Bad Request',
+      message:
+        "Body is not valid JSON but content-type is set to 'application/json'",
     });
     await app.close();
   });
@@ -211,18 +182,63 @@ describe('registerErrorHandlers', () => {
       throw new Error('secret detail');
     });
     const res = await app.inject('/boom');
-    expect(res.json()).toEqual({
-      statusCode: 500,
-      error: 'Internal Server Error',
-      message: SERVER_ERROR_MESSAGE,
-    });
+    expect(res.json()).toEqual(MASKED);
     const logged = lines.map((l) => JSON.parse(l) as Record<string, unknown>);
     expect(logged).toEqual([
       expect.objectContaining({
-        msg: 'Request failed',
+        msg: 'Error reply masked',
         err: expect.objectContaining({ message: 'secret detail' }) as unknown,
       }),
     ]);
     await app.close();
+  });
+
+  it('answers every thrown value exactly as a catalog scope does', async () => {
+    const thrown: unknown[] = [
+      new Error('secret'),
+      new JobExists('j1'),
+      Object.assign(new ScanInProgress(), {
+        headers: { 'retry-after': '30', 'set-cookie': 'a=1', allow: 'GET' },
+      }),
+      new (createError('ACME_BUSY', 'Busy', 409))(),
+      Object.assign(new Error('gone'), {
+        status: 404,
+        statusCode: 404,
+        expose: true,
+        headers: { 'set-cookie': 'up=1', 'retry-after': '1' },
+      }),
+      Object.assign(new Error('m'), { code: 'FST_ERR_X', statusCode: 400 }),
+      Object.assign(new Error('m'), { code: 'FST_ERR_X', statusCode: 500 }),
+      'boom',
+    ];
+    const answer = async (app: FastifyInstance, url: string) => {
+      const res = await app.inject(url);
+      return {
+        status: res.statusCode,
+        body: res.json<unknown>(),
+        headers: {
+          'retry-after': res.headers['retry-after'],
+          allow: res.headers.allow,
+          'set-cookie': res.headers['set-cookie'],
+        },
+      };
+    };
+    for (const value of thrown) {
+      const plain = Fastify({ logger: false });
+      registerErrorHandlers(plain, { logger: { error: vi.fn() } });
+      plain.get('/broken', () => Promise.reject(value as Error));
+      const scoped = Fastify({ logger: false });
+      await registerCatalogRoutes(
+        scoped,
+        defineCatalog([testCatalog.byName('broken')]),
+        { broken: () => Promise.reject(value as Error) },
+        { logger: { warn: vi.fn(), error: vi.fn() } },
+      );
+      expect(await answer(plain, '/broken')).toEqual(
+        await answer(scoped, '/broken'),
+      );
+      await plain.close();
+      await scoped.close();
+    }
   });
 });

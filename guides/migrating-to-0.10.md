@@ -19,30 +19,45 @@ title: Migrating to 0.10.0
 
 Every change below is breaking for a service or client that reads core's 0.9 error bodies.
 
-## Since the #167 change: a deliberate 5xx keeps its message
+## Since the #167 change: errors are trusted by definition (`defineError`)
 
-0.10.0 replaced the `message` of **every** 5xx with `SERVER_ERROR_MESSAGE`. Since the #167 change (the release after 0.10.0), only a 5xx that isn't deliberate is masked; a deliberate 5xx's `message` reaches the client, as in Fastify. Wherever the 0.10.0 notes below say a 5xx's message is masked, read this rule. The same line governs `code` and `message`.
+0.10.0 replaced the `message` of **every** 5xx with `SERVER_ERROR_MESSAGE` and kept whatever status, `code` and `headers` a thrown error carried. Since the #167 change (the release after 0.10.0), a thrown error is trusted only when its class says so: **define every error the caller should see with `defineError`**, exported from `/fastify`. Wherever the 0.10.0 notes below say "throw a `createError` error" or describe how a thrown error's status, `code`, `message` or `headers` are used, read this rule instead.
 
-**Deliberate**, for a thrown error, means it has its **own integer `statusCode` from 400 to 599** (as `createError` sets it) **and is not marked `expose: false`** (the `http-errors` convention for "don't send my message"). An error carrying only `status` (third-party clients: Qdrant's `ApiError`, axios's `AxiosError`) or marked `expose: false` still sets the reply status from `statusCode`, else `status`, but is treated as a crash: on a 5xx, the generic message and no `code`.
+```ts
+import { defineError } from '@karmaniverous/jeeves/fastify';
 
-| 5xx source | 0.10.0 | Now |
+const ScanInProgress = defineError(
+  'WATCHER_SCAN_IN_PROGRESS',
+  'A scan is in progress; retry when it finishes',
+  503,
+);
+throw Object.assign(new ScanInProgress(), { headers: { 'retry-after': '30' } });
+```
+
+`defineError(code, message, status, options?)` wraps `@fastify/error`'s `createError` (same message template and class) and brands the class with a `Symbol.for` key, so the brand holds across two copies of core. Core can't tell a library's error from a deliberate one by its properties (undici, Elasticsearch, the AWS SDK and `@fastify/error`-based plugins all set their own `statusCode` and `code`, and their messages and headers carry upstream detail), so trust is declared where the error is defined.
+
+| Thrown | 0.10.0 | Now |
 | --- | --- | --- |
-| Thrown error with its own `statusCode` 500 to 599, not `expose: false` (`createError`) | message masked, code kept | message and code kept |
-| Thrown error with only a `status` 500 to 599 (Qdrant `ApiError`, axios) | message masked, code kept | its status, message masked, no code |
-| Thrown error marked `expose: false` with `statusCode` 500 to 599 (`http-errors`) | message masked, code kept | its status, message masked, no code |
-| Thrown error with no error status (a crash, an `ENOENT`) | 500, masked, no code | unchanged |
-| Handler error result `{ status: 503, body: { message, code? } }` | message masked | message kept |
-| Standard error body a hook sends (object, or JSON text, with a string `message`) | message masked | message kept |
-| Raw text, a stream, a web `Response` or no body under a 5xx | masked | unchanged |
-| Strict response mismatch (`JEEVES_RESPONSE_VALIDATION`) | masked | unchanged |
+| `defineError` error, 4xx | status, code, message, all its headers | status, code, message; headers `Retry-After`, `WWW-Authenticate`, `Allow` only |
+| `defineError` error, 5xx | status, code kept; message masked; all its headers | status, code, message; allowlisted headers only |
+| Fastify's own 4xx (`FST_ERR_VALIDATION`, `FST_ERR_CTP_INVALID_JSON_BODY`, `FST_ERR_CTP_BODY_TOO_LARGE`, `FST_ERR_CTP_INVALID_MEDIA_TYPE`, ...) | kept | unchanged |
+| Fastify's own 5xx (`FST_ERR_*` with a 5xx status) | status, code kept; message masked | 500, masked, no code |
+| Plain `createError` error (any status, including 4xx) | its status and code; 4xx message kept | **500, masked, no code, no headers** |
+| `http-errors` error (any status, any `expose`) | its status; 4xx message kept | **500, masked, no code, no headers** |
+| Error with only a `status` (axios, Qdrant's `ApiError`) | its status; 4xx message and code kept | **500, masked, no code, no headers** |
+| undici `ResponseStatusCodeError` and other library errors with their own `statusCode` | status, code; upstream `headers` (`set-cookie` included) forwarded | **500, masked, no code, no headers** |
+| Plain `Error`, a crash such as `ENOENT` | 500, masked, no code | unchanged (and none of its headers) |
 
-4xx errors are unchanged from 0.10.0: their status comes from `statusCode`, else `status`, and they keep their `message` and `code`, except that a 4xx marked `expose: false` now sends the status text (`Unauthorized`) as its `message` (its `code` is kept).
+Unchanged: a handler error result (`{ status, body: { message, code? }, headers? }`) and an `errorBody(...)` a hook sends keep their status, `code` and `message`, a 5xx's message included (0.10.0 masked it), and an error result's `headers` are applied. Headers already on the reply (set by a hook, say) are never filtered. Raw text, a stream, a web `Response` or no body under a 5xx, and the strict response mismatch (`JEEVES_RESPONSE_VALIDATION`), are masked as before. `registerErrorHandlers` follows the same rule as catalog routes.
 
 What to do:
 
-- **Services:** a deliberate 5xx's `message` is now sent, so write it for the caller ("A scan is in progress; retry when it finishes") and keep internals (hosts, paths, driver errors) out of it. **Catch library errors and rethrow a `createError` error** for a caller-facing 5xx: a client library's error that only carries `status` (or is `expose: false`) keeps its status but is masked, so the caller learns nothing beyond the status. To keep a 5xx's text private, throw an error that isn't deliberate, or log the detail and send a caller-facing message. `registerErrorHandlers` follows the same rule.
-- **Clients:** `CatalogClientError.message` is now the service's own text for a deliberate 5xx instead of `SERVER_ERROR_MESSAGE`. Keep branching on `code`.
-- **Logs:** every 5xx is still logged at `error`, with the same details as in 0.10.0. A thrown error is logged as `Request failed`. A handler result's or hook's 5xx is logged as `Error reply` when its message is kept and `Error reply masked` when it is masked (0.10.0 logged every one as `Error reply masked`).
+- **Services: move every deliberate error to `defineError`.** Replace `createError(...)` with `defineError(...)` (same arguments; the status must be an error status, 400 to 599) for every error a caller should see, 4xx as well as 5xx. A `createError` or `http-errors` error you forget is now a codeless 500: a client branching on `RUNNER_JOB_EXISTS` gets `500` with no `code`. Search for `createError`, `httpErrors`, `new HttpError` and thrown objects with a `statusCode` before upgrading.
+- **Services: write the message for the caller.** A `defineError` error's `message` is sent on a 5xx too ("A scan is in progress; retry when it finishes"); keep hosts, paths and driver errors out of its `%s` arguments.
+- **Services: catch library errors at the boundary.** An upstream 404 or 503 from undici, axios or Qdrant is no longer forwarded with its status: it becomes a masked 500. Map the ones a caller should see to a `defineError` error (`NOT_FOUND`, `UPSTREAM_UNAVAILABLE`, ...).
+- **Services: headers.** Only `Retry-After`, `WWW-Authenticate` and `Allow` on a `defineError` error reach the client. Anything else (a custom `x-*` header, `set-cookie`) must go on an error result's `headers` or be set on the reply.
+- **Clients:** `CatalogClientError.message` is now the service's own text for a deliberate 5xx instead of `SERVER_ERROR_MESSAGE`. Errors a service hasn't moved to `defineError` arrive as `500` with no `code`. Keep branching on `code`.
+- **Logs:** every 5xx is still logged at `error`. A thrown error is logged with `{ err }` as `Error reply` when its message is sent and `Error reply masked` when it is not (0.10.0 logged both as `Request failed`). A handler result's or hook's 5xx is logged with `{ statusCode, code, message }`, also as `Error reply` or `Error reply masked` (0.10.0 logged every one as `Error reply masked`).
 - **Core's config apply 500s** (unreadable config file, failed write) are handler results, so their message is now sent. It is caller-facing, with a code of its own; the config file path and the OS error go to the server log only (spec 5d.2):
 
   | Failure | `code` | `message` |
@@ -85,7 +100,7 @@ What to do:
 
 - **`'log'` mode** still sends a mismatched 2xx body unparsed, but error bodies are always rebuilt as above.
 
-- **5xx log lines:** a handler result's or hook's 5xx is logged at `error` as `Error reply masked` with `{ statusCode, code, message }` (since the #167 change, `Error reply` when its message is kept); a thrown error as `Request failed` with `{ err }`. 4xx errors are not logged.
+- **5xx log lines:** a handler result's or hook's 5xx is logged at `error` as `Error reply masked` with `{ statusCode, code, message }` (since the #167 change, `Error reply` when its message is kept); a thrown error as `Request failed` with `{ err }` (since the #167 change, `Error reply` or `Error reply masked`). 4xx errors are not logged.
 
 - **New:** `registerErrorHandlers(app, { logger? })` gives the app's other routes the same handling (Fastify's body, 5xx masked and logged). `errorBody(statusCode, message, code?)`, `SERVER_ERROR_MESSAGE` and `JEEVES_RESPONSE_VALIDATION` are exported from the root and `/fastify`.
 
