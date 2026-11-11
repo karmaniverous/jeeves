@@ -86,9 +86,10 @@ export type HandlerErrorBody = Pick<ErrorBody, 'code' | 'message'>;
  *
  * @remarks
  * An error result is sent as Fastify's body,
- * `{ statusCode, code?, error, message }`, always JSON (a `content-type` in
- * its `headers` is ignored); on a 5xx the `message` is logged and replaced
- * with a generic one (spec 5c.5).
+ * `{ statusCode, code?, error, message }`, always JSON (body headers such as
+ * `content-type` in its `headers` are ignored, and a header Node would
+ * reject, e.g. one echoing a CRLF from a path parameter, is skipped); on a
+ * 5xx the `message` is logged and replaced with a generic one (spec 5c.5).
  */
 export type HandlerResult<E extends CatalogEntry> =
   | {

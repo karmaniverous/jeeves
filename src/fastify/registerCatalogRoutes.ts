@@ -16,6 +16,7 @@ import {
   normaliseErrorPayload,
   rawErrorPayloadBody,
   ResponseMismatchError,
+  sentStatus,
   setErrorHeaders,
 } from './errorReply.js';
 import type {
@@ -113,7 +114,11 @@ function send(
  * sends for a catalog route) is answered in Fastify's body,
  * `{ statusCode, code?, error, message }`, rebuilt from the reply status,
  * with 5xx messages masked and logged; the app's own error handler is not
- * consulted (spec 5c.5).
+ * consulted (spec 5c.5). Pre-serialized JSON text is parsed and treated like
+ * an object; other text, a stream, a web `Response` with an error status or
+ * no body gets the standard body. Routes outside the scope are untouched.
+ * The error's (or error result's) headers are applied, except body headers
+ * and any Node would reject.
  *
  * Auth isn't enforced here: register the component's auth hook on the root
  * app before calling this, so it applies to the catalog routes.
@@ -160,39 +165,56 @@ export async function registerCatalogRoutes<C extends Catalog>(
         // reply status.
         const normalised = new WeakSet<FastifyReply>();
         scope.addHook('preSerialization', (request, reply, payload, done) => {
-          let body = payload;
-          if (reply.statusCode >= 400 && !isBuiltErrorBody(payload))
-            try {
-              body = normaliseErrorPayload(
-                reply.statusCode,
-                payload,
-                mode,
-                options.logger ?? request.log,
-              );
-            } catch (error) {
-              done(error as Error);
-              return;
-            }
-          normalised.add(reply);
-          done(null, body);
-        });
-        // Payloads Fastify doesn't serialize (a string, bytes, a stream,
-        // nothing) skip `preSerialization`; under an error status they are
-        // replaced with the standard body here.
-        scope.addHook('onSend', (request, reply, payload, done) => {
-          if (reply.statusCode < 400 || normalised.has(reply)) {
+          if (reply.statusCode < 400) {
             done(null, payload);
             return;
           }
-          void reply.type('application/json; charset=utf-8');
-          done(
-            null,
-            rawErrorPayloadBody(
+          normalised.add(reply);
+          if (isBuiltErrorBody(payload)) {
+            done(null, payload);
+            return;
+          }
+          let body: unknown;
+          try {
+            body = normaliseErrorPayload(
               reply.statusCode,
               payload,
+              mode,
               options.logger ?? request.log,
-            ),
-          );
+            );
+          } catch (error) {
+            done(error as Error);
+            return;
+          }
+          done(null, body);
+        });
+        // Payloads Fastify doesn't serialize (a string, bytes, a stream, a
+        // web Response, nothing) skip `preSerialization`; under an error
+        // status (a Response's own included) they are replaced with the
+        // standard body here. JSON text is parsed and normalised like an
+        // object.
+        scope.addHook('onSend', (request, reply, payload, done) => {
+          const status = sentStatus(reply.statusCode, payload);
+          if (status < 400 || normalised.has(reply)) {
+            done(null, payload);
+            return;
+          }
+          const contentType = reply.getHeader('content-type');
+          void reply.code(status).type('application/json; charset=utf-8');
+          let body: string;
+          try {
+            body = rawErrorPayloadBody(
+              status,
+              payload,
+              contentType,
+              mode,
+              options.logger ?? request.log,
+            );
+          } catch (error) {
+            done(error as Error);
+            return;
+          }
+          done(null, body);
         });
 
         for (const entry of catalog.entries) {

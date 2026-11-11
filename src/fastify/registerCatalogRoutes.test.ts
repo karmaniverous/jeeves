@@ -480,6 +480,86 @@ describe('registerCatalogRoutes', () => {
       }
     });
 
+    it('headers Node would reject are skipped; the scope still answers', async () => {
+      const appHandler = vi.fn();
+      const lines: string[] = [];
+      const app = Fastify({
+        logger: {
+          level: 'debug',
+          stream: { write: (l: string) => lines.push(l) },
+        },
+      });
+      app.setErrorHandler(appHandler);
+      await registerCatalogRoutes(
+        app,
+        defineCatalog([testCatalog.byName('broken')]),
+        {
+          broken: () =>
+            Promise.reject(
+              Object.assign(new Error('db secret'), {
+                statusCode: 503,
+                headers: {
+                  'x-a': 'a\r\nset-cookie: evil=1',
+                  'bad name': '1',
+                  'x-list': ['ok', 'b\r\nc'],
+                  'retry-after': '30',
+                },
+              }),
+            ),
+        },
+        { logger: { warn: vi.fn(), error: vi.fn() } },
+      );
+      const res = await app.inject('/broken');
+      expect(res.statusCode).toBe(503);
+      expect(res.headers['x-a']).toBeUndefined();
+      expect(res.headers['bad name']).toBeUndefined();
+      expect(res.headers['x-list']).toBeUndefined();
+      expect(res.headers['set-cookie']).toBeUndefined();
+      expect(res.headers['retry-after']).toBe('30');
+      expect(res.json()).toEqual({
+        statusCode: 503,
+        error: 'Service Unavailable',
+        message: SERVER_ERROR_MESSAGE,
+      });
+      expect(appHandler).not.toHaveBeenCalled();
+      const skipped = lines
+        .map((l) => JSON.parse(l) as Record<string, unknown>)
+        .filter((l) => l.msg === 'Error header skipped')
+        .map((l) => l.header);
+      expect(skipped).toEqual(['x-a', 'bad name', 'x-list']);
+      await app.close();
+    });
+
+    it('body headers are never applied; set-cookie arrays are kept', async () => {
+      const app = await throwing(
+        Object.assign(new Error('bad'), {
+          statusCode: 400,
+          headers: {
+            'Content-Encoding': 'gzip',
+            'content-length': '1',
+            'transfer-encoding': 'chunked',
+            'set-cookie': ['a=1', 'b=2'],
+            'x-mixed': ['a', 1],
+          },
+        }),
+      );
+      const res = await app.inject('/broken');
+      expect(res.statusCode).toBe(400);
+      expect(res.headers['content-encoding']).toBeUndefined();
+      expect(res.headers['transfer-encoding']).toBeUndefined();
+      expect(res.headers['content-length']).toBe(
+        String(Buffer.byteLength(res.body)),
+      );
+      expect(res.headers['set-cookie']).toEqual(['a=1', 'b=2']);
+      expect(res.headers['x-mixed']).toBeUndefined();
+      expect(res.json()).toEqual({
+        statusCode: 400,
+        error: 'Bad Request',
+        message: 'bad',
+      });
+      await app.close();
+    });
+
     it('a thrown 4xx without a string message: empty message', async () => {
       const app = await throwing({ statusCode: 404, message: 42 });
       const res = await app.inject('/broken');
@@ -646,6 +726,34 @@ describe('registerCatalogRoutes', () => {
         error: 'Not Found',
         message: 'gone',
       });
+      await app.close();
+    });
+
+    it('a header echoing a CRLF path parameter is skipped, not fatal', async () => {
+      const appHandler = vi.fn();
+      const app = Fastify({ logger: false });
+      app.setErrorHandler(appHandler);
+      await registerCatalogRoutes(app, deleteOnly, {
+        deleteThing: ({ params }) =>
+          Promise.resolve({
+            status: 404 as const,
+            body: { message: 'No such thing' },
+            headers: { 'x-id': params.id },
+          }),
+      });
+      const res = await app.inject({
+        method: 'DELETE',
+        url: '/things/a%0D%0Aset-cookie:%20evil=1',
+      });
+      expect(res.statusCode).toBe(404);
+      expect(res.headers['x-id']).toBeUndefined();
+      expect(res.headers['set-cookie']).toBeUndefined();
+      expect(res.json()).toEqual({
+        statusCode: 404,
+        error: 'Not Found',
+        message: 'No such thing',
+      });
+      expect(appHandler).not.toHaveBeenCalled();
       await app.close();
     });
 
@@ -884,10 +992,11 @@ describe('registerCatalogRoutes', () => {
       });
 
       it('log: a 5xx without a message, or a null body, is masked too', async () => {
+        const logger = { warn: vi.fn(), error: vi.fn() };
         const app = await hooked(
           async (reply) =>
             reply.status(503).send({ error: 'x', stack: 'secret' }),
-          { responseValidation: 'log' },
+          { responseValidation: 'log', logger },
         );
         const res = await del(app);
         expect(res.json()).toEqual({
@@ -895,6 +1004,15 @@ describe('registerCatalogRoutes', () => {
           error: 'Service Unavailable',
           message: SERVER_ERROR_MESSAGE,
         });
+        // The replaced body is logged with the warning.
+        expect(logger.warn).toHaveBeenCalledWith(
+          {
+            statusCode: 503,
+            issues: [expect.objectContaining({ path: ['message'] }) as unknown],
+            body: { error: 'x', stack: 'secret' },
+          },
+          'Error body has no message (log mode): sent with the generic one',
+        );
         await app.close();
         const nul = await hooked(
           async (reply) => reply.status(418).send(null),
@@ -927,7 +1045,7 @@ describe('registerCatalogRoutes', () => {
         await app.close();
       });
 
-      it('a string or JSON-typed Buffer 5xx is masked and its text logged', async () => {
+      it('a string or Buffer 5xx is masked and its text logged', async () => {
         const logger = { warn: vi.fn(), error: vi.fn() };
         const app = await hooked(
           async (reply) => reply.status(503).send('db at 10.0.0.5 down'),
@@ -946,11 +1064,7 @@ describe('registerCatalogRoutes', () => {
         );
         await app.close();
         const bytes = await hooked(
-          async (reply) =>
-            reply
-              .status(500)
-              .type('application/json')
-              .send(Buffer.from('{"secret":1}')),
+          async (reply) => reply.status(500).send(Buffer.from('secret bytes')),
           { logger },
         );
         expect((await del(bytes)).json()).toEqual({
@@ -959,10 +1073,113 @@ describe('registerCatalogRoutes', () => {
           message: SERVER_ERROR_MESSAGE,
         });
         expect(logger.error).toHaveBeenLastCalledWith(
-          { statusCode: 500, code: undefined, message: '{"secret":1}' },
+          { statusCode: 500, code: undefined, message: 'secret bytes' },
           'Error reply masked',
         );
         await bytes.close();
+      });
+
+      it.each([
+        ['string', (body: string) => body],
+        ['Buffer', (body: string) => Buffer.from(body)],
+      ])(
+        'JSON text (%s) is parsed and normalised like an object',
+        async (_label, wrap) => {
+          const app = await hooked(async (reply) =>
+            reply
+              .status(401)
+              .type('application/json')
+              .send(wrap(JSON.stringify(errorBody(401, 'Nope', 'ACME_NOPE')))),
+          );
+          const res = await del(app);
+          expect(res.statusCode).toBe(401);
+          expect(res.headers['content-type']).toBe(
+            'application/json; charset=utf-8',
+          );
+          expect(res.json()).toEqual({
+            statusCode: 401,
+            code: 'ACME_NOPE',
+            error: 'Unauthorized',
+            message: 'Nope',
+          });
+          await app.close();
+        },
+      );
+
+      it('JSON text: statusCode from the reply, 5xx masked and logged', async () => {
+        const logger = { warn: vi.fn(), error: vi.fn() };
+        const app = await hooked(
+          async (reply) =>
+            reply
+              .status(503)
+              .type('application/problem+json')
+              .send(
+                JSON.stringify({
+                  statusCode: 400,
+                  code: 'ACME_DOWN',
+                  message: 'db 10.0.0.5 down',
+                  stack: 'secret',
+                }),
+              ),
+          { logger },
+        );
+        const res = await del(app);
+        expect(res.statusCode).toBe(503);
+        expect(res.json()).toEqual({
+          statusCode: 503,
+          code: 'ACME_DOWN',
+          error: 'Service Unavailable',
+          message: SERVER_ERROR_MESSAGE,
+        });
+        expect(logger.error).toHaveBeenCalledTimes(1);
+        expect(logger.error).toHaveBeenCalledWith(
+          { statusCode: 503, code: 'ACME_DOWN', message: 'db 10.0.0.5 down' },
+          'Error reply masked',
+        );
+        await app.close();
+      });
+
+      it('JSON text without a message: strict mismatch, log mode status text', async () => {
+        const send = async (reply: FastifyReply) =>
+          reply
+            .status(401)
+            .type('application/json')
+            .send('{"error":"Unauthorized","code":"ACME_KEY"}');
+        const logger = { warn: vi.fn(), error: vi.fn() };
+        const strict = await hooked(send, { logger });
+        const res = await del(strict);
+        expect(res.statusCode).toBe(500);
+        expect(res.headers['content-type']).toBe(
+          'application/json; charset=utf-8',
+        );
+        expect(res.json()).toEqual(MISMATCH);
+        expect(logger.error).toHaveBeenCalledWith(
+          {
+            issues: [expect.objectContaining({ path: ['message'] }) as unknown],
+          },
+          'Response validation failed',
+        );
+        await strict.close();
+        const log = await hooked(send, { responseValidation: 'log' });
+        expect((await del(log)).json()).toEqual({
+          statusCode: 401,
+          code: 'ACME_KEY',
+          error: 'Unauthorized',
+          message: 'Unauthorized',
+        });
+        await log.close();
+      });
+
+      it('unparseable JSON text is the message', async () => {
+        const app = await hooked(async (reply) =>
+          reply.status(400).type('application/json').send('{not json'),
+        );
+        expect((await del(app)).json()).toEqual({
+          statusCode: 400,
+          error: 'Bad Request',
+          message: '{not json',
+        });
+        await app.close();
       });
 
       it('a string 5xx logs through the request logger by default', async () => {
@@ -1005,6 +1222,37 @@ describe('registerCatalogRoutes', () => {
           message: 'Bad',
         });
         await app.close();
+        // JSON-looking text without a JSON type is text, not parsed.
+        const plain = await hooked(async (reply) =>
+          reply.status(400).send('{"message":"x"}'),
+        );
+        expect((await del(plain)).json()).toEqual({
+          statusCode: 400,
+          error: 'Bad Request',
+          message: '{"message":"x"}',
+        });
+        await plain.close();
+      });
+
+      it('a 2xx a root onSend turns into an error is still replaced', async () => {
+        const app = Fastify({ logger: false });
+        app.addHook('onSend', async (_request, reply) => {
+          void reply.status(500);
+          return 'onSend secret';
+        });
+        await registerCatalogRoutes(
+          app,
+          defineCatalog([testCatalog.byName('getThing')]),
+          testHandlers,
+        );
+        const res = await app.inject('/things/1');
+        expect(res.statusCode).toBe(500);
+        expect(res.json()).toEqual({
+          statusCode: 500,
+          error: 'Internal Server Error',
+          message: SERVER_ERROR_MESSAGE,
+        });
+        await app.close();
       });
 
       it('an object sent with a non-JSON type is replaced too', async () => {
@@ -1043,6 +1291,98 @@ describe('registerCatalogRoutes', () => {
         });
         expect(stream.destroyed).toBe(true);
         await streamed.close();
+      });
+
+      it('a web ReadableStream under an error status is cancelled', async () => {
+        const cancel = vi.fn();
+        const app = await hooked(async (reply) =>
+          reply.status(500).send(
+            new ReadableStream({
+              pull: (controller) => {
+                controller.enqueue(new TextEncoder().encode('secret'));
+              },
+              cancel,
+            }),
+          ),
+        );
+        expect((await del(app)).json()).toEqual({
+          statusCode: 500,
+          error: 'Internal Server Error',
+          message: SERVER_ERROR_MESSAGE,
+        });
+        expect(cancel).toHaveBeenCalledTimes(1);
+        await app.close();
+        // A locked stream can't be cancelled; the rejection is swallowed.
+        const locked = new ReadableStream();
+        locked.getReader();
+        const lockedApp = await hooked(async (reply) =>
+          reply.status(500).send(locked),
+        );
+        expect((await del(lockedApp)).statusCode).toBe(500);
+        await lockedApp.close();
+      });
+
+      it('a web Response with an error status is replaced, its body cancelled', async () => {
+        const logger = { warn: vi.fn(), error: vi.fn() };
+        const cancel = vi.fn();
+        const app = await hooked(
+          async (reply) =>
+            reply.send(
+              new Response(
+                new ReadableStream({
+                  start: (controller) => {
+                    controller.enqueue(
+                      new TextEncoder().encode('db secret 10.0.0.5'),
+                    );
+                  },
+                  cancel,
+                }),
+                { status: 503, headers: { 'content-type': 'text/plain' } },
+              ),
+            ),
+          { logger },
+        );
+        const res = await del(app);
+        expect(res.statusCode).toBe(503);
+        expect(res.headers['content-type']).toBe(
+          'application/json; charset=utf-8',
+        );
+        expect(res.json()).toEqual({
+          statusCode: 503,
+          error: 'Service Unavailable',
+          message: SERVER_ERROR_MESSAGE,
+        });
+        expect(cancel).toHaveBeenCalledTimes(1);
+        expect(logger.error).toHaveBeenCalledWith(
+          {
+            statusCode: 503,
+            code: undefined,
+            message: 'Service Unavailable',
+          },
+          'Error reply masked',
+        );
+        await app.close();
+        const bodiless = await hooked(async (reply) =>
+          reply.send(new Response(null, { status: 404 })),
+        );
+        const gone = await del(bodiless);
+        expect(gone.statusCode).toBe(404);
+        expect(gone.json()).toEqual({
+          statusCode: 404,
+          error: 'Not Found',
+          message: 'Not Found',
+        });
+        await bodiless.close();
+      });
+
+      it('a web Response with a 2xx status is left alone', async () => {
+        const app = await hooked(async (reply) =>
+          reply.status(500).send(new Response('fine', { status: 200 })),
+        );
+        const res = await del(app);
+        expect(res.statusCode).toBe(200);
+        expect(res.body).toBe('fine');
+        await app.close();
       });
 
       it('a status without standard text gets error and message "Error"', async () => {
@@ -1293,6 +1633,47 @@ describe('registerCatalogRoutes', () => {
     });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({ got: { any: 'thing' }, extra: true });
+    await app.close();
+  });
+
+  it('never rewrites an error reply outside the scope', async () => {
+    const app = Fastify({ logger: false });
+    app.addHook('onRequest', async (request, reply) => {
+      if (request.url === '/hooked' || request.url === '/api/things/1')
+        await reply.status(503).send({ detail: 'db 10.0.0.5 down' });
+    });
+    app.get('/teapot', (_request, reply) =>
+      reply.code(418).send({ teapot: true }),
+    );
+    app.get('/text', (_request, reply) => reply.code(500).send('other secret'));
+    app.get('/hooked', () => 'unreached');
+    await app.register(
+      async (api) => {
+        await registerCatalogRoutes(api, deleteOnly, testHandlers);
+        api.get('/sibling', (_request, reply) =>
+          reply.code(418).send({ teapot: 'sibling' }),
+        );
+      },
+      { prefix: '/api' },
+    );
+    const teapot = await app.inject('/teapot');
+    expect(teapot.statusCode).toBe(418);
+    expect(teapot.body).toBe('{"teapot":true}');
+    const text = await app.inject('/text');
+    expect(text.statusCode).toBe(500);
+    expect(text.headers['content-type']).toBe('text/plain; charset=utf-8');
+    expect(text.body).toBe('other secret');
+    const hooked = await app.inject('/hooked');
+    expect(hooked.statusCode).toBe(503);
+    expect(hooked.body).toBe('{"detail":"db 10.0.0.5 down"}');
+    const sibling = await app.inject('/api/sibling');
+    expect(sibling.statusCode).toBe(418);
+    expect(sibling.body).toBe('{"teapot":"sibling"}');
+    // The same hook reply on a catalog route is answered by the scope (a
+    // body without a message: the strict mismatch 500).
+    const inside = await app.inject({ method: 'DELETE', url: '/api/things/1' });
+    expect(inside.statusCode).toBe(500);
+    expect(inside.json()).toEqual(MISMATCH);
     await app.close();
   });
 

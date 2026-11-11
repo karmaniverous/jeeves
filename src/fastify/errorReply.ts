@@ -7,13 +7,18 @@
  * @module
  */
 
-import { STATUS_CODES } from 'node:http';
+import {
+  STATUS_CODES,
+  validateHeaderName,
+  validateHeaderValue,
+} from 'node:http';
 
 import type { FastifyReply } from 'fastify';
 import { z } from 'zod';
 
 import { errorBody, SERVER_ERROR_MESSAGE } from '../api/errorBody.js';
 import type { ErrorBody } from '../catalog/errorBody.js';
+import { isJsonContentType } from '../catalog/schemaHelpers.js';
 import type { CatalogRouteLogger } from './types.js';
 
 /** Thrown on a strict-mode error-reply mismatch; never escapes the scope. */
@@ -148,54 +153,182 @@ export function normaliseErrorPayload(
     return errorReplyBody(status, parsed.data.message, code, log);
   if (mode === 'strict') throw new ResponseMismatchError(parsed.error.issues);
   log.warn(
-    { statusCode: status, issues: parsed.error.issues },
+    {
+      statusCode: status,
+      issues: parsed.error.issues,
+      // A 5xx's body is the cause the masked reply drops.
+      ...(status >= 500 ? { body: payload } : {}),
+    },
     'Error body has no message (log mode): sent with the generic one',
   );
   return errorReplyBody(status, STATUS_CODES[status] ?? 'Error', code, log);
 }
 
 /**
+ * Whether a payload is a web `Response` (detected as Fastify does).
+ *
+ * @param payload - A reply payload.
+ * @returns `true` for a `Response`.
+ */
+function isWebResponse(payload: unknown): payload is Response {
+  return (
+    typeof payload === 'object' &&
+    Object.prototype.toString.call(payload) === '[object Response]'
+  );
+}
+
+/**
+ * The status a payload goes out with: a web `Response`'s own status (Fastify
+ * applies it after the `onSend` hooks), else the reply's.
+ *
+ * @param replyStatus - The reply's status.
+ * @param payload - The payload at `onSend`.
+ * @returns The status.
+ */
+export function sentStatus(replyStatus: number, payload: unknown): number {
+  return isWebResponse(payload) ? payload.status : replyStatus;
+}
+
+/**
+ * Release a payload that is replaced unread: a node stream is destroyed, a
+ * web stream (a `Response`'s body included) cancelled.
+ *
+ * @param payload - The replaced payload.
+ */
+function discard(payload: unknown): void {
+  if (isWebResponse(payload)) {
+    discard(payload.body);
+    return;
+  }
+  const stream = payload as
+    { destroy?: unknown; cancel?: unknown } | null | undefined;
+  if (typeof stream?.destroy === 'function')
+    (stream as { destroy: () => void }).destroy();
+  else if (typeof stream?.cancel === 'function')
+    void (stream as { cancel: () => Promise<void> })
+      .cancel()
+      .catch(() => undefined);
+}
+
+/**
+ * Parse JSON text.
+ *
+ * @param text - The text.
+ * @returns The parsed value, boxed; `undefined` when it isn't JSON.
+ */
+function parseJson(text: string): { value: unknown } | undefined {
+  try {
+    return { value: JSON.parse(text) as unknown };
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * The standard body for a payload Fastify sends without serializing it (a
- * string, bytes, a stream, nothing) under an error status: a 4xx keeps the
- * text as its `message` (else the status text); a 5xx is masked and its
- * text logged. A stream is destroyed unread.
+ * string, bytes, a stream, a web `Response`, nothing) under an error status.
+ *
+ * @remarks
+ * Text (a string or bytes) sent with a JSON content type is parsed and
+ * normalised exactly like an object payload
+ * ({@link normaliseErrorPayload}). Other text, and JSON text that doesn't
+ * parse, is the `message`: kept on a 4xx (the status text when there is
+ * none), masked and logged on a 5xx. A stream or a `Response` is released
+ * unread and gets the status text.
  *
  * @param status - Reply status (400 to 599).
  * @param payload - The raw payload.
- * @param log - Where a 5xx's text is logged.
+ * @param contentType - The reply's content type when the payload was sent.
+ * @param mode - Response validation mode.
+ * @param log - Where mismatches and 5xx causes are logged.
  * @returns The body, as JSON.
+ * @throws {@link ResponseMismatchError} in `'strict'` mode, for JSON text
+ *   without a string `message`.
  */
 export function rawErrorPayloadBody(
   status: number,
   payload: unknown,
-  log: Pick<CatalogRouteLogger, 'error'>,
+  contentType: unknown,
+  mode: 'strict' | 'log',
+  log: CatalogRouteLogger,
 ): string {
-  let message = STATUS_CODES[status] ?? 'Error';
-  if (typeof payload === 'string') message = payload;
+  let text: string | undefined;
+  if (typeof payload === 'string') text = payload;
   else if (payload instanceof Uint8Array)
-    message = Buffer.from(payload).toString('utf8');
-  else if (
-    typeof (payload as { destroy?: unknown } | null | undefined)?.destroy ===
-    'function'
-  )
-    (payload as { destroy: () => void }).destroy();
-  return JSON.stringify(errorReplyBody(status, message, undefined, log));
+    text = Buffer.from(payload).toString('utf8');
+  else discard(payload);
+  if (
+    text !== undefined &&
+    typeof contentType === 'string' &&
+    isJsonContentType(contentType)
+  ) {
+    const parsed = parseJson(text);
+    if (parsed)
+      return JSON.stringify(
+        normaliseErrorPayload(status, parsed.value, mode, log),
+      );
+  }
+  return JSON.stringify(
+    errorReplyBody(
+      status,
+      text ?? STATUS_CODES[status] ?? 'Error',
+      undefined,
+      log,
+    ),
+  );
+}
+
+/**
+ * Headers an error never sets: they describe a body, and an error reply's
+ * body is always the standard JSON one.
+ */
+const BODY_HEADERS = new Set([
+  'content-type',
+  'content-encoding',
+  'content-length',
+  'transfer-encoding',
+]);
+
+/**
+ * Whether a header value can be applied: a string, a number, or an array of
+ * strings (e.g. several `set-cookie` values, as Fastify keeps them).
+ *
+ * @param value - The value.
+ * @returns `true` when applicable.
+ */
+function isHeaderValue(value: unknown): value is string | number | string[] {
+  return (
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    (Array.isArray(value) && value.every((v) => typeof v === 'string'))
+  );
 }
 
 /**
  * Apply an error's or error result's headers to the reply, as Fastify does
- * for a thrown error's `headers`: string and number values only, and never
- * `content-type` (an error body is always JSON).
+ * for a thrown error's `headers`: string, number and string-array values
+ * only; never `content-type`, `content-encoding`, `content-length` or
+ * `transfer-encoding` (an error body is always the standard JSON one).
+ *
+ * @remarks
+ * A name or value Node would reject (e.g. a CRLF in a value) is skipped and
+ * logged at `debug`, so the reply still goes out from the catalog scope.
  *
  * @param reply - Fastify reply.
  * @param headers - The headers; ignored unless an object.
  */
 export function setErrorHeaders(reply: FastifyReply, headers: unknown): void {
   if (typeof headers !== 'object' || headers === null) return;
-  for (const [name, value] of Object.entries(headers))
-    if (
-      (typeof value === 'string' || typeof value === 'number') &&
-      name.toLowerCase() !== 'content-type'
-    )
-      void reply.header(name, value);
+  for (const [name, value] of Object.entries(headers)) {
+    if (!isHeaderValue(value) || BODY_HEADERS.has(name.toLowerCase())) continue;
+    try {
+      validateHeaderName(name);
+      for (const each of [value].flat())
+        validateHeaderValue(name, String(each));
+    } catch (error) {
+      reply.log.debug({ header: name, err: error }, 'Error header skipped');
+      continue;
+    }
+    void reply.header(name, value);
+  }
 }
