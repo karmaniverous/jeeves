@@ -10,6 +10,8 @@ export {
   type ConfigApplyResult,
   createConfigApplyHandler,
   JEEVES_CONFIG_INVALID,
+  JEEVES_CONFIG_READ_FAILED,
+  JEEVES_CONFIG_WRITE_FAILED,
 } from './configApplyHandler.js';
 export {
   type ConfigQueryHandler,
@@ -22,6 +24,7 @@ export {
   JEEVES_RESPONSE_VALIDATION,
   SERVER_ERROR_MESSAGE,
 } from './errorBody.js';
+export { type HandlerLogger } from './handlerLogger.js';
 export {
   createStatusHandler,
   type CreateStatusHandlerOptions,

@@ -88,8 +88,10 @@ export type HandlerErrorBody = Pick<ErrorBody, 'code' | 'message'>;
  * An error result is sent as Fastify's body,
  * `{ statusCode, code?, error, message }`, always JSON (body headers such as
  * `content-type` in its `headers` are ignored, and a header Node would
- * reject, e.g. one echoing a CRLF from a path parameter, is skipped); on a
- * 5xx the `message` is logged and replaced with a generic one (spec 5c.5).
+ * reject, e.g. one echoing a CRLF from a path parameter, is skipped). An
+ * error result is deliberate: its `message` is sent on a 5xx too (spec
+ * 5d.1), so write it for the caller and keep internals out of it. A 5xx is
+ * also logged.
  */
 export type HandlerResult<E extends CatalogEntry> =
   | {
@@ -149,9 +151,11 @@ export interface RegisterCatalogRoutesOptions extends RegisterErrorHandlersOptio
    *
    * @remarks
    * Error bodies (any 4xx/5xx reply on a catalog route, a hook's included)
-   * are always rebuilt from the reply status, a 5xx masked, in both modes.
-   * One without a string `message` is a mismatch in `'strict'` mode; in
-   * `'log'` mode it is sent with the status's generic message.
+   * are always rebuilt from the reply status, in both modes: a standard
+   * body keeps its `message` (a 5xx's too); raw text, a stream or no body
+   * under a 5xx gets the generic one. One without a string `message` is a
+   * mismatch in `'strict'` mode; in `'log'` mode it is sent with the
+   * status text (a 5xx with the generic message).
    */
   responseValidation?: 'strict' | 'log';
   /**

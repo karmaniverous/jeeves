@@ -80,15 +80,15 @@ Upgrading from v0.x? See the [migration guide](guides/migrating-to-v1.md). Upgra
 | `@karmaniverous/jeeves` | Plugin SDK, CLI support, managed content, service helpers, script helpers | - |
 | `@karmaniverous/jeeves/catalog` | Endpoint catalog: `defineCatalog`, `standardEntries`, `queryArray`, `createCatalogClient`, request building, tool definitions | - |
 | `@karmaniverous/jeeves/openapi` | `buildOpenApiDocument`, `writeOpenApiDocument`, `checkOpenApiDrift` | `zod-openapi` |
-| `@karmaniverous/jeeves/fastify` | `registerCatalogRoutes`, `registerOpenApiRoute`, `standardHandlers`, `registerErrorHandlers`, `errorBody` | `fastify` (types only; your app supplies its instance) |
+| `@karmaniverous/jeeves/fastify` | `registerCatalogRoutes`, `registerOpenApiRoute`, `standardHandlers`, `registerErrorHandlers`, `defineError`, `errorBody` | `fastify` (types only; your app supplies its instance) |
 
-The packages under **Needs** are optional peers: install them in the project that imports that entry point. The root and `/catalog` need none of them, so a catalog client (e.g. a component SDK built on `createCatalogClient`) installs no web server or OpenAPI library. `/fastify` uses `fastify` only for types and validates requests itself, so it needs nothing at run time beyond this package and `zod`, even from a global install a service shares with the `jeeves` CLI. `/openapi` runs where you build the document, usually with `zod-openapi` as a dev dependency.
+The packages under **Needs** are optional peers: install them in the project that imports that entry point. The root and `/catalog` need none of them, so a catalog client (e.g. a component SDK built on `createCatalogClient`) installs no web server or OpenAPI library. `/fastify` uses `fastify` only for types and validates requests itself, so it needs nothing at run time beyond this package, `zod` and `@fastify/error` (a dependency of this package, which `defineError` wraps), even from a global install a service shares with the `jeeves` CLI. `/openapi` runs where you build the document, usually with `zod-openapi` as a dev dependency.
 
 ## Endpoint Catalog
 
 A component can describe its HTTP API once, as a catalog of entries (method, path, Zod schemas for params, query, body and response, an `auth` description and a `kind`). From that one catalog:
 
-- `registerCatalogRoutes` registers the Fastify routes with request validation and checked responses (`responseValidation: 'strict'` by default, or `'log'` while migrating), answering every error in Fastify's standard body `{ statusCode, code?, error, message }` with 5xx messages masked ([Errors](guides/endpoint-catalog.md#errors));
+- `registerCatalogRoutes` registers the Fastify routes with request validation and checked responses (`responseValidation: 'strict'` by default, or `'log'` while migrating), answering every error in Fastify's standard body `{ statusCode, code?, error, message }`, a thrown error trusted only when its class was made with `defineError` (status, code, message and `Retry-After`/`WWW-Authenticate`/`Allow` kept, a 5xx included) and any other thrown error a masked 500 with no code or headers, while error results keep what the handler wrote ([Errors](guides/endpoint-catalog.md#errors));
 - `writeOpenApiDocument` and `checkOpenApiDrift` keep a committed OpenAPI 3.1 document in step;
 - `createCatalogClient` gives a typed client with one method per entry;
 - `createPluginToolset` builds plugin tools for the entries you select.
@@ -259,7 +259,9 @@ The keys jeeves-server accepts on share and browse URLs, so other components (je
 
 ## Config Apply
 
-`createConfigApplyHandler(descriptor, configPath?)` backs each service's `POST /config/apply` and so the `{name}_config_apply` tool. It deep-merges the patch into the **raw** config file (or replaces it with `replace: true`), validates the merged object against `descriptor.configSchema`, and writes the merged object, not the schema's parsed output. Keys the schema doesn't know (`apiUrl`, `configRoot`, ...) survive, defaults are not written into the file, and existing key order is kept (new keys are appended). An invalid merge returns 400 and leaves the file untouched; so does an existing file that isn't a JSON object (500). The write goes through `atomicWrite` with the file's existing mode, so a 0600 file stays 0600, and a new file is created 0600 (modes aren't applied on Windows). The response `config` and the `onConfigApply` callback get the validated (parsed) config.
+`createConfigApplyHandler(descriptor, configPath?)` backs each service's `POST /config/apply` and so the `{name}_config_apply` tool. It deep-merges the patch into the **raw** config file (or replaces it with `replace: true`), validates the merged object against `descriptor.configSchema`, and writes the merged object, not the schema's parsed output. Keys the schema doesn't know (`apiUrl`, `configRoot`, ...) survive, defaults are not written into the file, and existing key order is kept (new keys are appended). An invalid merge returns 400 (`JEEVES_CONFIG_INVALID`) and leaves the file untouched; so does an existing file that isn't a JSON object (500, `JEEVES_CONFIG_READ_FAILED`). A failed write is a 500 with `JEEVES_CONFIG_WRITE_FAILED`. The 500 messages are caller-facing; the file path and the OS error are logged to the handler's optional second argument, `logger` (`console.error` by default; `standardHandlers` passes its `logger` option or the request's Fastify logger). The write goes through `atomicWrite` with the file's existing mode, so a 0600 file stays 0600, and a new file is created 0600 (modes aren't applied on Windows). The response `config` and the `onConfigApply` callback get the validated (parsed) config. If `onConfigApply` throws, the file is already written, so the reply is still 200, with `warning: 'The config was written but could not be applied.'`; the path and the error are logged, never sent.
+
+`createStatusHandler({ name, version, getHealth? })` backs `GET /status`. If `getHealth` throws, the reply is 200 with `status: 'degraded'` and `health: { error: 'The health check failed.' }`; the error is logged to the handler's optional `logger` argument (same default and `standardHandlers` wiring as config apply), never sent, since status routes are often unauthenticated. Both handlers take a `HandlerLogger` (pino-style `error(details, message)`). If your app runs Fastify with `logger: false`, pass the same `logger` to `standardHandlers(sources, { logger })` as to `registerCatalogRoutes`.
 
 ## Prerequisites
 
@@ -516,7 +518,7 @@ Marked `@deprecated` in 0.8.0 and removed in 4.0.0:
 
 - [Platform Overview](https://docs.karmanivero.us/jeeves/documents/Platform_Overview.html) — architecture, components, design philosophy
 - [Managed Content System](https://docs.karmanivero.us/jeeves/documents/Managed_Content_System.html) — static content, markers, budgets, `jeeves install`
-- [Migrating to 0.10](guides/migrating-to-0.10.md) — Fastify's standard error body for every catalog error: 400, 500 and config handler bodies, the client's `code` and `message`
+- [Migrating to 0.10](guides/migrating-to-0.10.md) — Fastify's standard error body for every catalog error: 400, 500 and config handler bodies, the client's `code` and `message`, and (since the #167 change) errors trusted by definition (`defineError`), plugin errors to map, and the hook-failure fallback
 - [Migrating to v1](guides/migrating-to-v1.md) — what was removed and what replaces it
 - [Migrating to 0.8](guides/migrating-to-0.8.md) — the endpoint catalog, new plugin options, behaviour corrections and deprecations
 - [Adopting the Endpoint Catalog](guides/endpoint-catalog.md) — catalog, routes, OpenAPI, client and plugin tools, step by step

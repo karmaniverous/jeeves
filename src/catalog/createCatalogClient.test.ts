@@ -14,6 +14,7 @@ import {
   JEEVES_RESPONSE_VALIDATION,
   SERVER_ERROR_MESSAGE,
 } from '../api/errorBody.js';
+import { defineError } from '../fastify/defineError.js';
 import { registerCatalogRoutes } from '../fastify/registerCatalogRoutes.js';
 import {
   buildTestApp,
@@ -367,17 +368,14 @@ describe('createCatalogClient with a fetch spy', () => {
     expect(error.retryAfterMs).toBe(30_000);
   });
 
-  it('reads Retry-After and code from a 429 a catalog route throws', async () => {
+  it('reads Retry-After and code from a defineError 429 a catalog route throws', async () => {
     const app = Fastify({ logger: false });
     const broken = defineCatalog([testCatalog.byName('broken')]);
+    const Slow = defineError('ACME_SLOW', 'Slow down', 429);
     await registerCatalogRoutes(app, broken, {
       broken: () =>
         Promise.reject(
-          Object.assign(new Error('Slow down'), {
-            statusCode: 429,
-            code: 'ACME_SLOW',
-            headers: { 'retry-after': '7' },
-          }),
+          Object.assign(new Slow(), { headers: { 'retry-after': '7' } }),
         ),
     });
     const url = await app.listen({ port: 0, host: '127.0.0.1' });

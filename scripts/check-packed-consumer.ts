@@ -8,7 +8,8 @@
  * 1. installs the tarball, and nothing else, into a temporary
  *    `moduleResolution: Bundler` project; proves npm installed none of the
  *    optional peers and no entry point's packed code reaches a scoped
- *    package it may not import (`entry-points.ts`); then proves each entry
+ *    package it may not import, nor any but `/fastify` a Fastify-only
+ *    dependency such as `@fastify/error` (`entry-points.ts`); then proves each entry
  *    point type-checks and imports, stage by stage, adding each stage's
  *    peers first: the root and `/catalog` with no peers (a catalog client
  *    round-trips a request), then `/openapi` with `zod-openapi`, then
@@ -38,7 +39,11 @@ import {
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 
-import { libraryEntries, scopedPackages } from '../entry-points.js';
+import {
+  fastifyOnlyPackages,
+  libraryEntries,
+  scopedPackages,
+} from '../entry-points.js';
 import { packageNameOf } from '../rollup-plugin-entry-deps.js';
 
 const repo = resolve(import.meta.dirname, '..');
@@ -358,9 +363,14 @@ for (const [name, { scoped }] of Object.entries(libraryEntries)) {
     (p) => reached.has(p) && !allowed.includes(p),
   );
   if (banned.length > 0) fail(`dist/${name}.js reaches ${banned.join(', ')}`);
+  if (name !== 'fastify/index') {
+    const fastifyOnly = fastifyOnlyPackages.filter((p) => reached.has(p));
+    if (fastifyOnly.length > 0)
+      fail(`dist/${name}.js reaches ${fastifyOnly.join(', ')}`);
+  }
 }
 console.log(
-  'check-packed-consumer: entry points reach only their own scoped dependencies',
+  'check-packed-consumer: entry points reach only their own scoped dependencies; only /fastify reaches @fastify/error',
 );
 
 const tsc = join(repo, 'node_modules', 'typescript', 'bin', 'tsc');

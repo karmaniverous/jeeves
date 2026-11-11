@@ -18,10 +18,12 @@ import {
   ResponseMismatchError,
   sentStatus,
   setErrorHeaders,
+  unbuiltErrorBody,
 } from './errorReply.js';
 import type {
   CatalogHandler,
   CatalogHandlers,
+  CatalogRouteLogger,
   HandlerResult,
   RegisterCatalogRoutesOptions,
   RequestInput,
@@ -51,6 +53,26 @@ function serializerFor(
 }
 
 /**
+ * The serializer for an entry's `4xx`/`5xx` responses: only bodies core
+ * built go out. Anything else reached it through Fastify's fallback (a hook
+ * threw while an error reply was being sent) and is replaced with the
+ * masked standard body ({@link unbuiltErrorBody}).
+ *
+ * @param log - Where an unbuilt payload is logged.
+ * @returns Payload to JSON string.
+ */
+function errorSerializerFor(
+  log: Pick<CatalogRouteLogger, 'error'>,
+): (payload: unknown) => string {
+  return (payload) =>
+    JSON.stringify(
+      isBuiltErrorBody(payload)
+        ? errorBodySchema.parse(payload)
+        : unbuiltErrorBody(payload, log),
+    );
+}
+
+/**
  * Fastify route schema for an entry. Every entry's `4xx`/`5xx` responses
  * use the error body; `2xx` is checked for JSON entries only.
  *
@@ -75,7 +97,8 @@ function routeSchema(entry: CatalogEntry): FastifySchema {
 /**
  * Send a handler result. An error result's body goes out as JSON, and the
  * scope's `preSerialization` hook rebuilds it from the status (Fastify's
- * body, a 5xx masked and logged), like every other error reply.
+ * body; a 5xx keeps its message and is logged), like every other error
+ * reply.
  *
  * @param entry - Catalog entry.
  * @param result - Handler result.
@@ -113,12 +136,30 @@ function send(
  * strict response mismatch, an error result, a reply one of the app's hooks
  * sends for a catalog route) is answered in Fastify's body,
  * `{ statusCode, code?, error, message }`, rebuilt from the reply status,
- * with 5xx messages masked and logged; the app's own error handler is not
- * consulted (spec 5c.5). Pre-serialized JSON text is parsed and treated like
- * an object; other text, a stream, a web `Response` with an error status or
+ * every 5xx logged; the app's own error handler is not consulted (spec
+ * 5c.5). A thrown error made by a `defineError` class keeps its status,
+ * `message`, `code` and allowlisted headers (`Retry-After`,
+ * `WWW-Authenticate`, `Allow`), and so does a 4xx whose `code` begins
+ * `FST_ERR_` (Fastify's naming convention for its own errors); every other
+ * thrown error is a 500 with the generic
+ * message, no `code` and none of its headers (spec 5d.1). An error result
+ * or a standard body a hook sends keeps its status, `message` and `code`;
+ * raw text, a stream, no body or a response mismatch gets the generic
+ * message on a 5xx. Pre-serialized JSON text is parsed and treated like an
+ * object; other text, a stream, a web `Response` with an error status or
  * no body gets the standard body. Routes outside the scope are untouched.
- * The error's (or error result's) headers are applied, except body headers
- * and any Node would reject.
+ * An error result's headers (and a trusted error's allowlisted ones) are
+ * applied, except body headers and any Node would reject; headers already
+ * on the reply are left alone. The routes' error serializer sends only
+ * bodies core built: when one of the app's hooks throws again while an
+ * error reply is being sent, Fastify's own default error handler first
+ * applies that hook error's status and `headers` to the reply, then its
+ * fallback hands the raw error to the serializer, which sends the masked
+ * standard body for that status instead (a 4xx's status text or the
+ * generic 5xx message, no `code`) and logs the error as
+ * `Error reply masked (a hook failed while it was sent)`. Core masks only
+ * the body: the status and headers stay the hook error's, so hooks must
+ * not throw errors carrying headers or internal statuses.
  *
  * Auth isn't enforced here: register the component's auth hook on the root
  * app before calling this, so it applies to the catalog routes.
@@ -150,13 +191,17 @@ export async function registerCatalogRoutes<C extends Catalog>(
     (scope) =>
       new Promise<void>((resolve) => {
         scope.setValidatorCompiler(validatorCompiler);
+        // Chosen by the response key (Fastify passes it lower-cased), not
+        // by schema identity: a 2xx entry may use errorBodySchema itself.
         scope.setSerializerCompiler(({ schema, method, url, httpStatus }) =>
-          serializerFor(schema as z.ZodType, mode, (issues) => {
-            (options.logger ?? scope.log).warn(
-              { method, url, httpStatus, issues },
-              'Response validation failed (log mode): sent unparsed',
-            );
-          }),
+          httpStatus === '4xx' || httpStatus === '5xx'
+            ? errorSerializerFor(options.logger ?? scope.log)
+            : serializerFor(schema as z.ZodType, mode, (issues) => {
+                (options.logger ?? scope.log).warn(
+                  { method, url, httpStatus, issues },
+                  'Response validation failed (log mode): sent unparsed',
+                );
+              }),
         );
         scope.setErrorHandler(errorHandlerFor(options.logger));
         // The one choke point for error bodies (spec 5c.1): every error

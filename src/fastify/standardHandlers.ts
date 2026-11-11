@@ -9,7 +9,11 @@ import type { ConfigApplyHandler } from '../api/configApplyHandler.js';
 import type { ConfigQueryHandler } from '../api/configQuery.js';
 import type { StatusHandler } from '../api/statusHandler.js';
 import type { CatalogEntry } from '../catalog/types.js';
-import type { CatalogHandler, HandlerResult } from './types.js';
+import type {
+  CatalogHandler,
+  HandlerResult,
+  RegisterErrorHandlersOptions,
+} from './types.js';
 
 /** Core's existing standard handlers. */
 export interface StandardHandlerSources {
@@ -20,6 +24,14 @@ export interface StandardHandlerSources {
   /** From `createConfigApplyHandler`. */
   configApply: ConfigApplyHandler;
 }
+
+/**
+ * Options for `standardHandlers`: `logger`, where status and config apply
+ * log their failures (only `error` is called; default the request's Fastify
+ * logger). The same shape as `registerErrorHandlers`' options, so one object
+ * can be passed to both.
+ */
+export type StandardHandlersOptions = RegisterErrorHandlersOptions;
 
 /** Catalog handlers for the three `standardEntries`. */
 export interface StandardCatalogHandlers {
@@ -50,23 +62,35 @@ const asResult = (result: {
  * Catalog handlers for the three `standardEntries`, from core's existing
  * handlers: spread them into the handlers passed to `registerCatalogRoutes`.
  *
+ * @remarks
+ * Config apply's failures and warning, and status's `health.error` when the
+ * health check throws, are caller-facing text only; the underlying error
+ * (and the config file path) is logged to `options.logger`, else the
+ * request's Fastify logger (spec 5d.2, 5d.3). Pass the same `logger` as to
+ * `registerCatalogRoutes` when the app was created with `logger: false`.
+ *
  * @param sources - The existing status, config query and config apply
  *   handlers.
+ * @param options - Where status and config apply log their failures (only
+ *   `error` is called). Default: the request's Fastify logger.
  * @returns Handlers keyed `status`, `config` and `configApply`.
  */
 export function standardHandlers(
   sources: StandardHandlerSources,
+  options: StandardHandlersOptions = {},
 ): StandardCatalogHandlers {
   return {
-    status: async () => asResult(await sources.status()),
+    status: async (_input, request) =>
+      asResult(await sources.status(options.logger ?? request.log)),
     config: async ({ query }) =>
       asResult(
         await sources.config({ path: (query as { path?: string }).path }),
       ),
-    configApply: async ({ body }) =>
+    configApply: async ({ body }, request) =>
       asResult(
         await sources.configApply(
           body as unknown as Parameters<ConfigApplyHandler>[0],
+          options.logger ?? request.log,
         ),
       ),
   };
