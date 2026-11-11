@@ -80,7 +80,7 @@ Upgrading from v0.x? See the [migration guide](guides/migrating-to-v1.md). Upgra
 | `@karmaniverous/jeeves` | Plugin SDK, CLI support, managed content, service helpers, script helpers | - |
 | `@karmaniverous/jeeves/catalog` | Endpoint catalog: `defineCatalog`, `standardEntries`, `queryArray`, `createCatalogClient`, request building, tool definitions | - |
 | `@karmaniverous/jeeves/openapi` | `buildOpenApiDocument`, `writeOpenApiDocument`, `checkOpenApiDrift` | `zod-openapi` |
-| `@karmaniverous/jeeves/fastify` | `registerCatalogRoutes`, `registerOpenApiRoute`, `standardHandlers` | `fastify` (types only; your app supplies its instance) |
+| `@karmaniverous/jeeves/fastify` | `registerCatalogRoutes`, `registerOpenApiRoute`, `standardHandlers`, `registerErrorHandlers`, `errorBody` | `fastify` (types only; your app supplies its instance) |
 
 The packages under **Needs** are optional peers: install them in the project that imports that entry point. The root and `/catalog` need none of them, so a catalog client (e.g. a component SDK built on `createCatalogClient`) installs no web server or OpenAPI library. `/fastify` uses `fastify` only for types and validates requests itself, so it needs nothing at run time beyond this package and `zod`, even from a global install a service shares with the `jeeves` CLI. `/openapi` runs where you build the document, usually with `zod-openapi` as a dev dependency.
 
@@ -88,7 +88,7 @@ The packages under **Needs** are optional peers: install them in the project tha
 
 A component can describe its HTTP API once, as a catalog of entries (method, path, Zod schemas for params, query, body and response, an `auth` description and a `kind`). From that one catalog:
 
-- `registerCatalogRoutes` registers the Fastify routes with request validation and checked responses (`responseValidation: 'strict'` by default, or `'log'` while migrating);
+- `registerCatalogRoutes` registers the Fastify routes with request validation and checked responses (`responseValidation: 'strict'` by default, or `'log'` while migrating), answering every error in Fastify's standard body `{ statusCode, code?, error, message }` with 5xx messages masked ([Errors](guides/endpoint-catalog.md#errors));
 - `writeOpenApiDocument` and `checkOpenApiDrift` keep a committed OpenAPI 3.1 document in step;
 - `createCatalogClient` gives a typed client with one method per entry;
 - `createPluginToolset` builds plugin tools for the entries you select.
@@ -516,6 +516,7 @@ Marked `@deprecated` in 0.8.0 and removed in 4.0.0:
 
 - [Platform Overview](https://docs.karmanivero.us/jeeves/documents/Platform_Overview.html) — architecture, components, design philosophy
 - [Managed Content System](https://docs.karmanivero.us/jeeves/documents/Managed_Content_System.html) — static content, markers, budgets, `jeeves install`
+- [Migrating to 0.10](guides/migrating-to-0.10.md) — Fastify's standard error body for every catalog error: 400, 500 and config handler bodies, the client's `code` and `message`
 - [Migrating to v1](guides/migrating-to-v1.md) — what was removed and what replaces it
 - [Migrating to 0.8](guides/migrating-to-0.8.md) — the endpoint catalog, new plugin options, behaviour corrections and deprecations
 - [Adopting the Endpoint Catalog](guides/endpoint-catalog.md) — catalog, routes, OpenAPI, client and plugin tools, step by step

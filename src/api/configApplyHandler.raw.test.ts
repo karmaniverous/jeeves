@@ -127,9 +127,13 @@ describe('createConfigApplyHandler raw file handling', () => {
         const result = await handler({ patch: { port: 2000 } });
 
         expect(result.status).toBe(500);
-        expect((result.body as { error: string }).error).toContain(
-          'Could not read config file',
-        );
+        expect(result.body).toEqual({
+          statusCode: 500,
+          error: 'Internal Server Error',
+          message: expect.stringMatching(
+            /^Could not read config file .+config\.json: ./,
+          ) as unknown,
+        });
         expect(readFileSync(configPath(), 'utf-8')).toBe(original);
       },
     );

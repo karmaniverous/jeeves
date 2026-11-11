@@ -11,6 +11,11 @@
 
 import { JSONPath } from 'jsonpath-plus';
 
+import { errorBody } from './errorBody.js';
+
+/** Code of the 400 sent for an invalid JSONPath. */
+export const JEEVES_CONFIG_QUERY_INVALID = 'JEEVES_CONFIG_QUERY_INVALID';
+
 /** Response shape for config query results. */
 export interface ConfigQueryResponse {
   /** HTTP status code. */
@@ -36,6 +41,9 @@ export type ConfigQueryHandler = (query: {
  * - No `path` parameter → returns the full config document.
  * - Valid JSONPath → returns matching results with count.
  * - Invalid JSONPath → returns 400 error.
+ *
+ * The 400 is Fastify's error body ({@link errorBody}) with code
+ * {@link JEEVES_CONFIG_QUERY_INVALID}.
  *
  * @param getConfig - Function that returns the current config object.
  * @returns A config query handler function.
@@ -63,7 +71,10 @@ export function createConfigQueryHandler(
       });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Query failed';
-      return Promise.resolve({ status: 400, body: { error: message } });
+      return Promise.resolve({
+        status: 400,
+        body: errorBody(400, message, JEEVES_CONFIG_QUERY_INVALID),
+      });
     }
   };
 }

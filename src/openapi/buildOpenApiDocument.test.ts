@@ -139,8 +139,20 @@ describe('buildOpenApiDocument', () => {
         expect(o.responses.default.content['application/json'].schema).toEqual({
           $ref: '#/components/schemas/ErrorBody',
         });
-    expect(doc.components?.schemas?.ErrorBody).toMatchObject({
-      required: ['error'],
+    expect(doc.components?.schemas?.ErrorBody).toEqual({
+      type: 'object',
+      properties: {
+        statusCode: {
+          type: 'integer',
+          minimum: Number.MIN_SAFE_INTEGER,
+          maximum: Number.MAX_SAFE_INTEGER,
+        },
+        code: { type: 'string' },
+        error: { type: 'string' },
+        message: { type: 'string' },
+      },
+      required: ['statusCode', 'error', 'message'],
+      additionalProperties: false,
     });
   });
 

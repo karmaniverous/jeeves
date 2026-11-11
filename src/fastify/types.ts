@@ -8,7 +8,6 @@ import type { FastifyRequest } from 'fastify';
 import type { z } from 'zod';
 
 import type { ErrorBody } from '../catalog/errorBody.js';
-import type { RequestSlot } from '../catalog/schemaHelpers.js';
 import type { Catalog, CatalogEntry, IsJsonEntry } from '../catalog/types.js';
 
 /** Successful HTTP status codes a handler may return. */
@@ -74,9 +73,23 @@ export interface RequestInput<E extends CatalogEntry> {
 export type ResponseHeaders = Record<string, string>;
 
 /**
+ * What a handler puts in an error result: the {@link ErrorBody} fields the
+ * status doesn't determine. Route registration completes the body from the
+ * status (`statusCode`, `error`), so a full `ErrorBody` fits too.
+ */
+export type HandlerErrorBody = Pick<ErrorBody, 'code' | 'message'>;
+
+/**
  * What a handler returns: a success status with the entry's response, or an
- * error status with an {@link ErrorBody}. Non-JSON entries return bytes,
- * text or a stream on success.
+ * error status with a {@link HandlerErrorBody}. Non-JSON entries return
+ * bytes, text or a stream on success.
+ *
+ * @remarks
+ * An error result is sent as Fastify's body,
+ * `{ statusCode, code?, error, message }`, always JSON (body headers such as
+ * `content-type` in its `headers` are ignored, and a header Node would
+ * reject, e.g. one echoing a CRLF from a path parameter, is skipped); on a
+ * 5xx the `message` is logged and replaced with a generic one (spec 5c.5).
  */
 export type HandlerResult<E extends CatalogEntry> =
   | {
@@ -92,8 +105,8 @@ export type HandlerResult<E extends CatalogEntry> =
   | {
       /** Error status. */
       status: ErrorStatus;
-      /** Error body. */
-      body: ErrorBody;
+      /** Error message and code. */
+      body: HandlerErrorBody;
       /** Extra response headers. */
       headers?: ResponseHeaders;
     };
@@ -109,47 +122,42 @@ export type CatalogHandlers<C extends Catalog> = {
   [E in C['entries'][number] as E['name']]: CatalogHandler<E>;
 };
 
-/** One request-validation problem. */
-export interface CatalogValidationIssue {
-  /** Which part of the request was invalid. */
-  slot: RequestSlot;
-  /** Path to the invalid value within that part. */
-  path: string[];
-  /** Zod issue code. */
-  code: string;
-  /** Human-readable message. */
-  message: string;
-  /** The Zod issue's other fields (e.g. `expected`, `minimum`, `keys`). */
-  params: Record<string, unknown>;
-}
-
 /** Where catalog routes log, when not Fastify's own logger (pino-compatible). */
 export interface CatalogRouteLogger {
-  /** Logs a `'log'`-mode response mismatch. */
+  /** Logs a `'log'`-mode response mismatch (an error body without a `message` included). */
   warn: (details: object, message: string) => void;
-  /** Logs a `'strict'`-mode response mismatch. */
+  /** Logs a `'strict'`-mode response mismatch and the cause of every 5xx. 4xx errors are not logged. */
   error: (details: object, message: string) => void;
 }
 
-/** Options for `registerCatalogRoutes`. */
-export interface RegisterCatalogRoutesOptions {
+/** Options for `registerErrorHandlers`. */
+export interface RegisterErrorHandlersOptions {
   /**
-   * Body for a 400 reply to an invalid request. Default
-   * `{ error: 'Request validation failed', issues }`.
+   * Where the cause of a 5xx is logged (only `error` is called). Default:
+   * Fastify's logger, which logs nothing when the app was created with
+   * `logger: false`.
    */
-  formatValidationError?: (
-    issues: CatalogValidationIssue[],
-    request: FastifyRequest,
-  ) => ErrorBody;
+  logger?: Pick<CatalogRouteLogger, 'error'>;
+}
+
+/** Options for `registerCatalogRoutes`. */
+export interface RegisterCatalogRoutesOptions extends RegisterErrorHandlersOptions {
   /**
    * What a response that doesn't match its schema does: `'strict'`
    * (default) logs at `error` and replies 500; `'log'` logs at `warn` and
    * sends the handler's body unchanged.
+   *
+   * @remarks
+   * Error bodies (any 4xx/5xx reply on a catalog route, a hook's included)
+   * are always rebuilt from the reply status, a 5xx masked, in both modes.
+   * One without a string `message` is a mismatch in `'strict'` mode; in
+   * `'log'` mode it is sent with the status's generic message.
    */
   responseValidation?: 'strict' | 'log';
   /**
-   * Where response mismatches are logged. Default: Fastify's logger, which
-   * logs nothing when the app was created with `logger: false`.
+   * Where response mismatches and the causes of 5xx replies are logged.
+   * Default: Fastify's logger, which logs nothing when the app was created
+   * with `logger: false`.
    */
   logger?: CatalogRouteLogger;
 }

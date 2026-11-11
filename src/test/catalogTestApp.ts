@@ -19,6 +19,7 @@ import { z } from 'zod';
 
 import { createConfigApplyHandler } from '../api/configApplyHandler.js';
 import { createConfigQueryHandler } from '../api/configQuery.js';
+import { errorBody } from '../api/errorBody.js';
 import { createStatusHandler } from '../api/statusHandler.js';
 import { defineCatalog } from '../catalog/defineCatalog.js';
 import { queryArray } from '../catalog/queryArray.js';
@@ -152,7 +153,13 @@ export const testHandlers: CatalogHandlers<typeof testCatalog> = {
   getThing: ({ params, query }) =>
     Promise.resolve(
       params.id === 'missing'
-        ? { status: 404, body: { error: 'Not found' } }
+        ? {
+            status: 404,
+            body: {
+              message: 'Thing missing not found',
+              code: 'ACME_NOT_FOUND',
+            },
+          }
         : {
             status: 200,
             body: {
@@ -209,7 +216,7 @@ export async function buildTestApp(
         protectedRoutes.has(route) &&
         request.headers.authorization !== `Bearer ${TEST_KEY}`
       )
-        await reply.status(401).send({ error: 'Unauthorized' });
+        await reply.status(401).send(errorBody(401, 'Missing or wrong key'));
     });
   }
   await registerCatalogRoutes(app, testCatalog, testHandlers, routeOptions);

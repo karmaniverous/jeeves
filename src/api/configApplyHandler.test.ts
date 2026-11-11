@@ -7,7 +7,10 @@ import { z } from 'zod';
 
 import { init, registerComponentConfigPath, resetInit } from '../init';
 import { makeTestDescriptor } from '../test/makeTestDescriptor';
-import { createConfigApplyHandler } from './configApplyHandler';
+import {
+  createConfigApplyHandler,
+  JEEVES_CONFIG_INVALID,
+} from './configApplyHandler';
 
 const testSchema = z.object({
   port: z.number().int().positive().default(1936),
@@ -105,12 +108,52 @@ describe('createConfigApplyHandler', () => {
   it('should reject invalid config patches', async () => {
     const handler = createConfigApplyHandler(makeDescriptor());
     const result = await handler({
-      patch: { port: -1 },
+      patch: { port: -1, debug: 'yes' },
     });
 
-    expect(result.status).toBe(400);
-    const body = result.body as Record<string, unknown>;
-    expect(body.error).toContain('validation failed');
+    expect(result).toEqual({
+      status: 400,
+      body: {
+        statusCode: 400,
+        code: JEEVES_CONFIG_INVALID,
+        error: 'Bad Request',
+        message:
+          'Config validation failed: port: Too small: expected number to be >0; debug: Invalid input: expected boolean, received string',
+      },
+    });
+  });
+
+  it('deep-merges nested objects into the raw file', async () => {
+    const existingPath = join(configDir, 'jeeves-watcher', 'config.json');
+    writeFileSync(
+      existingPath,
+      JSON.stringify({ port: 1936, nested: { a: 1, b: 1 } }),
+    );
+    const handler = createConfigApplyHandler(makeDescriptor());
+    const result = await handler({ patch: { nested: { b: 2 } } });
+    expect(result.status).toBe(200);
+    expect(JSON.parse(readFileSync(existingPath, 'utf-8'))).toEqual({
+      port: 1936,
+      nested: { a: 1, b: 2 },
+    });
+  });
+
+  it('answers 500 in the error body when the write fails', async () => {
+    const handler = createConfigApplyHandler(
+      makeDescriptor(),
+      join(testDir, 'no-such-dir', 'config.json'),
+    );
+    const result = await handler({ patch: { port: 2000 } });
+    expect(result).toEqual({
+      status: 500,
+      body: {
+        statusCode: 500,
+        error: 'Internal Server Error',
+        message: expect.stringMatching(
+          /^Failed to write config: ENOENT/,
+        ) as unknown,
+      },
+    });
   });
 
   it('should call onConfigApply with merged config', async () => {
@@ -184,9 +227,16 @@ describe('createConfigApplyHandler', () => {
       patch: { debug: true },
     });
 
-    expect(result.status).toBe(400);
-    const body = result.body as Record<string, unknown>;
-    expect(body.error).toContain('validation failed');
+    expect(result).toEqual({
+      status: 400,
+      body: {
+        statusCode: 400,
+        code: JEEVES_CONFIG_INVALID,
+        error: 'Bad Request',
+        message:
+          'Config validation failed: port: Too small: expected number to be >0',
+      },
+    });
   });
 
   it('should not call customMerge when replace is true', async () => {

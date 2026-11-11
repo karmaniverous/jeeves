@@ -6,21 +6,16 @@
  * that `/fastify` used, so the entry point loads nothing at run time beyond
  * jeeves and `zod`, wherever core is installed. Entries keep the shape
  * Fastify's default error formatter reads (`instancePath`, `keyword`,
- * `message`, `params`), so a validation error that reaches the app's own
- * error handler still has Fastify's usual message.
+ * `message`, `params`), so the 400 is Fastify's own validation error
+ * (`FST_ERR_VALIDATION`, with Fastify's usual message; spec 5c.3).
  *
  * @module
  */
 
 import type { z } from 'zod';
 
-/** Marks the entries this module's validator returns. */
-const MARK = Symbol('jeeves.catalogValidationEntry');
-
 /** One request-validation failure, as Fastify carries it on the error. */
 export interface ValidationEntry {
-  /** Marker distinguishing these entries from other validators'. */
-  [MARK]: true;
   /** The Zod issue's code. */
   keyword: string;
   /** JSON pointer to the failing value, e.g. `/a/0`. */
@@ -44,7 +39,6 @@ function entriesOf(issues: z.core.$ZodIssue[]): ValidationEntry[] {
     const { path, code, message, ...params } = issue;
     const pointer = path.map(String).join('/');
     return {
-      [MARK]: true,
       keyword: code,
       instancePath: `/${pointer}`,
       schemaPath: `#/${pointer}/${code}`,
@@ -68,22 +62,4 @@ export function validatorCompiler({ schema }: { schema: unknown }) {
       ? { value: result.data }
       : { error: entriesOf(result.error.issues) };
   };
-}
-
-/**
- * Whether an error is a request-validation error from
- * {@link validatorCompiler}.
- *
- * @param error - Any thrown value.
- * @returns True when its `validation` entries are this module's.
- */
-export function isCatalogValidationError(
-  error: unknown,
-): error is { validation: ValidationEntry[]; validationContext: string } {
-  if (typeof error !== 'object' || error === null) return false;
-  const { validation } = error as { validation?: unknown };
-  return (
-    Array.isArray(validation) &&
-    (validation[0] as Partial<ValidationEntry> | null)?.[MARK] === true
-  );
 }

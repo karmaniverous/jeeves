@@ -159,12 +159,51 @@ await registerCatalogRoutes(app, catalog, {
 registerOpenApiRoute(app, openApiDocument);
 ```
 
-- **Handlers** get `{ params, query, body }` (parsed by the catalog schemas) and the Fastify request, and return `{ status, body, headers? }`. A missing or extra handler is a type error. Errors return a 4xx/5xx status with an `{ error: string, ... }` body.
+- **Handlers** get `{ params, query, body }` (parsed by the catalog schemas) and the Fastify request, and return `{ status, body, headers? }`. A missing or extra handler is a type error. Errors return a 4xx/5xx status with a `{ message, code? }` body, or throw (see [Errors](#errors)).
 - **Auth hook order.** The routes are registered in an encapsulated Fastify plugin, so add your auth hook to the root app **before** `registerCatalogRoutes`. Test it: each protected entry without credentials gets 401; each `'none'` entry doesn't.
-- **Invalid requests** get 400 with `{ error: 'Request validation failed', issues }`. Pass `formatValidationError` to return your own body (the watcher keeps its `code` field). Each issue has `slot`, `path`, `code`, `message` and `params`, the Zod issue's other fields (`minimum`, `expected`, `keys`, ...).
-- **Responses are checked** against the entry's `response` schema (and the error schema for 4xx/5xx). With `responseValidation: 'strict'`, the default, a mismatch is logged at `error` and replaced with 500 `{ code: 'internal_error', error: 'Response validation failed' }`. Zod also drops object keys a schema doesn't name, so **name every field, or use `z.looseObject`**. Mismatches are logged through Fastify's logger; if your app runs Fastify with `logger: false` and logs elsewhere, pass `logger` (anything with pino-style `warn(details, message)` and `error(details, message)`). While migrating, pass `responseValidation: 'log'`: a mismatch is logged at `warn` and the handler's body is sent unchanged. Add a test that each serialised response equals the handler's body, then switch to `'strict'`.
-- **Other errors** a handler throws go to your app's own error handler, and its reply is sent as you wrote it: objects as JSON, strings unchanged, without the catalog's response check.
+- **Invalid requests** get Fastify's own 400: `code: 'FST_ERR_VALIDATION'` and a `message` such as `body/name Too small: expected string to have >=1 characters`.
+- **Responses are checked** against the entry's `response` schema (and the error schema for 4xx/5xx). With `responseValidation: 'strict'`, the default, a mismatch is logged at `error` and replaced with a 500 whose `code` is `JEEVES_RESPONSE_VALIDATION`. Zod also drops object keys a schema doesn't name, so **name every field, or use `z.looseObject`**. Mismatches are logged through Fastify's logger; if your app runs Fastify with `logger: false` and logs elsewhere, pass `logger` (anything with pino-style `warn(details, message)` and `error(details, message)`). While migrating, pass `responseValidation: 'log'`: a mismatch is logged at `warn` and the handler's body is sent unchanged. Add a test that each serialised response equals the handler's body, then switch to `'strict'`.
 - **Registration errors** (for example a route your app already declared) reject the `registerCatalogRoutes` promise.
+
+### Errors
+
+Every non-2xx response from a catalog route is exactly Fastify's default error body, nothing more:
+
+```json
+{
+  "statusCode": 409,
+  "code": "RUNNER_JOB_EXISTS",
+  "error": "Conflict",
+  "message": "Job j1 already exists"
+}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `statusCode` | The HTTP status. |
+| `code` | Machine-readable code: Fastify's own (`FST_ERR_*`) or your service's. Present on Fastify's errors and on every deliberate error made with a code; absent otherwise (an unexpected crash that declares no status, whatever its own `code`, Fastify's unknown-route 404, an error sent without one). Clients must tolerate its absence. |
+| `error` | The standard status text (`Bad Request`, `Conflict`, ...). |
+| `message` | Human-readable. On every 5xx it is the generic `SERVER_ERROR_MESSAGE`; the cause is logged, never sent. |
+
+- **Throw deliberate errors made with `@fastify/error`'s `createError`**, with an upper-case code in Fastify's style, never a plain `Error`:
+
+  ```ts
+  import createError from '@fastify/error';
+
+  const JobExists = createError(
+    'RUNNER_JOB_EXISTS',
+    'Job %s already exists',
+    409,
+  );
+  throw new JobExists(id);
+  ```
+
+  Or return `{ status: 409, body: { message, code } }` from the handler; the route adds `statusCode` and `error`.
+
+- **Clients branch on `code`**, never on `message`.
+- **The catalog scope answers every error itself.** A thrown error's `statusCode` (or, when it has none, its `status`) is used when it is 400 to 599, else the reply is 500; a 4xx keeps its `message` and `code`; a 5xx keeps its `code` only when the error declares its status (a `createError` error does; a crash such as an `ENOENT` doesn’t, so system codes never reach the client), its `message` is replaced and the error is logged (through `logger`, else Fastify's logger). The error's `headers` (string, number or string-array values, so several `set-cookie` values are kept) are applied, as Fastify does, so a thrown 429 or 503 can carry `Retry-After`. Body headers (`content-type`, `content-encoding`, `content-length`, `transfer-encoding`) are never applied, and a name or value Node would reject (a CRLF, say, perhaps from a path parameter) is skipped and logged at `debug`, so the reply still comes from the scope. The same applies to an error result's `headers`. Set the status on the error, not the reply: `reply.code(401)` followed by a throw, or `reply.code(401).send(new Error(...))`, is answered as a 500. 4xx errors are not logged. Your app's own error handler is not consulted for catalog routes. `registerErrorHandlers(app, { logger? })` gives your other routes the same handling.
+- **Error replies on catalog routes are rebuilt from the reply status**: a handler result, the scope's error handler, or a reply one of your hooks sends (root `onRequest`, `preHandler`, ...). Routes outside the catalog scope, siblings in the same plugin included, are never touched. `statusCode` and `error` come from the status, a string `code` is kept, other fields are dropped, and a 5xx's `message` is replaced with the generic one and logged, in `'strict'` and `'log'` mode alike. So send `errorBody(status, message, code?)` (exported from `/fastify`), or throw a `createError` error. A body without a string `message` (0.9's `{ error: 'Unauthorized' }`) is not repaired: in `'strict'` mode it becomes the mismatch 500 (issues logged); in `'log'` mode it goes out with the status text as its `message` and a warning is logged. A string or bytes sent with a JSON content type (pre-serialized JSON, e.g. `JSON.stringify(errorBody(...))`) is parsed and treated exactly like the object; other text, or JSON text that doesn't parse, under an error status is replaced with the standard JSON body: a 4xx keeps the text as its `message`, a 5xx is masked and its text logged. A stream, a web `Response` whose own status is an error, or no body gets the standard body with the status text; the stream or the `Response` body is cancelled unread. This applies to every entry, JSON or not. Your root `onSend` hooks run before the scope's, so one that transforms payloads (`@fastify/compress`, say) sees the unreplaced body; register such plugins inside your own non-catalog scope.
+- **Core's codes:** `FST_ERR_VALIDATION` (Fastify's, invalid request), `JEEVES_RESPONSE_VALIDATION` (response mismatch), `JEEVES_CONFIG_INVALID` (`/config/apply` patch fails the config schema; the issues are in `message`), `JEEVES_CONFIG_QUERY_INVALID` (`/config` JSONPath invalid).
 
 ## 6. Client
 
@@ -179,7 +218,7 @@ const client = createCatalogClient(catalog, {
 const { hits } = await client.search({ query: 'invoices', limit: 5 });
 ```
 
-One method per entry, taking the merged `params`/`query`/`body` input (optional when no field is required) and returning the parsed response. A `z.looseObject` body also sends input fields no slot names; a `z.strictObject` body rejects them before sending. Credentials attach only to entries whose `auth` lists a scheme of the same kind; a lazy secret returning `undefined` attaches nothing. Failures throw `CatalogClientError`: `status` 0 with `issues` for invalid input, the HTTP status and parsed error `body` for non-2xx, `status` 0 with `cause` for network errors, timeouts (including while the body is arriving), malformed JSON and a failing credential resolver. An error built from a response (non-2xx, or a 2xx body that fails its schema) also carries the response `headers` and `retryAfterMs`, parsed from `Retry-After` (seconds or an HTTP date; absent when missing or unparseable), so an SDK can back off on a 429 or 503. It isn't capped: cap it before passing it to `setTimeout`, which fires delays above about 24.8 days after 1 ms.
+One method per entry, taking the merged `params`/`query`/`body` input (optional when no field is required) and returning the parsed response. A `z.looseObject` body also sends input fields no slot names; a `z.strictObject` body rejects them before sending. Credentials attach only to entries whose `auth` lists a scheme of the same kind; a lazy secret returning `undefined` attaches nothing. Failures throw `CatalogClientError`: `status` 0 with `issues` for invalid input, the HTTP status, parsed error `body` and its `code` for non-2xx (the error's `message` is the body's `message`, or its `error` when that is empty; a body that isn't Fastify's is kept as `message`), `status` 0 with `cause` for network errors, timeouts (including while the body is arriving), malformed JSON and a failing credential resolver. An error built from a response (non-2xx, or a 2xx body that fails its schema) also carries the response `headers` and `retryAfterMs`, parsed from `Retry-After` (seconds or an HTTP date; absent when missing or unparseable), so an SDK can back off on a 429 or 503. It isn't capped: cap it before passing it to `setTimeout`, which fires delays above about 24.8 days after 1 ms.
 
 ## 7. Plugin tools in `openclaw`
 

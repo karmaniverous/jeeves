@@ -7,6 +7,7 @@
 import type { z } from 'zod';
 
 import type { ErrorBody } from './errorBody.js';
+import { formatIssues } from './formatIssues.js';
 import { retryAfterMs } from './retryAfter.js';
 
 /** What a {@link CatalogClientError} carries. */
@@ -33,6 +34,11 @@ export class CatalogClientError extends Error {
   readonly status: number;
   /** Error body of a non-2xx response. */
   readonly body?: ErrorBody;
+  /**
+   * Machine-readable code from the error body (e.g. `FST_ERR_VALIDATION`);
+   * branch on this, never on `message`.
+   */
+  readonly code?: string;
   /** Zod issues, when validation failed. */
   readonly issues?: z.core.$ZodIssue[];
   /** Headers of the response; absent when none was received (status 0). */
@@ -58,6 +64,7 @@ export class CatalogClientError extends Error {
     this.name = 'CatalogClientError';
     this.status = details.status;
     this.body = details.body;
+    this.code = details.body?.code;
     this.issues = details.issues;
     this.headers = details.headers;
     this.retryAfterMs = retryAfterMs(
@@ -80,11 +87,8 @@ export function invalidInputError(
   entryName: string,
   issues: z.core.$ZodIssue[],
 ): CatalogClientError {
-  const details = issues
-    .map((i) => `${i.path.map(String).join('.') || '(input)'}: ${i.message}`)
-    .join('; ');
   return new CatalogClientError(
-    `Invalid input for "${entryName}": ${details}`,
+    `Invalid input for "${entryName}": ${formatIssues(issues)}`,
     { status: 0, issues },
   );
 }

@@ -306,7 +306,10 @@ describe('tool round trip through the test app', () => {
     const result = await callTool('getThing', { id: 'missing' });
     expect(result).toEqual({
       content: [
-        { type: 'text', text: 'Error: HTTP 404: {"error":"Not found"}' },
+        {
+          type: 'text',
+          text: 'Error: HTTP 404: {"statusCode":404,"code":"ACME_NOT_FOUND","error":"Not Found","message":"Thing missing not found"}',
+        },
       ],
       isError: true,
     });

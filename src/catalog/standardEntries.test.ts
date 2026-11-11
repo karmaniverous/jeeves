@@ -145,10 +145,29 @@ describe('standardEntries', () => {
 });
 
 describe('errorBodySchema', () => {
-  it('requires error and keeps extra fields', () => {
-    const body = { error: 'Config validation failed', issues: [{ path: [] }] };
-    expect(errorBodySchema.parse(body)).toEqual(body);
-    expect(errorBodySchema.safeParse({ message: 'x' }).success).toBe(false);
+  it('is Fastify’s body: code optional, extra fields dropped', () => {
+    const body = {
+      statusCode: 409,
+      code: 'X',
+      error: 'Conflict',
+      message: 'm',
+    };
+    expect(errorBodySchema.parse({ ...body, issues: [] })).toEqual(body);
+    const noCode = { statusCode: 404, error: 'Not Found', message: 'm' };
+    expect(errorBodySchema.parse(noCode)).toEqual(noCode);
+  });
+
+  it.each([
+    ['no statusCode', { error: 'Conflict', message: 'm' }],
+    ['a fractional statusCode', { statusCode: 1.5, error: 'E', message: 'm' }],
+    ['no message', { statusCode: 409, error: 'Conflict' }],
+    ['no error', { statusCode: 409, message: 'm' }],
+    [
+      'a non-string code',
+      { statusCode: 409, code: 1, error: 'Conflict', message: 'm' },
+    ],
+  ])('rejects %s', (_label, body) => {
+    expect(errorBodySchema.safeParse(body).success).toBe(false);
   });
 });
 
