@@ -212,7 +212,7 @@ describe('standardHandlers: config apply and status failures (spec 5d.2, 5d.3)',
         }) as unknown,
       }),
       expect.objectContaining({
-        msg: 'Error reply masked',
+        msg: 'Error reply',
         statusCode: 500,
         code: JEEVES_CONFIG_READ_FAILED,
         message: READ_FAILED.message,
@@ -243,7 +243,7 @@ describe('standardHandlers: config apply and status failures (spec 5d.2, 5d.3)',
           code: JEEVES_CONFIG_WRITE_FAILED,
           message: WRITE_FAILED.message,
         },
-        'Error reply masked',
+        'Error reply',
       ],
     ]);
   });

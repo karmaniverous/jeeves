@@ -447,23 +447,185 @@ describe('registerCatalogRoutes', () => {
       ['status alone', { status: 404 }, 404, 'gone'],
       ['statusCode over status', { statusCode: 409, status: 404 }, 409, 'gone'],
       ['a status below 400', { status: 200 }, 500, SERVER_ERROR_MESSAGE],
-      [
-        'a 5xx status alone, deliberate',
-        { status: 502, code: 'ACME_UPSTREAM' },
-        502,
-        'gone',
-      ],
     ])('honours %s', async (_label, fields, status, message) => {
       const app = await throwing(Object.assign(new Error('gone'), fields));
       const res = await app.inject('/broken');
       expect(res.statusCode).toBe(status);
       expect(res.json()).toEqual({
         statusCode: status,
-        ...('code' in fields ? { code: fields.code } : {}),
         error: STATUS_CODES[status],
         message,
       });
       await app.close();
+    });
+
+    describe('deliberate means its own statusCode, not expose: false (spec 5d.1)', () => {
+      const UPSTREAM =
+        'Unexpected upstream reply from http://qdrant.internal:6333/collections/acme';
+
+      it('a status-only 5xx (Qdrant ApiError, axios): its status, masked, no code, logged once', async () => {
+        const logger = { warn: vi.fn(), error: vi.fn() };
+        const error = Object.assign(new Error(UPSTREAM), {
+          status: 503,
+          code: 'ERR_BAD_RESPONSE',
+        });
+        const app = await throwing(error, { logger });
+        const res = await app.inject('/broken');
+        expect(res.statusCode).toBe(503);
+        expect(res.json()).toEqual({
+          statusCode: 503,
+          error: 'Service Unavailable',
+          message: SERVER_ERROR_MESSAGE,
+        });
+        expect(logger.error).toHaveBeenCalledExactlyOnceWith(
+          { err: error },
+          'Request failed',
+        );
+        await app.close();
+      });
+
+      it('an expose: false 5xx (http-errors): masked, no code, logged once', async () => {
+        const logger = { warn: vi.fn(), error: vi.fn() };
+        const error = Object.assign(
+          new Error('password authentication failed for user "svc"'),
+          { statusCode: 500, expose: false, code: 'EAUTH' },
+        );
+        const app = await throwing(error, { logger });
+        const res = await app.inject('/broken');
+        expect(res.statusCode).toBe(500);
+        expect(res.json()).toEqual({
+          statusCode: 500,
+          error: 'Internal Server Error',
+          message: SERVER_ERROR_MESSAGE,
+        });
+        expect(logger.error).toHaveBeenCalledExactlyOnceWith(
+          { err: error },
+          'Request failed',
+        );
+        await app.close();
+      });
+
+      it('an expose: false 4xx: its status and code, the status text as message, not logged', async () => {
+        const logger = { warn: vi.fn(), error: vi.fn() };
+        const app = await throwing(
+          Object.assign(new Error('token for svc@10.0.0.5 expired'), {
+            statusCode: 401,
+            expose: false,
+            code: 'ACME_AUTH',
+          }),
+          { logger },
+        );
+        const res = await app.inject('/broken');
+        expect(res.statusCode).toBe(401);
+        expect(res.json()).toEqual({
+          statusCode: 401,
+          code: 'ACME_AUTH',
+          error: 'Unauthorized',
+          message: 'Unauthorized',
+        });
+        expect(logger.error).not.toHaveBeenCalled();
+        await app.close();
+      });
+
+      it('an http-errors-like 4xx with expose: true keeps its message', async () => {
+        const app = await throwing(
+          Object.assign(new Error('User u1 not found'), {
+            statusCode: 404,
+            status: 404,
+            expose: true,
+          }),
+        );
+        const res = await app.inject('/broken');
+        expect(res.json()).toEqual({
+          statusCode: 404,
+          error: 'Not Found',
+          message: 'User u1 not found',
+        });
+        await app.close();
+      });
+
+      it.each([
+        ['status 400', { status: 400 }, 400, 'm', 'C'],
+        ['status 499', { status: 499 }, 499, 'm', 'C'],
+        ['status 500', { status: 500 }, 500, SERVER_ERROR_MESSAGE, undefined],
+        ['status 599', { status: 599 }, 599, SERVER_ERROR_MESSAGE, undefined],
+        ['status 600', { status: 600 }, 500, SERVER_ERROR_MESSAGE, undefined],
+        ['statusCode 500', { statusCode: 500 }, 500, 'm', 'C'],
+        ['statusCode 599', { statusCode: 599 }, 599, 'm', 'C'],
+        [
+          'statusCode 503 over status 404',
+          { statusCode: 503, status: 404 },
+          503,
+          'm',
+          'C',
+        ],
+        [
+          'statusCode 600 with status 503',
+          { statusCode: 600, status: 503 },
+          500,
+          SERVER_ERROR_MESSAGE,
+          undefined,
+        ],
+        [
+          "statusCode '503' with status 503",
+          { statusCode: '503', status: 503 },
+          500,
+          SERVER_ERROR_MESSAGE,
+          undefined,
+        ],
+        [
+          'statusCode 599, expose false',
+          { statusCode: 599, expose: false },
+          599,
+          SERVER_ERROR_MESSAGE,
+          undefined,
+        ],
+        [
+          'statusCode 500, expose true',
+          { statusCode: 500, expose: true },
+          500,
+          'm',
+          'C',
+        ],
+        [
+          "statusCode 500, expose 'false' (not false)",
+          { statusCode: 500, expose: 'false' },
+          500,
+          'm',
+          'C',
+        ],
+        [
+          'statusCode 400, expose false',
+          { statusCode: 400, expose: false },
+          400,
+          'Bad Request',
+          'C',
+        ],
+        [
+          'status 499, expose false',
+          { status: 499, expose: false },
+          499,
+          STATUS_CODES[499] ?? 'Error',
+          'C',
+        ],
+      ])(
+        '%s',
+        async (_label, fields, status, message, code: string | undefined) => {
+          const app = await throwing(
+            Object.assign(new Error('m'), { code: 'C' }, fields),
+            { logger: { warn: vi.fn(), error: vi.fn() } },
+          );
+          const res = await app.inject('/broken');
+          expect(res.statusCode).toBe(status);
+          expect(res.json()).toEqual({
+            statusCode: status,
+            ...(code === undefined ? {} : { code }),
+            error: STATUS_CODES[status] ?? 'Error',
+            message,
+          });
+          await app.close();
+        },
+      );
     });
 
     it('applies the error’s headers, as Fastify does', async () => {
@@ -722,7 +884,7 @@ describe('registerCatalogRoutes', () => {
           code: 'WATCHER_EMBEDDING_UNAVAILABLE',
           message: 'Embedding service unavailable; retry shortly',
         },
-        'Error reply masked',
+        'Error reply',
       );
       await app.close();
     });
@@ -751,7 +913,7 @@ describe('registerCatalogRoutes', () => {
       const logged = lines.map((l) => JSON.parse(l) as Record<string, unknown>);
       expect(logged).toEqual([
         expect.objectContaining({
-          msg: 'Error reply masked',
+          msg: 'Error reply',
           statusCode: 503,
           message: 'Busy, retry later',
         }),
@@ -997,7 +1159,7 @@ describe('registerCatalogRoutes', () => {
               code: 'ACME_AUTH_DOWN',
               message: 'Auth service unavailable',
             },
-            'Error reply masked',
+            'Error reply',
           );
           await app.close();
         },
@@ -1190,7 +1352,7 @@ describe('registerCatalogRoutes', () => {
         expect(logger.error).toHaveBeenCalledTimes(1);
         expect(logger.error).toHaveBeenCalledWith(
           { statusCode: 503, code: 'ACME_DOWN', message: 'Store offline' },
-          'Error reply masked',
+          'Error reply',
         );
         await app.close();
       });

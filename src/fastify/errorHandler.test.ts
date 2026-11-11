@@ -1,3 +1,5 @@
+import { STATUS_CODES } from 'node:http';
+
 import createError from '@fastify/error';
 import Fastify from 'fastify';
 import { describe, expect, it, vi } from 'vitest';
@@ -49,7 +51,7 @@ describe('registerErrorHandlers', () => {
     await app.close();
   });
 
-  it('drops the code of a 5xx crash that declares no status', async () => {
+  it('drops the code of a 5xx crash with no error status', async () => {
     const app = await buildApp({ logger: { error: vi.fn() } });
     const res = await app.inject('/enoent');
     expect(res.statusCode).toBe(500);
@@ -61,7 +63,7 @@ describe('registerErrorHandlers', () => {
     await app.close();
   });
 
-  it('keeps the code and message of a 5xx that declares its status, and logs it', async () => {
+  it('keeps the code and message of a 5xx with its own statusCode, and logs it once', async () => {
     const logger = { error: vi.fn() };
     const app = await buildApp({ logger });
     const res = await app.inject('/down');
@@ -72,25 +74,76 @@ describe('registerErrorHandlers', () => {
       error: 'Service Unavailable',
       message: 'Store db1 down',
     });
-    expect(logger.error).toHaveBeenCalledWith(
+    expect(logger.error).toHaveBeenCalledExactlyOnceWith(
       { err: expect.any(Error) as unknown },
       'Request failed',
     );
     await app.close();
   });
 
-  it('keeps the message of a 5xx declared by its status field', async () => {
+  it.each([
+    [
+      'a status-only 5xx (Qdrant ApiError, axios)',
+      {
+        status: 503,
+        code: 'ERR_BAD_RESPONSE',
+        message:
+          'Unexpected upstream reply from http://qdrant.internal:6333/collections/acme',
+      },
+      503,
+    ],
+    [
+      'an expose: false 5xx (http-errors)',
+      {
+        statusCode: 500,
+        expose: false,
+        code: 'EAUTH',
+        message: 'password authentication failed for user "svc"',
+      },
+      500,
+    ],
+  ])(
+    'masks %s: its status, no code, logged once',
+    async (_label, fields, status) => {
+      const logger = { error: vi.fn() };
+      const app = Fastify({ logger: false });
+      registerErrorHandlers(app, { logger });
+      const error = Object.assign(new Error(), fields);
+      app.get('/x', () => {
+        throw error;
+      });
+      const res = await app.inject('/x');
+      expect(res.statusCode).toBe(status);
+      expect(res.json()).toEqual({
+        statusCode: status,
+        error: STATUS_CODES[status],
+        message: SERVER_ERROR_MESSAGE,
+      });
+      expect(logger.error).toHaveBeenCalledExactlyOnceWith(
+        { err: error },
+        'Request failed',
+      );
+      await app.close();
+    },
+  );
+
+  it('sends the status text for an expose: false 4xx, keeping its code', async () => {
     const app = Fastify({ logger: false });
     registerErrorHandlers(app, { logger: { error: vi.fn() } });
     app.get('/x', () => {
-      throw Object.assign(new Error('Upstream refused'), { status: 502 });
+      throw Object.assign(new Error('token for svc@10.0.0.5 expired'), {
+        statusCode: 401,
+        expose: false,
+        code: 'ACME_AUTH',
+      });
     });
     const res = await app.inject('/x');
-    expect(res.statusCode).toBe(502);
+    expect(res.statusCode).toBe(401);
     expect(res.json()).toEqual({
-      statusCode: 502,
-      error: 'Bad Gateway',
-      message: 'Upstream refused',
+      statusCode: 401,
+      code: 'ACME_AUTH',
+      error: 'Unauthorized',
+      message: 'Unauthorized',
     });
     await app.close();
   });

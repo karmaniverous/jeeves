@@ -25,6 +25,14 @@ export interface StandardHandlerSources {
   configApply: ConfigApplyHandler;
 }
 
+/**
+ * Options for `standardHandlers`: `logger`, where status and config apply
+ * log their failures (only `error` is called; default the request's Fastify
+ * logger). The same shape as `registerErrorHandlers`' options, so one object
+ * can be passed to both.
+ */
+export type StandardHandlersOptions = RegisterErrorHandlersOptions;
+
 /** Catalog handlers for the three `standardEntries`. */
 export interface StandardCatalogHandlers {
   /** `GET /status`. */
@@ -69,7 +77,7 @@ const asResult = (result: {
  */
 export function standardHandlers(
   sources: StandardHandlerSources,
-  options: RegisterErrorHandlersOptions = {},
+  options: StandardHandlersOptions = {},
 ): StandardCatalogHandlers {
   return {
     status: async (_input, request) =>

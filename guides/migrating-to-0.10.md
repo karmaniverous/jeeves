@@ -19,24 +19,30 @@ title: Migrating to 0.10.0
 
 Every change below is breaking for a service or client that reads core's 0.9 error bodies.
 
-## After 0.10.0: a deliberate 5xx keeps its message (#167)
+## Since the #167 change: a deliberate 5xx keeps its message
 
-0.10.0 replaced the `message` of **every** 5xx with `SERVER_ERROR_MESSAGE`. From the 0.10 patch release after 0.10.0, only an unexpected crash is masked; a deliberate 5xx's `message` reaches the client, as in Fastify. Wherever the 0.10.0 notes below say a 5xx's message is masked, read this rule. The same line now governs `code` and `message`: declared means deliberate.
+0.10.0 replaced the `message` of **every** 5xx with `SERVER_ERROR_MESSAGE`. Since the #167 change (the release after 0.10.0), only a 5xx that isn't deliberate is masked; a deliberate 5xx's `message` reaches the client, as in Fastify. Wherever the 0.10.0 notes below say a 5xx's message is masked, read this rule. The same line governs `code` and `message`.
+
+**Deliberate**, for a thrown error, means it has its **own integer `statusCode` from 400 to 599** (as `createError` sets it) **and is not marked `expose: false`** (the `http-errors` convention for "don't send my message"). An error carrying only `status` (third-party clients: Qdrant's `ApiError`, axios's `AxiosError`) or marked `expose: false` still sets the reply status from `statusCode`, else `status`, but is treated as a crash: on a 5xx, the generic message and no `code`.
 
 | 5xx source | 0.10.0 | Now |
 | --- | --- | --- |
-| Thrown error that declares its status (`createError`, or `statusCode`/`status` 500 to 599) | message masked, code kept | message and code kept |
-| Thrown error that declares no status (a crash, an `ENOENT`) | 500, masked, no code | unchanged |
+| Thrown error with its own `statusCode` 500 to 599, not `expose: false` (`createError`) | message masked, code kept | message and code kept |
+| Thrown error with only a `status` 500 to 599 (Qdrant `ApiError`, axios) | message masked, code kept | its status, message masked, no code |
+| Thrown error marked `expose: false` with `statusCode` 500 to 599 (`http-errors`) | message masked, code kept | its status, message masked, no code |
+| Thrown error with no error status (a crash, an `ENOENT`) | 500, masked, no code | unchanged |
 | Handler error result `{ status: 503, body: { message, code? } }` | message masked | message kept |
 | Standard error body a hook sends (object, or JSON text, with a string `message`) | message masked | message kept |
 | Raw text, a stream, a web `Response` or no body under a 5xx | masked | unchanged |
 | Strict response mismatch (`JEEVES_RESPONSE_VALIDATION`) | masked | unchanged |
 
+4xx errors are unchanged from 0.10.0: their status comes from `statusCode`, else `status`, and they keep their `message` and `code`, except that a 4xx marked `expose: false` now sends the status text (`Unauthorized`) as its `message` (its `code` is kept).
+
 What to do:
 
-- **Services:** a deliberate 5xx's `message` is now sent, so write it for the caller ("A scan is in progress; retry when it finishes") and keep internals (hosts, paths, driver errors) out of it. To keep a 5xx's text private, throw an error that declares no status (it becomes a masked 500), or log the detail and send a caller-facing message. `registerErrorHandlers` follows the same rule.
+- **Services:** a deliberate 5xx's `message` is now sent, so write it for the caller ("A scan is in progress; retry when it finishes") and keep internals (hosts, paths, driver errors) out of it. **Catch library errors and rethrow a `createError` error** for a caller-facing 5xx: a client library's error that only carries `status` (or is `expose: false`) keeps its status but is masked, so the caller learns nothing beyond the status. To keep a 5xx's text private, throw an error that isn't deliberate, or log the detail and send a caller-facing message. `registerErrorHandlers` follows the same rule.
 - **Clients:** `CatalogClientError.message` is now the service's own text for a deliberate 5xx instead of `SERVER_ERROR_MESSAGE`. Keep branching on `code`.
-- **Logs:** every 5xx is still logged at `error`, with the same messages (`Request failed`, `Error reply masked`) and details as in 0.10.0.
+- **Logs:** every 5xx is still logged at `error`, with the same details as in 0.10.0. A thrown error is logged as `Request failed`. A handler result's or hook's 5xx is logged as `Error reply` when its message is kept and `Error reply masked` when it is masked (0.10.0 logged every one as `Error reply masked`).
 - **Core's config apply 500s** (unreadable config file, failed write) are handler results, so their message is now sent. It is caller-facing, with a code of its own; the config file path and the OS error go to the server log only (spec 5d.2):
 
   | Failure | `code` | `message` |
@@ -79,13 +85,13 @@ What to do:
 
 - **`'log'` mode** still sends a mismatched 2xx body unparsed, but error bodies are always rebuilt as above.
 
-- **5xx log lines:** a handler result's or hook's 5xx is logged at `error` as `Error reply masked` with `{ statusCode, code, message }`; a thrown error as `Request failed` with `{ err }`. 4xx errors are not logged.
+- **5xx log lines:** a handler result's or hook's 5xx is logged at `error` as `Error reply masked` with `{ statusCode, code, message }` (since the #167 change, `Error reply` when its message is kept); a thrown error as `Request failed` with `{ err }`. 4xx errors are not logged.
 
 - **New:** `registerErrorHandlers(app, { logger? })` gives the app's other routes the same handling (Fastify's body, 5xx masked and logged). `errorBody(statusCode, message, code?)`, `SERVER_ERROR_MESSAGE` and `JEEVES_RESPONSE_VALIDATION` are exported from the root and `/fastify`.
 
 ## Core handlers (root)
 
-- **`createConfigApplyHandler`'s 400** is `{ statusCode: 400, code: 'JEEVES_CONFIG_INVALID', error: 'Bad Request', message: 'Config validation failed: a.b: Invalid input: expected number, received string; c: ...' }`, the Zod issues folded into `message`. It was `{ error: 'Config validation failed', issues }`. Its 500s (unreadable file, failed write) are Fastify's body too; through a catalog route their message was masked in 0.10.0; from the next patch it is sent, caller-facing, with the codes `JEEVES_CONFIG_READ_FAILED` and `JEEVES_CONFIG_WRITE_FAILED` (see above).
+- **`createConfigApplyHandler`'s 400** is `{ statusCode: 400, code: 'JEEVES_CONFIG_INVALID', error: 'Bad Request', message: 'Config validation failed: a.b: Invalid input: expected number, received string; c: ...' }`, the Zod issues folded into `message`. It was `{ error: 'Config validation failed', issues }`. Its 500s (unreadable file, failed write) are Fastify's body too; through a catalog route their message was masked in 0.10.0; since the #167 change it is sent, caller-facing, with the codes `JEEVES_CONFIG_READ_FAILED` and `JEEVES_CONFIG_WRITE_FAILED` (see above).
 - **`createConfigQueryHandler`'s 400** for an invalid JSONPath is `{ statusCode: 400, code: 'JEEVES_CONFIG_QUERY_INVALID', error: 'Bad Request', message }`. It was `{ error }`.
 - The codes are exported as `JEEVES_CONFIG_INVALID` and `JEEVES_CONFIG_QUERY_INVALID`.
 

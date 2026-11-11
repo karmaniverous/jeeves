@@ -22,6 +22,7 @@ export { registerOpenApiRoute } from './registerOpenApiRoute.js';
 export {
   type StandardCatalogHandlers,
   standardHandlers,
+  type StandardHandlersOptions,
   type StandardHandlerSources,
 } from './standardHandlers.js';
 export type {

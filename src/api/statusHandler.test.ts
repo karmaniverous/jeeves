@@ -97,6 +97,42 @@ describe('createStatusHandler', () => {
     ]);
   });
 
+  it.each([
+    ['a request-like object', { id: 'req-1' }],
+    ['an object whose error is not a function', { error: 'nope' }],
+    ['null', null],
+  ])(
+    'getHealth throws, called with %s: still degraded, logged to console.error',
+    async (_label, notALogger) => {
+      vi.useFakeTimers();
+      const consoleError = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => undefined);
+      const error = new Error('db locked');
+      const handler = createStatusHandler({
+        name: 'runner',
+        version: '1.0.0',
+        getHealth: () => Promise.reject(error),
+      });
+
+      const result = await handler(notALogger as never);
+
+      expect(result).toEqual({
+        status: 200,
+        body: {
+          name: 'runner',
+          version: '1.0.0',
+          uptime: 0,
+          status: 'degraded',
+          health: { error: 'The health check failed.' },
+        },
+      });
+      expect(consoleError.mock.calls).toEqual([
+        ['Status: the runner health check failed', { err: error }],
+      ]);
+    },
+  );
+
   it('healthy: nothing logged', async () => {
     const handler = createStatusHandler({
       name: 'watcher',

@@ -30,14 +30,14 @@ const ADDED_IN_080 = [
   'valuelessArgs',
 ];
 
-/** Runtime exports 0.10.x adds to the root (#164, #167): name to kind. */
+/** Runtime exports 0.10.0 (#164) and the #167 change add to the root: name to kind. */
 const ADDED_IN_0100 = {
   errorBody: 'function',
   JEEVES_CONFIG_INVALID: 'string',
   JEEVES_CONFIG_QUERY_INVALID: 'string',
   JEEVES_RESPONSE_VALIDATION: 'string',
   SERVER_ERROR_MESSAGE: 'string',
-  // 0.10.x (#167, spec 5d.2).
+  // The #167 change (spec 5d.2).
   JEEVES_CONFIG_READ_FAILED: 'string',
   JEEVES_CONFIG_WRITE_FAILED: 'string',
 } as const;

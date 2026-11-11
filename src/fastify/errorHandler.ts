@@ -6,7 +6,11 @@
 
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
-import { JEEVES_RESPONSE_VALIDATION } from '../api/errorBody.js';
+import {
+  JEEVES_RESPONSE_VALIDATION,
+  SERVER_ERROR_MESSAGE,
+  statusText,
+} from '../api/errorBody.js';
 import {
   errorReplyBody,
   ResponseMismatchError,
@@ -21,45 +25,83 @@ import type {
 interface ThrownFields {
   statusCode?: unknown;
   status?: unknown;
+  expose?: unknown;
   code?: unknown;
   message?: unknown;
   headers?: unknown;
 }
 
 /**
- * The error status a thrown value declares: its `statusCode` (or, when
- * absent, its `status`, as Fastify reads it) when an integer from 400 to
- * 599.
+ * Whether a value is an error status: an integer from 400 to 599.
  *
- * @param thrown - The thrown value's fields.
- * @returns The status, or `undefined` when it declares none (an unexpected
- *   crash, answered as a 500).
+ * @param value - The candidate.
+ * @returns `true` for an error status.
  */
-function declaredStatus({
-  statusCode,
-  status,
-}: ThrownFields): number | undefined {
-  const candidate = statusCode ?? status;
-  return typeof candidate === 'number' &&
-    Number.isInteger(candidate) &&
-    candidate >= 400 &&
-    candidate <= 599
-    ? candidate
-    : undefined;
+function isErrorStatus(value: unknown): value is number {
+  return (
+    typeof value === 'number' &&
+    Number.isInteger(value) &&
+    value >= 400 &&
+    value <= 599
+  );
+}
+
+/** How a thrown value is answered. */
+interface ThrownReply {
+  /**
+   * Reply status: the error's `statusCode` (or, when absent, its `status`,
+   * as Fastify reads it) when an error status, else 500.
+   */
+  status: number;
+  /**
+   * Whether the error is deliberate, so its `message` and `code` were
+   * written for the caller: it has its own error-status `statusCode` (as
+   * `createError` sets it) and is not marked `expose: false` (the
+   * `http-errors` convention).
+   */
+  deliberate: boolean;
 }
 
 /**
- * An error handler answering every error in Fastify's body. An error that
- * declares its status (`statusCode`, or `status`, from 400 to 599; a
- * `createError` error does) is deliberate: it keeps its `message` and
- * `code`, on a 4xx or a 5xx, so a deliberate 5xx's message reaches the
- * client and must be written for the caller, with no internals in it. An
- * error that declares none is an unexpected crash: a 500 with the generic
- * `message` and no `code`, so neither its text nor a system code such as
- * `ENOENT` reaches the client. Every 5xx is logged. The error's `headers`
- * (e.g. `Retry-After`) are applied. A strict response mismatch is a 500
- * with the generic message and code `JEEVES_RESPONSE_VALIDATION`; its Zod
- * issues are logged only.
+ * The one decision on a thrown value (spec 5d.1): its reply status, and
+ * whether it is deliberate. An error carrying only `status` (a third-party
+ * client's, such as Qdrant's `ApiError` or axios's) or marked
+ * `expose: false` sets the status but is not deliberate.
+ *
+ * @param thrown - The thrown value's fields.
+ * @returns The status and whether it is deliberate.
+ */
+function thrownReply({
+  statusCode,
+  status,
+  expose,
+}: ThrownFields): ThrownReply {
+  const candidate = statusCode ?? status;
+  return {
+    status: isErrorStatus(candidate) ? candidate : 500,
+    deliberate: isErrorStatus(statusCode) && expose !== false,
+  };
+}
+
+/**
+ * An error handler answering every error in Fastify's body (spec 5d.1).
+ *
+ * - **Status:** the error's `statusCode`, or when absent its `status`, when
+ *   an integer from 400 to 599; else 500.
+ * - **Deliberate** (its own `statusCode` from 400 to 599, as `createError`
+ *   sets it, and not `expose: false`): keeps its `message` and `code` on a
+ *   4xx or a 5xx, so a deliberate 5xx's message reaches the client and must
+ *   be written for the caller.
+ * - **Not deliberate, 5xx** (no error status, `status` only, or
+ *   `expose: false`): the generic `message` and no `code`, so neither a
+ *   library's text (e.g. an internal URL) nor a system code such as
+ *   `ENOENT` reaches the client.
+ * - **Not deliberate, 4xx:** keeps its `code`, and its `message` unless
+ *   marked `expose: false`, when the message is the status text.
+ *
+ * Every 5xx is logged. The error's `headers` (e.g. `Retry-After`) are
+ * applied. A strict response mismatch is a 500 with the generic message and
+ * code `JEEVES_RESPONSE_VALIDATION`; its Zod issues are logged only.
  *
  * @param logger - Where 5xx causes are logged; default the request's logger.
  * @returns The handler, for `setErrorHandler`.
@@ -75,45 +117,49 @@ export function errorHandlerFor(
     const log = logger ?? request.log;
     if (error instanceof ResponseMismatchError)
       return reply.status(500).send(
-        // Not deliberate: masked, so the mismatch never reaches the client.
         errorReplyBody(
           500,
-          error.message,
+          SERVER_ERROR_MESSAGE,
           JEEVES_RESPONSE_VALIDATION,
-          false,
           log,
           {
-            details: { issues: error.issues },
-            message: 'Response validation failed',
+            deliberate: false,
+            cause: {
+              details: { issues: error.issues },
+              message: 'Response validation failed',
+            },
           },
         ),
       );
     const fields = (
       typeof error === 'object' && error !== null ? error : {}
     ) as ThrownFields;
-    const declared = declaredStatus(fields);
-    const status = declared ?? 500;
+    const { status, deliberate } = thrownReply(fields);
+    const crash = status >= 500 && !deliberate;
+    const hidden = status < 500 && fields.expose === false;
+    const message = typeof fields.message === 'string' ? fields.message : '';
     setErrorHeaders(reply, fields.headers);
-    return reply
-      .status(status)
-      .send(
-        errorReplyBody(
-          status,
-          typeof fields.message === 'string' ? fields.message : '',
-          declared === undefined ? undefined : fields.code,
-          declared !== undefined,
-          log,
-          { details: { err: error }, message: 'Request failed' },
-        ),
-      );
+    return reply.status(status).send(
+      errorReplyBody(
+        status,
+        hidden ? statusText(status) : message,
+        crash ? undefined : fields.code,
+        log,
+        {
+          deliberate,
+          cause: { details: { err: error }, message: 'Request failed' },
+        },
+      ),
+    );
   };
 }
 
 /**
  * Make the app's error handler send Fastify's standard error body, by the
- * catalog's rule: an error that declares its status keeps its `message` and
- * `code` (a deliberate 5xx included); an undeclared crash is a 500 with a
- * generic `message` and no `code`. Every 5xx is logged.
+ * catalog's rule (spec 5d.1): a deliberate error (its own `statusCode` from
+ * 400 to 599, not `expose: false`; a `createError` error) keeps its
+ * `message` and `code`, a 5xx included; any other 5xx gets a generic
+ * `message` and no `code`. Every 5xx is logged.
  *
  * @remarks
  * Catalog routes answer their own errors this way already; this covers the

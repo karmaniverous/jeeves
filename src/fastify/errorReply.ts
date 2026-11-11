@@ -7,16 +7,16 @@
  * @module
  */
 
-import {
-  STATUS_CODES,
-  validateHeaderName,
-  validateHeaderValue,
-} from 'node:http';
+import { validateHeaderName, validateHeaderValue } from 'node:http';
 
 import type { FastifyReply } from 'fastify';
 import { z } from 'zod';
 
-import { errorBody, SERVER_ERROR_MESSAGE } from '../api/errorBody.js';
+import {
+  errorBody,
+  SERVER_ERROR_MESSAGE,
+  statusText,
+} from '../api/errorBody.js';
 import type { ErrorBody } from '../catalog/errorBody.js';
 import { isJsonContentType } from '../catalog/schemaHelpers.js';
 import type { CatalogRouteLogger } from './types.js';
@@ -40,6 +40,20 @@ export interface ErrorCause {
   message: string;
 }
 
+/** How {@link errorReplyBody} treats a reply. */
+interface ErrorReplyOptions {
+  /**
+   * Whether the reply's message was written for the caller; when `false`,
+   * a 5xx's message is masked. A 4xx's message is always kept.
+   */
+  deliberate: boolean;
+  /**
+   * What a 5xx's cause is logged as. Default its status, code and message,
+   * as `Error reply` when kept or `Error reply masked` when masked.
+   */
+  cause?: ErrorCause;
+}
+
 /**
  * Bodies {@link errorReplyBody} built. They already carry their reply's
  * status and masking, so the scope's hooks pass them on unchanged (and a
@@ -48,12 +62,9 @@ export interface ErrorCause {
 const builtBodies = new WeakSet();
 
 /**
- * The `code` an error reply keeps: any string `code`, on a 4xx or a 5xx.
- *
- * @remarks
- * Owner decision pending (review 5853988629 N2): a 5xx keeps a code that
- * isn't a deliberate one too (e.g. Node's `ENOENT`). Narrowing that is a
- * change to this function alone.
+ * The `code` an error reply keeps: any string `code` it is given. Callers
+ * pass none for a reply that must not carry one (a thrown error that is not
+ * deliberate, on a 5xx: spec 5d.1).
  *
  * @param code - The error's `code`.
  * @returns The code sent, or `undefined`.
@@ -66,7 +77,7 @@ function keptCode(code: unknown): string | undefined {
  * The body of an error reply with this status: Fastify's
  * `{ statusCode, code?, error, message }`. Every 5xx's cause is logged at
  * `error`. A 5xx's message is kept when the reply is deliberate (spec 5d.1:
- * a thrown error that declares its status, a handler error result, a
+ * a deliberate thrown error, a handler error result, a
  * standard error body sent from a hook) and replaced with
  * {@link SERVER_ERROR_MESSAGE} otherwise (an undeclared crash, raw text, a
  * stream, a web `Response`, no body, a response mismatch).
@@ -74,27 +85,25 @@ function keptCode(code: unknown): string | undefined {
  * @param status - Reply status (400 to 599).
  * @param message - The error's message.
  * @param code - The error's `code`; kept when a string.
- * @param deliberate - Whether the reply's message was written for the
- *   caller; when `false`, a 5xx's message is masked. A 4xx's message is
- *   always kept.
  * @param log - Where a 5xx's cause is logged.
- * @param cause - What a 5xx's cause is logged as; default its status, code
- *   and message.
+ * @param options - Whether the reply is deliberate, and what a 5xx's cause
+ *   is logged as.
  * @returns The body.
  */
 export function errorReplyBody(
   status: number,
   message: string,
   code: unknown,
-  deliberate: boolean,
   log: Pick<CatalogRouteLogger, 'error'>,
-  cause: ErrorCause = {
-    details: { statusCode: status, code, message },
-    message: 'Error reply masked',
-  },
+  options: ErrorReplyOptions,
 ): ErrorBody {
+  const { deliberate } = options;
   const kept = keptCode(code);
   const masked = status >= 500 && !deliberate;
+  const cause = options.cause ?? {
+    details: { statusCode: status, code, message },
+    message: masked ? 'Error reply masked' : 'Error reply',
+  };
   if (status >= 500) log.error(cause.details, cause.message);
   const body = errorBody(status, masked ? SERVER_ERROR_MESSAGE : message, kept);
   builtBodies.add(body);
@@ -156,7 +165,9 @@ export function normaliseErrorPayload(
   ) as { code?: unknown };
   const parsed = messageSchema.safeParse(payload);
   if (parsed.success)
-    return errorReplyBody(status, parsed.data.message, code, true, log);
+    return errorReplyBody(status, parsed.data.message, code, log, {
+      deliberate: true,
+    });
   if (mode === 'strict') throw new ResponseMismatchError(parsed.error.issues);
   log.warn(
     {
@@ -167,13 +178,9 @@ export function normaliseErrorPayload(
     },
     'Error body has no message (log mode): sent with the generic one',
   );
-  return errorReplyBody(
-    status,
-    STATUS_CODES[status] ?? 'Error',
-    code,
-    false,
-    log,
-  );
+  return errorReplyBody(status, statusText(status), code, log, {
+    deliberate: false,
+  });
 }
 
 /**
@@ -282,13 +289,9 @@ export function rawErrorPayloadBody(
       );
   }
   return JSON.stringify(
-    errorReplyBody(
-      status,
-      text ?? STATUS_CODES[status] ?? 'Error',
-      undefined,
-      false,
-      log,
-    ),
+    errorReplyBody(status, text ?? statusText(status), undefined, log, {
+      deliberate: false,
+    }),
   );
 }
 

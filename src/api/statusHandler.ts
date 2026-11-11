@@ -9,7 +9,7 @@
  * @module
  */
 
-import { consoleHandlerLogger, type HandlerLogger } from './handlerLogger.js';
+import { type HandlerLogger, usableHandlerLogger } from './handlerLogger.js';
 
 /**
  * `health.error` in the degraded reply when the health check throws. The
@@ -57,8 +57,9 @@ export interface StatusHandlerResult {
  * Status handler function signature.
  *
  * @param logger - Where a throwing health check's error is logged (e.g. the
- *   Fastify request's `log`); default `console.error`. `standardHandlers`
- *   passes its `logger` option, else `request.log`.
+ *   Fastify request's `log`); default `console.error`, also used when the
+ *   argument has no `error` function. `standardHandlers` passes its
+ *   `logger` option, else `request.log`.
  */
 export type StatusHandler = (
   logger?: HandlerLogger,
@@ -81,9 +82,7 @@ export function createStatusHandler(
 ): StatusHandler {
   const startTime = Date.now();
 
-  return async (
-    logger: HandlerLogger = consoleHandlerLogger,
-  ): Promise<StatusHandlerResult> => {
+  return async (logger?: HandlerLogger): Promise<StatusHandlerResult> => {
     const uptimeSeconds = Math.floor((Date.now() - startTime) / 1000);
     let health: Record<string, unknown> = {};
     let overallStatus: 'healthy' | 'degraded' | 'unhealthy' = 'healthy';
@@ -92,7 +91,7 @@ export function createStatusHandler(
       try {
         health = await options.getHealth();
       } catch (err: unknown) {
-        logger.error(
+        usableHandlerLogger(logger).error(
           { err },
           `Status: the ${options.name} health check failed`,
         );

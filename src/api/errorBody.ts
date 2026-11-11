@@ -21,6 +21,17 @@ export const SERVER_ERROR_MESSAGE =
 export const JEEVES_RESPONSE_VALIDATION = 'JEEVES_RESPONSE_VALIDATION';
 
 /**
+ * The standard status text (`Not Found`), or `Error` for a status Node
+ * doesn't name.
+ *
+ * @param statusCode - HTTP status.
+ * @returns The status text.
+ */
+export function statusText(statusCode: number): string {
+  return STATUS_CODES[statusCode] ?? 'Error';
+}
+
+/**
  * An error body: Fastify's `{ statusCode, code?, error, message }`, with
  * `error` the standard status text.
  *
@@ -37,7 +48,7 @@ export function errorBody(
   return {
     statusCode,
     ...(code === undefined ? {} : { code }),
-    error: STATUS_CODES[statusCode] ?? 'Error',
+    error: statusText(statusCode),
     message,
   };
 }

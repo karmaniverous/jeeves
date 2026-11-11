@@ -115,11 +115,13 @@ function send(
  * sends for a catalog route) is answered in Fastify's body,
  * `{ statusCode, code?, error, message }`, rebuilt from the reply status,
  * every 5xx logged; the app's own error handler is not consulted (spec
- * 5c.5). A deliberate 5xx (a thrown error that declares its status, an
- * error result, a standard body a hook sends) keeps its `message`; an
- * undeclared crash, raw text, a stream, no body or a response mismatch
- * gets the generic one (spec 5d.1). Pre-serialized JSON text is parsed and treated like
- * an object; other text, a stream, a web `Response` with an error status or
+ * 5c.5). A deliberate 5xx (a thrown error with its own `statusCode` from
+ * 400 to 599 and not `expose: false`, as `createError` makes; an error
+ * result; a standard body a hook sends) keeps its `message` and `code`; any
+ * other thrown 5xx (no error status, `status` only, `expose: false`), raw
+ * text, a stream, no body or a response mismatch gets the generic message
+ * (spec 5d.1). Pre-serialized JSON text is parsed and treated like an
+ * object; other text, a stream, a web `Response` with an error status or
  * no body gets the standard body. Routes outside the scope are untouched.
  * The error's (or error result's) headers are applied, except body headers
  * and any Node would reject.
