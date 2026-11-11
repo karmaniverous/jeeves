@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.11.0] - 2026-11-11
+
+### 🚀 Features
+
+- Trust errors by definition (defineError)
+
+### 🐛 Bug Fixes
+
+- Keep the message of a deliberate 5xx
+- Config apply 500s without internals
+- No raw errors in apply warning or health status
+- Deliberate means own statusCode; review 5857419273
+- Re-review of 8567583
+- Final review of cafd5d2
 ## [0.10.0] - 2026-11-11
 
 ### 🚀 Features
@@ -17,6 +31,10 @@ All notable changes to this project will be documented in this file.
 ### 💼 Other
 
 - Updated dependencies
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v0.10.0
 ## [0.9.2] - 2026-11-10
 
 ### 🚀 Features
