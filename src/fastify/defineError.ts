@@ -6,8 +6,6 @@
 
 import createError, { type FastifyErrorConstructor } from '@fastify/error';
 
-import type { ErrorStatus } from './types.js';
-
 /**
  * The brand {@link defineError} puts on its classes' prototypes. A
  * `Symbol.for` key, so an error defined with one copy of core is trusted
@@ -17,10 +15,30 @@ const DELIBERATE_ERROR: unique symbol = Symbol.for(
   '@karmaniverous/jeeves/deliberate',
 );
 
+/**
+ * Any HTTP error status: an integer from 400 to 599 (402, 418 and 499
+ * included), the statuses {@link defineError} accepts.
+ */
+export type HttpErrorStatus =
+  `${4 | 5}${0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9}${0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9}` extends infer T
+    ? T extends `${infer N extends number}`
+      ? N
+      : never
+    : never;
+
 /** Options for {@link defineError}, passed on to `createError`. */
 export interface DefineErrorOptions {
-  /** The class to extend; default `Error`. */
-  base?: ErrorConstructor;
+  /**
+   * The class to extend, built in (`TypeError`) or your own
+   * (`class AcmeError extends Error {}`); default `Error`. Instances inherit
+   * its prototype (`instanceof` holds), but its constructor is not run (as
+   * with `createError`), so it should not rely on fields its constructor
+   * sets.
+   */
+  base?: {
+    /** The prototype instances inherit: all `createError` uses. */
+    readonly prototype: Error;
+  };
   /** Whether instances capture a stack trace; default `true`. */
   captureStackTrace?: boolean;
 }
@@ -54,11 +72,13 @@ export interface DefineErrorOptions {
  *   (`RUNNER_JOB_EXISTS`); clients branch on it.
  * @param message - Caller-facing message, a `util.format` template whose
  *   `%s` placeholders take the constructor's arguments.
- * @param status - HTTP status, 400 to 599.
+ * @param status - HTTP status: any integer from 400 to 599.
  * @param options - Base class and stack-trace capture.
  * @returns The error class, callable with or without `new`.
+ * @throws `RangeError` when `status` is not an integer from 400 to 599
+ *   (possible only from untyped callers), at definition time.
  */
-export function defineError<C extends string, S extends ErrorStatus>(
+export function defineError<C extends string, S extends HttpErrorStatus>(
   code: C,
   message: string,
   status: S,
@@ -69,11 +89,16 @@ export function defineError<C extends string, S extends ErrorStatus>(
   /** The error's HTTP status, as given. */
   statusCode: S;
 }> {
+  if (!Number.isInteger(status) || status < 400 || status > 599)
+    throw new RangeError(
+      `defineError ${code}: status ${String(status)} is not an integer from 400 to 599`,
+    );
   const ErrorClass = createError(
     code,
     message,
     status,
-    options.base,
+    // createError only inherits the base's prototype; it never calls it.
+    options.base as ErrorConstructor | undefined,
     options.captureStackTrace,
   );
   Object.defineProperty(ErrorClass.prototype, DELIBERATE_ERROR, {

@@ -131,6 +131,49 @@ export function isBuiltErrorBody(payload: unknown): boolean {
 }
 
 /**
+ * The body a catalog route's error serializer sends for a payload
+ * {@link errorReplyBody} did not build.
+ *
+ * @remarks
+ * Every error reply core sends is built before it is serialized, so such a
+ * payload means Fastify's last-resort fallback: a hook (a root `onSend` or
+ * `preSerialization`) threw again while an error reply was being sent, and
+ * Fastify handed the hook's raw error to the route's error serializer. It
+ * is never sent as written: the reply gets the standard body for its
+ * status (the payload's `statusCode` when an integer from 400 to 599, else
+ * 500) with the status text as its `message` on a 4xx and
+ * {@link SERVER_ERROR_MESSAGE} on a 5xx, and no `code`. The payload is
+ * logged at `error`.
+ *
+ * @param payload - The unbuilt payload.
+ * @param log - Where it is logged.
+ * @returns The body.
+ */
+export function unbuiltErrorBody(
+  payload: unknown,
+  log: Pick<CatalogRouteLogger, 'error'>,
+): ErrorBody {
+  const { statusCode } = (
+    typeof payload === 'object' && payload !== null ? payload : {}
+  ) as { statusCode?: unknown };
+  const status =
+    typeof statusCode === 'number' &&
+    Number.isInteger(statusCode) &&
+    statusCode >= 400 &&
+    statusCode <= 599
+      ? statusCode
+      : 500;
+  log.error(
+    { statusCode: status, err: payload },
+    'Error reply masked (a hook failed while it was sent)',
+  );
+  return errorBody(
+    status,
+    status >= 500 ? SERVER_ERROR_MESSAGE : statusText(status),
+  );
+}
+
+/**
  * What makes an error reply body normalisable: a string `message`.
  *
  * @remarks

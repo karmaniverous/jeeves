@@ -28,6 +28,13 @@ export const libraryEntries = {
   },
 } as const satisfies Record<string, LibraryEntry>;
 
+/**
+ * Regular dependencies only the `fastify` entry point may reach at run time
+ * (they belong with Fastify), so the root, `catalog` and `openapi` entry
+ * points never load them.
+ */
+export const fastifyOnlyPackages: readonly string[] = ['@fastify/error'];
+
 /** Every scoped package, de-duplicated. */
 export const scopedPackages: readonly string[] = [
   ...new Set(Object.values(libraryEntries).flatMap((e) => e.scoped)),

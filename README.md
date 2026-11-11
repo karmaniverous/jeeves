@@ -518,7 +518,7 @@ Marked `@deprecated` in 0.8.0 and removed in 4.0.0:
 
 - [Platform Overview](https://docs.karmanivero.us/jeeves/documents/Platform_Overview.html) — architecture, components, design philosophy
 - [Managed Content System](https://docs.karmanivero.us/jeeves/documents/Managed_Content_System.html) — static content, markers, budgets, `jeeves install`
-- [Migrating to 0.10](guides/migrating-to-0.10.md) — Fastify's standard error body for every catalog error: 400, 500 and config handler bodies, the client's `code` and `message`, and (since the #167 change) a deliberate 5xx keeping its message
+- [Migrating to 0.10](guides/migrating-to-0.10.md) — Fastify's standard error body for every catalog error: 400, 500 and config handler bodies, the client's `code` and `message`, and (since the #167 change) errors trusted by definition (`defineError`), plugin errors to map, and the hook-failure fallback
 - [Migrating to v1](guides/migrating-to-v1.md) — what was removed and what replaces it
 - [Migrating to 0.8](guides/migrating-to-0.8.md) — the endpoint catalog, new plugin options, behaviour corrections and deprecations
 - [Adopting the Endpoint Catalog](guides/endpoint-catalog.md) — catalog, routes, OpenAPI, client and plugin tools, step by step

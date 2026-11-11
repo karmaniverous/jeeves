@@ -39,7 +39,11 @@ const ALLOWED_ERROR_HEADERS = new Set([
   'allow',
 ]);
 
-/** Prefix of Fastify's own error codes. */
+/**
+ * Prefix of Fastify's own error codes. Trust by this prefix rests on
+ * Fastify's naming convention, not on proof that Fastify made the error: a
+ * plugin using the same prefix on a 4xx is trusted too.
+ */
 const FASTIFY_CODE_PREFIX = 'FST_ERR_';
 
 /**
@@ -60,9 +64,11 @@ function isStatusUpTo(value: unknown, max: number): value is number {
 
 /**
  * Whether a thrown value is trusted (spec 5d.1): branded by
- * {@link defineError} (from any copy of core), or one of Fastify's own
- * errors (`FST_ERR_*`) with a 4xx status, such as a validation failure or a
- * malformed, oversized or wrongly typed body. Fastify's 5xx are internal.
+ * {@link defineError} (from any copy of core), or a 4xx whose `code` begins
+ * `FST_ERR_` (Fastify's naming convention for its own errors, such as a
+ * validation failure or a malformed, oversized or wrongly typed body; core
+ * can't check who made it without loading `fastify`). Fastify's 5xx are
+ * internal.
  *
  * @param thrown - The thrown value.
  * @param fields - Its fields.
@@ -110,7 +116,8 @@ interface ThrownReply {
 /**
  * The one decision on a thrown value (spec 5d.1).
  *
- * - **Trusted** (a {@link defineError} error; a 4xx `FST_ERR_*`): its
+ * - **Trusted** (a {@link defineError} error; a 4xx `FST_ERR_*`, by
+ *   Fastify's naming convention): its
  *   `statusCode` when an integer from 400 to 599, else 500; its `code` and
  *   `message`; its allowlisted headers.
  * - **Anything else**, whatever status, code or headers it carries: a 500
@@ -145,9 +152,10 @@ function thrownReply(thrown: unknown): ThrownReply {
  *
  * - **Trusted:** an error made by a {@link defineError} class keeps its
  *   status (400 to 599, else 500), `code`, `message` and its `Retry-After`,
- *   `WWW-Authenticate` and `Allow` headers, on a 4xx or a 5xx. Fastify's
- *   own 4xx errors (`FST_ERR_*`: validation, malformed or oversized body,
- *   media type) keep theirs too.
+ *   `WWW-Authenticate` and `Allow` headers, on a 4xx or a 5xx. A 4xx whose
+ *   `code` begins `FST_ERR_` (Fastify's naming convention for its own
+ *   errors: validation, malformed or oversized body, media type) keeps
+ *   them too.
  * - **Masked:** every other thrown error (a plain `Error`, a plain
  *   `createError` error, `http-errors`, a client library's error such as
  *   undici's or axios's, Fastify's own 5xx) is a 500 with the generic
@@ -210,6 +218,19 @@ export function errorHandlerFor(
  * Catalog routes answer their own errors this way already; this covers the
  * app's other routes. Call it on the root app before registering routes.
  * Encapsulated plugins that set their own error handler keep it.
+ *
+ * The rule applies to every plugin's errors on the app, too: a plugin that
+ * throws a plain status-bearing error (`@fastify/rate-limit`'s 429,
+ * `@fastify/static`'s 403, `@fastify/multipart`'s 413, `@fastify/jwt`'s
+ * 401, `@fastify/sensible`'s `httpErrors`) gets a masked 500. Map such
+ * errors to `defineError` classes (rate-limit's `errorResponseBuilder` can
+ * return one).
+ *
+ * Not covered: when a hook (`onSend`, `preSerialization`) throws again
+ * while an error reply is being sent, Fastify gives up on every error
+ * handler and serializes that hook's error itself. Catalog routes mask that
+ * fallback through their error serializer; other routes can't be protected
+ * from it, so the hook's own `message`, `code` and status go out as is.
  *
  * @param app - Fastify app.
  * @param options - Where 5xx causes are logged.

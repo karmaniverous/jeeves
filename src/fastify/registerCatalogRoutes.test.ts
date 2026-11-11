@@ -33,6 +33,7 @@ import {
   testHandlers,
 } from '../test/catalogTestApp.js';
 import { defineError } from './defineError.js';
+import { registerErrorHandlers } from './errorHandler.js';
 import { registerCatalogRoutes } from './registerCatalogRoutes.js';
 import { registerOpenApiRoute } from './registerOpenApiRoute.js';
 import type {
@@ -313,6 +314,64 @@ describe('registerCatalogRoutes', () => {
     const brand = Symbol.for('@karmaniverous/jeeves/deliberate');
 
     describe('defineError errors keep status, code, message, allowlisted headers', () => {
+      it("the rate-limit mapping: a plugin hook's errorResponseBuilder returns a defineError 429", async () => {
+        // What @fastify/rate-limit does with errorResponseBuilder: set its
+        // headers on the reply, then throw what the builder returns.
+        const RateLimited = defineError(
+          'RATE_LIMITED',
+          'Rate limit exceeded, retry in %s',
+          429,
+        );
+        const errorResponseBuilder = (
+          _request: unknown,
+          context: { after: string },
+        ) => new RateLimited(context.after);
+        const logger = { warn: vi.fn(), error: vi.fn() };
+        const app = Fastify({ logger: false });
+        app.addHook('onRequest', async (request, reply) => {
+          void reply
+            .header('retry-after', '60')
+            .header('x-ratelimit-limit', '10');
+          await Promise.resolve();
+          throw errorResponseBuilder(request, { after: '1 minute' });
+        });
+        await registerCatalogRoutes(
+          app,
+          defineCatalog([testCatalog.byName('getThing')]),
+          testHandlers,
+          { logger },
+        );
+        const res = await app.inject('/things/1');
+        expect(res.statusCode).toBe(429);
+        expect(res.json()).toEqual({
+          statusCode: 429,
+          code: 'RATE_LIMITED',
+          error: 'Too Many Requests',
+          message: 'Rate limit exceeded, retry in 1 minute',
+        });
+        expect(res.headers['retry-after']).toBe('60');
+        expect(res.headers['x-ratelimit-limit']).toBe('10');
+        expect(logger.error).not.toHaveBeenCalled();
+        await app.close();
+      });
+
+      it('a subclass of a defineError class is trusted (the brand is inherited)', async () => {
+        const Busy = defineError('ACME_BUSY', 'Busy, retry', 503);
+        class StillBusy extends Busy {}
+        const app = await throwing(new StillBusy(), {
+          logger: { warn: vi.fn(), error: vi.fn() },
+        });
+        const res = await app.inject('/broken');
+        expect(res.statusCode).toBe(503);
+        expect(res.json()).toEqual({
+          statusCode: 503,
+          code: 'ACME_BUSY',
+          error: 'Service Unavailable',
+          message: 'Busy, retry',
+        });
+        await app.close();
+      });
+
       it('a defineError 409: code and formatted message kept, not logged', async () => {
         const logger = { warn: vi.fn(), error: vi.fn() };
         const JobExists = defineError(
@@ -688,6 +747,20 @@ describe('registerCatalogRoutes', () => {
         ['a string', 'boom'],
         ['null', null],
         ['a non-string code and message', { code: 7, message: { a: 1 } }],
+        [
+          'a fake brand under a plain string key',
+          Object.assign(new Error('forged internal'), {
+            statusCode: 503,
+            code: 'FORGED',
+            '@karmaniverous/jeeves/deliberate': true,
+          }),
+        ],
+        [
+          'an error wrapping a defineError one via cause (cause is not followed)',
+          new Error('wrapper internal', {
+            cause: new (defineError('ACME_BUSY', 'Busy', 503))(),
+          }),
+        ],
       ])('%s', async (_label, thrown) => {
         const logger = { warn: vi.fn(), error: vi.fn() };
         const app = await throwing(thrown, { logger });
@@ -1448,6 +1521,103 @@ describe('registerCatalogRoutes', () => {
           message: '{"message":"x"}',
         });
         await plain.close();
+      });
+
+      describe("a hook that throws on the error reply: Fastify's fallback is masked", () => {
+        /** What the failing hook throws: internal text, a status and a code. */
+        const hookError = (statusCode: number, code: string) =>
+          Object.assign(new Error(`${code} internal host db.internal`), {
+            statusCode,
+            code,
+          });
+
+        it('a root onSend that always throws: standard body, nothing of the hook error', async () => {
+          const logger = { warn: vi.fn(), error: vi.fn() };
+          const app = Fastify({ logger: false });
+          app.addHook('onSend', () => Promise.reject(hookError(502, 'ONSEND')));
+          await registerCatalogRoutes(
+            app,
+            defineCatalog([testCatalog.byName('getThing')]),
+            testHandlers,
+            { logger },
+          );
+          const res = await app.inject('/things/1');
+          expect(res.statusCode).toBe(502);
+          expect(res.json()).toEqual({
+            statusCode: 502,
+            error: 'Bad Gateway',
+            message: SERVER_ERROR_MESSAGE,
+          });
+          expect(res.body).not.toMatch(/internal|ONSEND/);
+          expect(logger.error).toHaveBeenLastCalledWith(
+            {
+              statusCode: 502,
+              err: expect.objectContaining({
+                message: 'ONSEND internal host db.internal',
+              }) as unknown,
+            },
+            'Error reply masked (a hook failed while it was sent)',
+          );
+          await app.close();
+        });
+
+        it('a root onSend that throws on error replies, with registerErrorHandlers', async () => {
+          const app = Fastify({ logger: false });
+          registerErrorHandlers(app, { logger: { error: vi.fn() } });
+          app.addHook('onSend', async (_request, reply, payload) => {
+            if (reply.statusCode >= 400) throw hookError(502, 'ONSEND');
+            return payload;
+          });
+          await registerCatalogRoutes(
+            app,
+            defineCatalog([testCatalog.byName('broken')]),
+            { broken: () => Promise.reject(new Error('boom')) },
+            { logger: { warn: vi.fn(), error: vi.fn() } },
+          );
+          // Ours masks twice, then Fastify's default handler takes the
+          // hook error's status before the fallback serializes it.
+          const res = await app.inject('/broken');
+          expect(res.statusCode).toBe(502);
+          expect(res.json()).toEqual({
+            statusCode: 502,
+            error: 'Bad Gateway',
+            message: SERVER_ERROR_MESSAGE,
+          });
+          expect(res.body).not.toMatch(/internal|ONSEND|boom/);
+          await app.close();
+        });
+
+        it('a root preSerialization that always throws: a 4xx gets its status text, no code', async () => {
+          const logger = { warn: vi.fn(), error: vi.fn() };
+          const app = Fastify({ logger: false });
+          app.addHook('preSerialization', () =>
+            Promise.reject(hookError(400, 'PRESER')),
+          );
+          await registerCatalogRoutes(
+            app,
+            defineCatalog([testCatalog.byName('getThing')]),
+            testHandlers,
+            { logger },
+          );
+          const res = await app.inject('/things/1');
+          expect(res.statusCode).toBe(400);
+          expect(res.json()).toEqual({
+            statusCode: 400,
+            error: 'Bad Request',
+            message: 'Bad Request',
+          });
+          expect(res.body).not.toMatch(/internal|PRESER/);
+          expect(logger.error).toHaveBeenLastCalledWith(
+            {
+              statusCode: 400,
+              err: expect.objectContaining({
+                message: 'PRESER internal host db.internal',
+              }) as unknown,
+            },
+            'Error reply masked (a hook failed while it was sent)',
+          );
+          await app.close();
+        });
       });
 
       it('a 2xx a root onSend turns into an error is still replaced', async () => {

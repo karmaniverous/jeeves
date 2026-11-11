@@ -17,7 +17,11 @@ export {
   JEEVES_RESPONSE_VALIDATION,
   SERVER_ERROR_MESSAGE,
 } from '../api/errorBody.js';
-export { defineError, type DefineErrorOptions } from './defineError.js';
+export {
+  defineError,
+  type DefineErrorOptions,
+  type HttpErrorStatus,
+} from './defineError.js';
 export { registerErrorHandlers } from './errorHandler.js';
 export { registerCatalogRoutes } from './registerCatalogRoutes.js';
 export { registerOpenApiRoute } from './registerOpenApiRoute.js';

@@ -113,6 +113,7 @@ const EXPECTED: Record<keyof typeof ENTRIES, string[]> = {
     'ErrorStatus',
     'HandlerErrorBody',
     'HandlerResult',
+    'HttpErrorStatus',
     'JEEVES_RESPONSE_VALIDATION',
     'RegisterCatalogRoutesOptions',
     'RegisterErrorHandlersOptions',
