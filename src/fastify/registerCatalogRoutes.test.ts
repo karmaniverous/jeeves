@@ -1618,6 +1618,103 @@ describe('registerCatalogRoutes', () => {
           );
           await app.close();
         });
+
+        it("documented Fastify behaviour: Fastify applies the hook error's status and headers, core masks only the body", async () => {
+          const app = Fastify({ logger: false });
+          app.addHook('onSend', () =>
+            Promise.reject(
+              Object.assign(hookError(502, 'UPSTREAM'), {
+                headers: {
+                  'set-cookie': 'upstream=secret',
+                  'x-upstream-host': 'qdrant.internal',
+                },
+              }),
+            ),
+          );
+          await registerCatalogRoutes(
+            app,
+            defineCatalog([testCatalog.byName('getThing')]),
+            testHandlers,
+            { logger: { warn: vi.fn(), error: vi.fn() } },
+          );
+          const res = await app.inject('/things/1');
+          // Fastify's own default handler: status and headers from the
+          // hook error (documented; hooks must not throw such errors).
+          expect(res.statusCode).toBe(502);
+          expect(res.headers['set-cookie']).toBe('upstream=secret');
+          expect(res.headers['x-upstream-host']).toBe('qdrant.internal');
+          // Core's serializer: the body is masked.
+          expect(res.json()).toEqual({
+            statusCode: 502,
+            error: 'Bad Gateway',
+            message: SERVER_ERROR_MESSAGE,
+          });
+          await app.close();
+        });
+
+        it("a logger that throws on the fallback can't make Fastify send the hook's message", async () => {
+          const logger = {
+            warn: vi.fn(),
+            error: vi.fn((_details: unknown, message: string) => {
+              if (message.includes('a hook failed'))
+                throw new Error('logger down');
+            }),
+          };
+          const app = Fastify({ logger: false });
+          app.addHook('onSend', () => Promise.reject(hookError(502, 'ONSEND')));
+          await registerCatalogRoutes(
+            app,
+            defineCatalog([testCatalog.byName('getThing')]),
+            testHandlers,
+            { logger },
+          );
+          const res = await app.inject('/things/1');
+          expect(res.statusCode).toBe(502);
+          expect(res.json()).toEqual({
+            statusCode: 502,
+            error: 'Bad Gateway',
+            message: SERVER_ERROR_MESSAGE,
+          });
+          expect(res.body).not.toMatch(/internal|ONSEND|logger down|FST_ERR/);
+          await app.close();
+        });
+      });
+
+      it('a 2xx entry whose response schema is errorBodySchema sends its body untouched', async () => {
+        const logger = { warn: vi.fn(), error: vi.fn() };
+        const app = Fastify({ logger: false });
+        await registerCatalogRoutes(
+          app,
+          defineCatalog([
+            {
+              name: 'lastError',
+              method: 'GET',
+              path: '/last-error',
+              description: 'The last error seen.',
+              response: errorBodySchema,
+              auth: 'none',
+              kind: 'read',
+            },
+          ]),
+          {
+            lastError: () =>
+              Promise.resolve({
+                status: 200,
+                body: { statusCode: 200, error: 'OK', message: 'All quiet' },
+              }),
+          },
+          { logger },
+        );
+        const res = await app.inject('/last-error');
+        expect(res.statusCode).toBe(200);
+        expect(res.json()).toEqual({
+          statusCode: 200,
+          error: 'OK',
+          message: 'All quiet',
+        });
+        expect(logger.error).not.toHaveBeenCalled();
+        expect(logger.warn).not.toHaveBeenCalled();
+        await app.close();
       });
 
       it('a 2xx a root onSend turns into an error is still replaced', async () => {

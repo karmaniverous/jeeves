@@ -43,6 +43,22 @@ describe('unbuiltErrorBody (Fastify fallback after a failing hook)', () => {
     });
   });
 
+  it('a logger that throws is ignored: the masked body is still returned', () => {
+    const log = {
+      error: vi.fn(() => {
+        throw new Error('logger down');
+      }),
+    };
+    expect(
+      unbuiltErrorBody({ statusCode: 502, message: 'internal host h' }, log),
+    ).toEqual({
+      statusCode: 502,
+      error: 'Bad Gateway',
+      message: SERVER_ERROR_MESSAGE,
+    });
+    expect(log.error).toHaveBeenCalledOnce();
+  });
+
   it.each([null, 'boom', 42])('a non-object payload %j: 500', (payload) => {
     const log = { error: vi.fn() };
     expect(unbuiltErrorBody(payload, log)).toEqual({

@@ -143,7 +143,13 @@ export function isBuiltErrorBody(payload: unknown): boolean {
  * status (the payload's `statusCode` when an integer from 400 to 599, else
  * 500) with the status text as its `message` on a 4xx and
  * {@link SERVER_ERROR_MESSAGE} on a 5xx, and no `code`. The payload is
- * logged at `error`.
+ * logged at `error`; a logger that throws is ignored, so it can't make
+ * Fastify send its own body with the hook's message.
+ *
+ * Only the body is masked: before this runs, Fastify's own default error
+ * handler has already applied the hook error's status and `headers` to the
+ * reply, and they go out as they are. Hooks must not throw errors carrying
+ * headers or internal statuses.
  *
  * @param payload - The unbuilt payload.
  * @param log - Where it is logged.
@@ -163,10 +169,15 @@ export function unbuiltErrorBody(
     statusCode <= 599
       ? statusCode
       : 500;
-  log.error(
-    { statusCode: status, err: payload },
-    'Error reply masked (a hook failed while it was sent)',
-  );
+  try {
+    log.error(
+      { statusCode: status, err: payload },
+      'Error reply masked (a hook failed while it was sent)',
+    );
+  } catch {
+    // Logging must not break masking: a throw here would make Fastify
+    // send its own body, with the hook error's message.
+  }
   return errorBody(
     status,
     status >= 500 ? SERVER_ERROR_MESSAGE : statusText(status),

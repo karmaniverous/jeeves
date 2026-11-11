@@ -152,10 +152,14 @@ function send(
  * applied, except body headers and any Node would reject; headers already
  * on the reply are left alone. The routes' error serializer sends only
  * bodies core built: when one of the app's hooks throws again while an
- * error reply is being sent, Fastify's fallback hands that hook's raw error
- * to the serializer, which sends the masked standard body for the status
- * instead (a 4xx's status text or the generic 5xx message, no `code`) and
- * logs the error as `Error reply masked (a hook failed while it was sent)`.
+ * error reply is being sent, Fastify's own default error handler first
+ * applies that hook error's status and `headers` to the reply, then its
+ * fallback hands the raw error to the serializer, which sends the masked
+ * standard body for that status instead (a 4xx's status text or the
+ * generic 5xx message, no `code`) and logs the error as
+ * `Error reply masked (a hook failed while it was sent)`. Core masks only
+ * the body: the status and headers stay the hook error's, so hooks must
+ * not throw errors carrying headers or internal statuses.
  *
  * Auth isn't enforced here: register the component's auth hook on the root
  * app before calling this, so it applies to the catalog routes.
@@ -187,8 +191,10 @@ export async function registerCatalogRoutes<C extends Catalog>(
     (scope) =>
       new Promise<void>((resolve) => {
         scope.setValidatorCompiler(validatorCompiler);
+        // Chosen by the response key (Fastify passes it lower-cased), not
+        // by schema identity: a 2xx entry may use errorBodySchema itself.
         scope.setSerializerCompiler(({ schema, method, url, httpStatus }) =>
-          schema === errorBodySchema
+          httpStatus === '4xx' || httpStatus === '5xx'
             ? errorSerializerFor(options.logger ?? scope.log)
             : serializerFor(schema as z.ZodType, mode, (issues) => {
                 (options.logger ?? scope.log).warn(

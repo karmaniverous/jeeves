@@ -228,9 +228,12 @@ export function errorHandlerFor(
  *
  * Not covered: when a hook (`onSend`, `preSerialization`) throws again
  * while an error reply is being sent, Fastify gives up on every error
- * handler and serializes that hook's error itself. Catalog routes mask that
- * fallback through their error serializer; other routes can't be protected
- * from it, so the hook's own `message`, `code` and status go out as is.
+ * handler and serializes that hook's error itself, after its own default
+ * handler has applied the error's status and `headers` to the reply.
+ * Catalog routes mask that fallback's body through their error serializer,
+ * but not its status or headers; other routes can't be protected from it
+ * at all, so the hook's own `message`, `code`, status and headers go out as
+ * is. Hooks must not throw errors carrying headers or internal statuses.
  *
  * @param app - Fastify app.
  * @param options - Where 5xx causes are logged.
