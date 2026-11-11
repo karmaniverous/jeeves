@@ -11,6 +11,10 @@ import {
 import { z } from 'zod';
 
 import {
+  JEEVES_RESPONSE_VALIDATION,
+  SERVER_ERROR_MESSAGE,
+} from '../api/errorBody.js';
+import {
   buildTestApp,
   TEST_BYTES,
   TEST_KEY,
@@ -82,7 +86,13 @@ describe('createCatalogClient against the test app', () => {
     });
     const error = await failure(client.createThing({ name: 'n' }));
     expect(error.status).toBe(401);
-    expect(error.body).toEqual({ error: 'Unauthorized' });
+    expect(error.body).toEqual({
+      statusCode: 401,
+      error: 'Unauthorized',
+      message: 'Missing or wrong key',
+    });
+    expect(error.code).toBeUndefined();
+    expect(error.message).toBe('Missing or wrong key');
   });
 
   it('resolves a lazy baseUrl on every call', async () => {
@@ -96,11 +106,15 @@ describe('createCatalogClient against the test app', () => {
   it('throws CatalogClientError with the error body for a 4xx', async () => {
     const client = createCatalogClient(testCatalog, { baseUrl });
     const error = await failure(client.getThing({ id: 'missing' }));
-    expect(error).toMatchObject({
-      status: 404,
-      body: { error: 'Not found' },
-      message: 'getThing failed with HTTP 404',
+    expect(error.status).toBe(404);
+    expect(error.body).toEqual({
+      statusCode: 404,
+      code: 'ACME_NOT_FOUND',
+      error: 'Not Found',
+      message: 'Thing missing not found',
     });
+    expect(error.code).toBe('ACME_NOT_FOUND');
+    expect(error.message).toBe('Thing missing not found');
   });
 
   it('throws CatalogClientError for a 5xx', async () => {
@@ -108,9 +122,13 @@ describe('createCatalogClient against the test app', () => {
     const error = await failure(client.broken({}));
     expect(error.status).toBe(500);
     expect(error.body).toEqual({
-      code: 'internal_error',
-      error: 'Response validation failed',
+      statusCode: 500,
+      code: JEEVES_RESPONSE_VALIDATION,
+      error: 'Internal Server Error',
+      message: SERVER_ERROR_MESSAGE,
     });
+    expect(error.code).toBe(JEEVES_RESPONSE_VALIDATION);
+    expect(error.message).toBe(SERVER_ERROR_MESSAGE);
   });
 
   it('rejects invalid input before sending, with status 0', async () => {
@@ -253,15 +271,44 @@ describe('createCatalogClient with a fetch spy', () => {
     expect(error.body).toBeUndefined();
   });
 
-  it('falls back to { error: text } for a non-JSON or shapeless error body', async () => {
-    for (const body of ['Bad Gateway', '{"message":"x"}']) {
+  it.each(['Bad Gateway', '{"message":"x"}', '{"statusCode":"502"}'])(
+    'keeps a non-JSON or shapeless error body as the message: %s',
+    async (text) => {
       const client = createCatalogClient(catalog, {
         baseUrl: 'http://svc',
-        fetch: spy(body, 502),
+        fetch: spy(text, 502),
       });
       const error = await failure(client.open({}));
-      expect(error).toMatchObject({ status: 502, body: { error: body } });
-    }
+      expect(error.status).toBe(502);
+      expect(error.body).toEqual({
+        statusCode: 502,
+        error: 'HTTP 502',
+        message: text,
+      });
+      expect(error.code).toBeUndefined();
+      expect(error.message).toBe(text);
+    },
+  );
+
+  it('falls back to the error text for an empty message', async () => {
+    const empty = await failure(
+      createCatalogClient(catalog, {
+        baseUrl: 'http://svc',
+        fetch: spy('', 502),
+      }).open({}),
+    );
+    expect(empty.message).toBe('HTTP 502');
+    const fastify = await failure(
+      createCatalogClient(catalog, {
+        baseUrl: 'http://svc',
+        fetch: spy(
+          '{"statusCode":409,"code":"X","error":"Conflict","message":""}',
+          409,
+        ),
+      }).open({}),
+    );
+    expect(fastify.message).toBe('Conflict');
+    expect(fastify.code).toBe('X');
   });
 
   /** A fetch answering with `body` at `status` and these headers. */
@@ -305,9 +352,13 @@ describe('createCatalogClient with a fetch spy', () => {
     const error = await failure(
       createCatalogClient(catalog, {
         baseUrl: 'http://svc',
-        fetch: withHeaders('{"error":"busy","code":"x"}', 503, {
-          'Retry-After': '30',
-        }),
+        fetch: withHeaders(
+          '{"statusCode":503,"code":"X","error":"Service Unavailable","message":"busy"}',
+          503,
+          {
+            'Retry-After': '30',
+          },
+        ),
       }).open({}),
     );
     expect(error.status).toBe(503);
@@ -343,21 +394,32 @@ describe('createCatalogClient with a fetch spy', () => {
       baseUrl: 'http://svc',
       fetch: spy('Found', 302),
     });
-    expect(await failure(client.open({}))).toMatchObject({
-      status: 302,
-      body: { error: 'Found' },
+    const error = await failure(client.open({}));
+    expect(error.status).toBe(302);
+    expect(error.body).toEqual({
+      statusCode: 302,
+      error: 'HTTP 302',
+      message: 'Found',
     });
   });
 
-  it('keeps extra fields of a JSON error body', async () => {
+  it('drops extra fields of a JSON error body', async () => {
     const client = createCatalogClient(catalog, {
       baseUrl: 'http://svc',
-      fetch: spy('{"error":"bad","code":"X"}', 400),
+      fetch: spy(
+        '{"statusCode":400,"code":"X","error":"Bad Request","message":"bad","issues":[]}',
+        400,
+      ),
     });
-    expect((await failure(client.open({}))).body).toEqual({
-      error: 'bad',
+    const error = await failure(client.open({}));
+    expect(error.body).toEqual({
+      statusCode: 400,
       code: 'X',
+      error: 'Bad Request',
+      message: 'bad',
     });
+    expect(error.code).toBe('X');
+    expect(error.message).toBe('bad');
   });
 
   it('wraps a malformed 2xx JSON body as status 0', async () => {

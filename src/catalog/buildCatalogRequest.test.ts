@@ -89,20 +89,29 @@ describe('buildCatalogRequest', () => {
 
   it('builds an error carrying status, body, issues and cause', () => {
     const cause = new Error('net');
+    const body = {
+      statusCode: 503,
+      code: 'ACME_DOWN',
+      error: 'Service Unavailable',
+      message: 'down',
+    };
     const error = new CatalogClientError('failed', {
       status: 503,
-      body: { error: 'down', retry: true },
+      body,
       cause,
     });
     expect(error).toMatchObject({
       name: 'CatalogClientError',
       message: 'failed',
       status: 503,
-      body: { error: 'down', retry: true },
+      code: 'ACME_DOWN',
       cause,
     });
+    expect(error.body).toEqual(body);
     expect(error.issues).toBeUndefined();
-    expect(new CatalogClientError('x', { status: 0 }).body).toBeUndefined();
+    const bare = new CatalogClientError('x', { status: 0 });
+    expect(bare.body).toBeUndefined();
+    expect(bare.code).toBeUndefined();
   });
 
   it('types the flat input from the slot schemas', () => {

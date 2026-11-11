@@ -34,8 +34,9 @@ export interface StandardCatalogHandlers {
 /**
  * A `{ status, body }` result from an existing handler, as a handler result.
  * The existing handlers return 2xx with the entry's response or 4xx/5xx with
- * `{ error }`; route registration validates the body against the status's
- * schema either way.
+ * Fastify's error body; route registration validates a 2xx body against the
+ * entry's schema and rebuilds an error body from its status, `message` and
+ * `code`.
  *
  * @param result - Existing handler result.
  * @returns The same result, typed for any entry.

@@ -76,14 +76,20 @@ async function readResponse(
       json = undefined;
     }
     const parsed = errorBodySchema.safeParse(json);
-    throw new CatalogClientError(
-      `${entry.name} failed with HTTP ${String(res.status)}`,
-      {
-        status: res.status,
-        body: parsed.success ? parsed.data : { error: text },
-        headers: res.headers,
-      },
-    );
+    // A body that isn't Fastify's (a proxy's HTML page, say) keeps its text
+    // as the message.
+    const body = parsed.success
+      ? parsed.data
+      : {
+          statusCode: res.status,
+          error: `HTTP ${String(res.status)}`,
+          message: text,
+        };
+    throw new CatalogClientError(body.message || body.error, {
+      status: res.status,
+      body,
+      headers: res.headers,
+    });
   }
   if (!isJsonContentType(entry.contentType))
     return isTextContentType(entry.contentType as string)

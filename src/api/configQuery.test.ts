@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { createConfigQueryHandler } from './configQuery.js';
+import {
+  createConfigQueryHandler,
+  JEEVES_CONFIG_QUERY_INVALID,
+} from './configQuery.js';
 
 const sampleConfig = {
   server: { port: 1934, host: 'localhost' },
@@ -71,9 +74,12 @@ describe('createConfigQueryHandler', () => {
     const result = await handler({ path: '$[?(' });
     expect(result.status).toBe(400);
 
-    const body = result.body as { error: string };
-    expect(body.error).toEqual(expect.any(String));
-    expect(body.error).not.toBe('Query failed');
+    expect(result.body).toEqual({
+      statusCode: 400,
+      code: JEEVES_CONFIG_QUERY_INVALID,
+      error: 'Bad Request',
+      message: 'Unexpected "?" at character 0',
+    });
   });
 
   it.each([[null], [undefined]])(
@@ -95,7 +101,15 @@ describe('createConfigQueryHandler', () => {
     const result = await createConfigQueryHandler(() => config)({
       path: '$.a',
     });
-    expect(result).toEqual({ status: 400, body: { error: 'Query failed' } });
+    expect(result).toEqual({
+      status: 400,
+      body: {
+        statusCode: 400,
+        code: JEEVES_CONFIG_QUERY_INVALID,
+        error: 'Bad Request',
+        message: 'Query failed',
+      },
+    });
   });
 
   it('calls getConfig on each invocation', async () => {

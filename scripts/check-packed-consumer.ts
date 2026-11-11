@@ -162,11 +162,11 @@ const GLOBAL_PROBE = [
   `const ok = await app.inject('/status');`,
   `if (ok.statusCode !== 200 || ok.json().name !== 'probe') throw new Error('route failed: ' + ok.body);`,
   `const bad = await app.inject({ method: 'POST', url: '/config/apply', payload: { patch: 1 } });`,
-  `if (bad.statusCode !== 400 || bad.json().issues?.[0]?.slot !== 'body') throw new Error('validation failed: ' + bad.body);`,
+  `if (bad.statusCode !== 400 || bad.body !== JSON.stringify({ statusCode: 400, code: 'FST_ERR_VALIDATION', error: 'Bad Request', message: 'body/patch Invalid input: expected record, received number' })) throw new Error('validation failed: ' + bad.body);`,
   `const echoed = await app.inject({ method: 'POST', url: '/echo', payload: { n: 1 } });`,
   `if (echoed.statusCode !== 200 || echoed.json().n !== 1) throw new Error('echo failed: ' + echoed.body);`,
   `const refused = await app.inject({ method: 'POST', url: '/echo', payload: { n: 'x' } });`,
-  `if (refused.statusCode !== 400 || refused.json().issues?.[0]?.path?.[0] !== 'n') throw new Error('echo validation failed: ' + refused.body);`,
+  `if (refused.statusCode !== 400 || refused.body !== JSON.stringify({ statusCode: 400, code: 'FST_ERR_VALIDATION', error: 'Bad Request', message: 'body/n Invalid input: expected number, received string' })) throw new Error('echo validation failed: ' + refused.body);`,
   `await app.close();`,
 ].join('\n');
 

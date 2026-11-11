@@ -15,10 +15,15 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { formatIssues } from '../catalog/formatIssues.js';
 import type { JeevesComponentDescriptor } from '../component/descriptor.js';
 import { getComponentConfigDir, getComponentConfigPath } from '../init.js';
 import { atomicWrite } from '../managed/fileOps.js';
 import { getErrorMessage } from '../utils.js';
+import { errorBody } from './errorBody.js';
+
+/** Code of the 400 sent when the merged config fails the schema. */
+export const JEEVES_CONFIG_INVALID = 'JEEVES_CONFIG_INVALID';
 
 /** Request shape for the config apply handler. */
 export interface ConfigApplyRequest {
@@ -142,6 +147,10 @@ function writeRawConfigFile(
  * 5. Calls `descriptor.onConfigApply` with the validated (parsed) config
  *
  * The response `config` is the validated (parsed) config, as before.
+ * Failures are Fastify's error body ({@link errorBody}): 400 with code
+ * {@link JEEVES_CONFIG_INVALID} and the Zod issues in `message` when the
+ * merged config fails the schema, 500 when the file can't be read or
+ * written.
  *
  * @param descriptor - The component descriptor.
  * @param configPath - Optional explicit config file path. When provided, takes
@@ -168,9 +177,10 @@ export function createConfigApplyHandler(
     } catch (err: unknown) {
       return {
         status: 500,
-        body: {
-          error: `Could not read config file ${resolvedConfigPath}: ${getErrorMessage(err)}`,
-        },
+        body: errorBody(
+          500,
+          `Could not read config file ${resolvedConfigPath}: ${getErrorMessage(err)}`,
+        ),
       };
     }
 
@@ -185,10 +195,11 @@ export function createConfigApplyHandler(
     if (!parseResult.success) {
       return {
         status: 400,
-        body: {
-          error: 'Config validation failed',
-          issues: parseResult.error.issues,
-        },
+        body: errorBody(
+          400,
+          `Config validation failed: ${formatIssues(parseResult.error.issues)}`,
+          JEEVES_CONFIG_INVALID,
+        ),
       };
     }
 
@@ -201,7 +212,7 @@ export function createConfigApplyHandler(
     } catch (err: unknown) {
       return {
         status: 500,
-        body: { error: `Failed to write config: ${getErrorMessage(err)}` },
+        body: errorBody(500, `Failed to write config: ${getErrorMessage(err)}`),
       };
     }
 

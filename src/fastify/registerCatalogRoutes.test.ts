@@ -1,4 +1,7 @@
-import Fastify from 'fastify';
+import { STATUS_CODES } from 'node:http';
+
+import createError from '@fastify/error';
+import Fastify, { type FastifyInstance, type FastifyReply } from 'fastify';
 import {
   afterEach,
   beforeEach,
@@ -10,7 +13,15 @@ import {
 } from 'vitest';
 import { z } from 'zod';
 
+import { JEEVES_CONFIG_INVALID } from '../api/configApplyHandler.js';
+import { JEEVES_CONFIG_QUERY_INVALID } from '../api/configQuery.js';
+import {
+  errorBody,
+  JEEVES_RESPONSE_VALIDATION,
+  SERVER_ERROR_MESSAGE,
+} from '../api/errorBody.js';
 import { defineCatalog } from '../catalog/defineCatalog.js';
+import type { CatalogEntry } from '../catalog/types.js';
 import { buildOpenApiDocument } from '../openapi/buildOpenApiDocument.js';
 import {
   buildTestApp,
@@ -22,7 +33,19 @@ import {
 } from '../test/catalogTestApp.js';
 import { registerCatalogRoutes } from './registerCatalogRoutes.js';
 import { registerOpenApiRoute } from './registerOpenApiRoute.js';
-import type { CatalogHandlers } from './types.js';
+import type {
+  CatalogHandlers,
+  HandlerResult,
+  RegisterCatalogRoutesOptions,
+} from './types.js';
+
+/** The strict response-mismatch 500 (spec 5c.4). */
+const MISMATCH = {
+  statusCode: 500,
+  code: JEEVES_RESPONSE_VALIDATION,
+  error: 'Internal Server Error',
+  message: SERVER_ERROR_MESSAGE,
+};
 
 const auth = { authorization: `Bearer ${TEST_KEY}` };
 
@@ -78,7 +101,12 @@ describe('registerCatalogRoutes', () => {
     expect(res.json()).toEqual({ id: 'new', name: 'n' });
     const missing = await app.inject('/things/missing');
     expect(missing.statusCode).toBe(404);
-    expect(missing.json()).toEqual({ error: 'Not found' });
+    expect(missing.json()).toEqual({
+      statusCode: 404,
+      code: 'ACME_NOT_FOUND',
+      error: 'Not Found',
+      message: 'Thing missing not found',
+    });
     await app.close();
   });
 
@@ -99,8 +127,8 @@ describe('registerCatalogRoutes', () => {
     await app.close();
   });
 
-  describe('request validation', () => {
-    it('replies 400 with the default body and issues per slot', async () => {
+  describe('request validation: Fastify 400 (FST_ERR_VALIDATION)', () => {
+    it('body and query failures, with Fastify’s message', async () => {
       const app = await buildTestApp();
       const body = await app.inject({
         method: 'POST',
@@ -108,28 +136,41 @@ describe('registerCatalogRoutes', () => {
         payload: { name: '' },
       });
       expect(body.statusCode).toBe(400);
-      // Exactly 0.8.0's body: every field of the issue, nothing else.
       expect(body.json()).toEqual({
-        error: 'Request validation failed',
-        issues: [
-          {
-            slot: 'body',
-            path: ['name'],
-            code: 'too_small',
-            message: 'Too small: expected string to have >=1 characters',
-            params: { origin: 'string', minimum: 1, inclusive: true },
-          },
-        ],
+        statusCode: 400,
+        code: 'FST_ERR_VALIDATION',
+        error: 'Bad Request',
+        message: 'body/name Too small: expected string to have >=1 characters',
       });
       const query = await app.inject('/things/x?tags=abc');
       expect(query.statusCode).toBe(400);
-      expect(query.json()).toMatchObject({
-        issues: [{ slot: 'query', path: ['tags'] }],
+      expect(query.json()).toEqual({
+        statusCode: 400,
+        code: 'FST_ERR_VALIDATION',
+        error: 'Bad Request',
+        message: 'querystring/tags Invalid input',
       });
       await app.close();
     });
 
-    it('reports a path parameter failure in the params slot', async () => {
+    it('joins several failures with commas', async () => {
+      const app = await buildTestApp();
+      const res = await app.inject({
+        method: 'POST',
+        url: '/things',
+        payload: { name: '', size: 'big' },
+      });
+      expect(res.json()).toEqual({
+        statusCode: 400,
+        code: 'FST_ERR_VALIDATION',
+        error: 'Bad Request',
+        message:
+          'body/name Too small: expected string to have >=1 characters, body/size Invalid input: expected number, received string',
+      });
+      await app.close();
+    });
+
+    it('reports a path parameter failure', async () => {
       const app = Fastify({ logger: false });
       await registerCatalogRoutes(
         app,
@@ -149,8 +190,11 @@ describe('registerCatalogRoutes', () => {
       );
       const res = await app.inject('/n/abc');
       expect(res.statusCode).toBe(400);
-      expect(res.json()).toMatchObject({
-        issues: [{ slot: 'params', path: ['id'], code: 'invalid_format' }],
+      expect(res.json()).toEqual({
+        statusCode: 400,
+        code: 'FST_ERR_VALIDATION',
+        error: 'Bad Request',
+        message: 'params/id Invalid string: must match pattern /^\\d+$/',
       });
       expect((await app.inject('/n/12')).statusCode).toBe(200);
       await app.close();
@@ -187,8 +231,12 @@ describe('registerCatalogRoutes', () => {
         payload: { enabled: 'yes' },
       });
       expect(bad.statusCode).toBe(400);
-      expect(bad.json()).toMatchObject({
-        issues: [{ slot: 'body', path: ['enabled'] }],
+      expect(bad.json()).toEqual({
+        statusCode: 400,
+        code: 'FST_ERR_VALIDATION',
+        error: 'Bad Request',
+        message:
+          'body/enabled Invalid input: expected boolean, received string',
       });
       const good = await app.inject({
         method: 'PATCH',
@@ -205,42 +253,303 @@ describe('registerCatalogRoutes', () => {
       await app.close();
     });
 
-    it('uses a custom formatter', async () => {
-      const app = await buildTestApp({
-        formatValidationError: (issues, request) => ({
-          error: 'Bad input',
-          code: 'VALIDATION',
-          count: issues.length,
-          url: request.url,
-        }),
-      });
+    it('answers a malformed JSON body with Fastify’s own error', async () => {
+      const app = await buildTestApp();
       const res = await app.inject({
         method: 'POST',
         url: '/things',
-        payload: {},
+        headers: { 'content-type': 'application/json' },
+        payload: '{"name":',
       });
       expect(res.statusCode).toBe(400);
       expect(res.json()).toEqual({
-        error: 'Bad input',
-        code: 'VALIDATION',
-        count: 1,
-        url: '/things',
+        statusCode: 400,
+        code: 'FST_ERR_CTP_INVALID_JSON_BODY',
+        error: 'Bad Request',
+        message:
+          "Body is not valid JSON but content-type is set to 'application/json'",
+      });
+      await app.close();
+    });
+  });
+
+  describe('thrown errors: Fastify body, 5xx masked (spec 5c.5)', () => {
+    /** An app whose `broken` handler throws `error`. */
+    const throwing = async (
+      error: unknown,
+      options: RegisterCatalogRoutesOptions = {},
+      setup: (app: FastifyInstance) => void = () => undefined,
+    ) => {
+      const app = Fastify({ logger: false });
+      setup(app);
+      await registerCatalogRoutes(
+        app,
+        defineCatalog([testCatalog.byName('broken')]),
+        // A non-Error rejection is deliberate here.
+        { broken: () => Promise.reject(error as Error) },
+        options,
+      );
+      return app;
+    };
+
+    it('a thrown Error with an enumerable field: 500, generic, no leak, cause logged', async () => {
+      const logger = { warn: vi.fn(), error: vi.fn() };
+      const error = Object.assign(new Error('secret detail'), {
+        extra: 'leak?',
+      });
+      const app = await throwing(error, { logger });
+      const res = await app.inject('/broken');
+      expect(res.statusCode).toBe(500);
+      expect(res.json()).toEqual({
+        statusCode: 500,
+        error: 'Internal Server Error',
+        message: SERVER_ERROR_MESSAGE,
+      });
+      expect(res.headers['content-type']).toMatch(/^application\/json/);
+      expect(logger.error).toHaveBeenCalledWith(
+        { err: error },
+        'Request failed',
+      );
+      await app.close();
+    });
+
+    it('a thrown 4xx: its status, message and code', async () => {
+      const app = await throwing(
+        Object.assign(new Error('Job j1 already exists'), {
+          statusCode: 409,
+          code: 'RUNNER_JOB_EXISTS',
+          extra: 'leak?',
+        }),
+      );
+      const res = await app.inject('/broken');
+      expect(res.statusCode).toBe(409);
+      expect(res.json()).toEqual({
+        statusCode: 409,
+        code: 'RUNNER_JOB_EXISTS',
+        error: 'Conflict',
+        message: 'Job j1 already exists',
       });
       await app.close();
     });
 
-    it('rethrows other errors to the app error handler', async () => {
-      const app = Fastify({ logger: false });
-      app.setErrorHandler((_error, _request, reply) =>
-        reply.status(418).send({ error: 'app handler' }),
+    it('a createError error: code and formatted message kept', async () => {
+      const JobExists = createError(
+        'RUNNER_JOB_EXISTS',
+        'Job %s already exists',
+        409,
       );
-      const catalog = defineCatalog([testCatalog.byName('broken')]);
-      await registerCatalogRoutes(app, catalog, {
-        broken: () => Promise.reject(new Error('boom')),
+      const app = await throwing(new JobExists('j1'));
+      const res = await app.inject('/broken');
+      expect(res.statusCode).toBe(409);
+      expect(res.json()).toEqual({
+        statusCode: 409,
+        code: 'RUNNER_JOB_EXISTS',
+        error: 'Conflict',
+        message: 'Job j1 already exists',
+      });
+      await app.close();
+    });
+
+    it('a createError 5xx keeps its code, masks its message', async () => {
+      const Down = createError('ACME_DOWN', 'Database at 10.0.0.5 down', 503);
+      const app = await throwing(new Down());
+      const res = await app.inject('/broken');
+      expect(res.statusCode).toBe(503);
+      expect(res.json()).toEqual({
+        statusCode: 503,
+        code: 'ACME_DOWN',
+        error: 'Service Unavailable',
+        message: SERVER_ERROR_MESSAGE,
+      });
+      await app.close();
+    });
+
+    it.each([
+      [399, 500],
+      [400, 400],
+      [599, 599],
+      [600, 500],
+      [200, 500],
+      [302, 500],
+      [404.5, 500],
+      ['404', 500],
+    ])('statusCode %j answers %i', async (statusCode, status) => {
+      const app = await throwing(Object.assign(new Error('m'), { statusCode }));
+      const res = await app.inject('/broken');
+      expect(res.statusCode).toBe(status);
+      expect(res.json()).toEqual({
+        statusCode: status,
+        error: STATUS_CODES[status] ?? 'Error',
+        message: status < 500 ? 'm' : SERVER_ERROR_MESSAGE,
+      });
+      await app.close();
+    });
+
+    it.each([
+      ['a string', 'boom'],
+      ['null', null],
+      ['a non-string code and message', { code: 7, message: { a: 1 } }],
+    ])('a thrown %s: 500 with no code', async (_label, thrown) => {
+      const app = await throwing(thrown);
+      const res = await app.inject('/broken');
+      expect(res.statusCode).toBe(500);
+      expect(res.json()).toEqual({
+        statusCode: 500,
+        error: 'Internal Server Error',
+        message: SERVER_ERROR_MESSAGE,
+      });
+      await app.close();
+    });
+
+    it('a thrown 4xx without a string message: empty message', async () => {
+      const app = await throwing({ statusCode: 404, message: 42 });
+      const res = await app.inject('/broken');
+      expect(res.json()).toEqual({
+        statusCode: 404,
+        error: 'Not Found',
+        message: '',
+      });
+      await app.close();
+    });
+
+    it('never consults the app’s error handler', async () => {
+      const appHandler = vi.fn();
+      const app = await throwing(new Error('boom'), {}, (root) => {
+        root.setErrorHandler(appHandler);
       });
       const res = await app.inject('/broken');
-      expect(res.statusCode).toBe(418);
-      expect(res.json()).toEqual({ error: 'app handler' });
+      expect(res.statusCode).toBe(500);
+      expect(res.json()).toEqual({
+        statusCode: 500,
+        error: 'Internal Server Error',
+        message: SERVER_ERROR_MESSAGE,
+      });
+      expect(appHandler).not.toHaveBeenCalled();
+      await app.close();
+    });
+
+    it('answers an unknown route in Fastify’s body', async () => {
+      const app = await throwing(new Error('unused'));
+      const res = await app.inject('/nowhere');
+      expect(res.statusCode).toBe(404);
+      expect(res.json()).toEqual({
+        statusCode: 404,
+        error: 'Not Found',
+        message: 'Route GET:/nowhere not found',
+      });
+      await app.close();
+    });
+  });
+
+  describe('error results: normalised to Fastify’s body', () => {
+    /** An app whose `deleteThing` handler returns `result`. */
+    const returning = async (
+      result: HandlerResult<CatalogEntry>,
+      options: RegisterCatalogRoutesOptions = {},
+    ) => {
+      const app = Fastify({ logger: false });
+      await registerCatalogRoutes(
+        app,
+        deleteOnly,
+        { deleteThing: () => Promise.resolve(result as never) },
+        options,
+      );
+      return app;
+    };
+
+    it('a 4xx keeps its message and code, drops other fields', async () => {
+      const app = await returning({
+        status: 409,
+        body: { message: 'Busy', code: 'ACME_BUSY', extra: 1 } as never,
+        headers: { 'retry-after': '5' },
+      });
+      const res = await app.inject({ method: 'DELETE', url: '/things/1' });
+      expect(res.statusCode).toBe(409);
+      expect(res.headers['retry-after']).toBe('5');
+      expect(res.json()).toEqual({
+        statusCode: 409,
+        code: 'ACME_BUSY',
+        error: 'Conflict',
+        message: 'Busy',
+      });
+      await app.close();
+    });
+
+    it('a full ErrorBody takes its statusCode and error text from the status', async () => {
+      const app = await returning({
+        status: 404,
+        body: errorBody(500, 'No thing 1', 'ACME_NOT_FOUND'),
+      });
+      const res = await app.inject({ method: 'DELETE', url: '/things/1' });
+      expect(res.json()).toEqual({
+        statusCode: 404,
+        code: 'ACME_NOT_FOUND',
+        error: 'Not Found',
+        message: 'No thing 1',
+      });
+      await app.close();
+    });
+
+    it('a 5xx keeps its code, masks its message and logs it', async () => {
+      const logger = { warn: vi.fn(), error: vi.fn() };
+      const app = await returning(
+        {
+          status: 503,
+          body: { message: 'Database at 10.0.0.5 down', code: 'ACME_DOWN' },
+        },
+        { logger },
+      );
+      const res = await app.inject({ method: 'DELETE', url: '/things/1' });
+      expect(res.statusCode).toBe(503);
+      expect(res.json()).toEqual({
+        statusCode: 503,
+        code: 'ACME_DOWN',
+        error: 'Service Unavailable',
+        message: SERVER_ERROR_MESSAGE,
+      });
+      expect(logger.error).toHaveBeenCalledWith(
+        {
+          statusCode: 503,
+          code: 'ACME_DOWN',
+          message: 'Database at 10.0.0.5 down',
+        },
+        'Handler returned 5xx',
+      );
+      await app.close();
+    });
+
+    it('a 400 is normalised too', async () => {
+      const app = await returning({
+        status: 400,
+        body: { message: 'Bad id', code: 'ACME_BAD_ID', extra: 1 } as never,
+      });
+      const res = await app.inject({ method: 'DELETE', url: '/things/1' });
+      expect(res.statusCode).toBe(400);
+      expect(res.json()).toEqual({
+        statusCode: 400,
+        code: 'ACME_BAD_ID',
+        error: 'Bad Request',
+        message: 'Bad id',
+      });
+      await app.close();
+    });
+
+    it('a 500 without a code has none', async () => {
+      const app = await returning({ status: 500, body: { message: 'x' } });
+      const res = await app.inject({ method: 'DELETE', url: '/things/1' });
+      expect(res.json()).toEqual({
+        statusCode: 500,
+        error: 'Internal Server Error',
+        message: SERVER_ERROR_MESSAGE,
+      });
+      await app.close();
+    });
+
+    it('a 4xx with no message is a response mismatch', async () => {
+      const app = await returning({ status: 404, body: {} as never });
+      const res = await app.inject({ method: 'DELETE', url: '/things/1' });
+      expect(res.statusCode).toBe(500);
+      expect(res.json()).toEqual(MISMATCH);
       await app.close();
     });
   });
@@ -257,82 +566,12 @@ describe('registerCatalogRoutes', () => {
     await app.close().catch(() => undefined);
   });
 
-  describe('app error replies', () => {
-    it.each([
-      [{ message: 'app shape' }, 409],
-      [{ code: 'E_APP', detail: { n: 1 } }, 500],
-    ])(
-      'sends the app error handler reply unchanged: %j',
-      async (body, status) => {
-        const app = Fastify({ logger: false });
-        app.setErrorHandler((_error, _request, reply) =>
-          reply.status(status).send(body),
-        );
-        const catalog = defineCatalog([testCatalog.byName('broken')]);
-        await registerCatalogRoutes(app, catalog, {
-          broken: () => Promise.reject(new Error('boom')),
-        });
-        const res = await app.inject('/broken');
-        expect(res.statusCode).toBe(status);
-        expect(res.json()).toEqual(body);
-        expect(res.headers['content-type']).toMatch(/^application\/json/);
-        await app.close();
-      },
-    );
-
-    it('keeps a content type the app set on an object reply', async () => {
-      const app = Fastify({ logger: false });
-      app.setErrorHandler((_error, _request, reply) =>
-        reply
-          .type('application/problem+json')
-          .status(500)
-          .send({ title: 'boom' }),
-      );
-      const catalog = defineCatalog([testCatalog.byName('broken')]);
-      await registerCatalogRoutes(app, catalog, {
-        broken: () => Promise.reject(new Error('boom')),
-      });
-      const res = await app.inject('/broken');
-      expect(res.headers['content-type']).toBe('application/problem+json');
-      expect(res.json()).toEqual({ title: 'boom' });
-      await app.close();
-    });
-
-    it.each([
-      ['a JSON string', 'application/json', '{"error":"pre"}'],
-      ['plain text', 'text/plain', 'app text'],
-      ['an untyped string', undefined, 'app text'],
-    ])(
-      'sends %s from the app error handler as is',
-      async (_label, type, payload) => {
-        const app = Fastify({ logger: false });
-        app.setErrorHandler((_error, _request, reply) => {
-          if (type) void reply.type(type);
-          return reply.status(500).send(payload);
-        });
-        const catalog = defineCatalog([testCatalog.byName('broken')]);
-        await registerCatalogRoutes(app, catalog, {
-          broken: () => Promise.reject(new Error('boom')),
-        });
-        const res = await app.inject('/broken');
-        expect(res.body).toBe(payload);
-        expect(res.headers['content-type']).toMatch(
-          new RegExp(`^${type ?? 'text/plain'}`),
-        );
-        await app.close();
-      },
-    );
-  });
-
   describe('response validation', () => {
     it('strict (default): logs at error and replies 500', async () => {
       const app = await buildTestApp();
       const res = await app.inject('/broken');
       expect(res.statusCode).toBe(500);
-      expect(res.json()).toEqual({
-        code: 'internal_error',
-        error: 'Response validation failed',
-      });
+      expect(res.json()).toEqual(MISMATCH);
       await app.close();
     });
 
@@ -343,6 +582,7 @@ describe('registerCatalogRoutes', () => {
       await registerCatalogRoutes(app, testCatalog, testHandlers);
       const res = await app.inject('/broken');
       expect(res.statusCode).toBe(500);
+      expect(res.json()).toEqual(MISMATCH);
       expect(appHandler).not.toHaveBeenCalled();
       await app.close();
     });
@@ -387,27 +627,59 @@ describe('registerCatalogRoutes', () => {
       await app.close();
     });
 
-    it.each([404, 503] as const)(
-      'checks a %i body against the error body schema, keeping extra fields',
-      async (status) => {
-        let body: object = { message: 'no error field' };
+    describe('replies sent from a root hook', () => {
+      /** An app whose root `onRequest` hook answers `/things/:id` itself. */
+      const hooked = async (
+        hook: (reply: FastifyReply) => Promise<unknown>,
+        options: RegisterCatalogRoutesOptions = {},
+      ) => {
         const app = Fastify({ logger: false });
-        await registerCatalogRoutes(app, deleteOnly, {
-          deleteThing: () => Promise.resolve({ status, body: body as never }),
+        app.addHook('onRequest', async (_request, reply) => {
+          await hook(reply);
         });
-        const bad = await app.inject({ method: 'DELETE', url: '/things/1' });
-        expect(bad.statusCode).toBe(500);
-        expect(bad.json()).toEqual({
-          code: 'internal_error',
-          error: 'Response validation failed',
-        });
-        body = { error: 'nope', code: 'X' };
-        const good = await app.inject({ method: 'DELETE', url: '/things/1' });
-        expect(good.statusCode).toBe(status);
-        expect(good.json()).toEqual({ error: 'nope', code: 'X' });
+        await registerCatalogRoutes(app, deleteOnly, testHandlers, options);
+        return app;
+      };
+
+      it('strict: a body that is not Fastify’s is a mismatch', async () => {
+        const app = await hooked(async (reply) =>
+          reply.status(401).send({ error: 'Unauthorized' }),
+        );
+        const res = await app.inject({ method: 'DELETE', url: '/things/1' });
+        expect(res.statusCode).toBe(500);
+        expect(res.json()).toEqual(MISMATCH);
         await app.close();
-      },
-    );
+      });
+
+      it('log: a body that is not Fastify’s goes out unparsed', async () => {
+        const app = await hooked(
+          async (reply) => reply.status(401).send({ error: 'Unauthorized' }),
+          { responseValidation: 'log' },
+        );
+        const res = await app.inject({ method: 'DELETE', url: '/things/1' });
+        expect(res.statusCode).toBe(401);
+        expect(res.json()).toEqual({ error: 'Unauthorized' });
+        await app.close();
+      });
+
+      it('an error thrown from the hook is answered by the scope', async () => {
+        const Unauthorized = createError(
+          'ACME_UNAUTHORIZED',
+          'Missing key',
+          401,
+        );
+        const app = await hooked(() => Promise.reject(new Unauthorized()));
+        const res = await app.inject({ method: 'DELETE', url: '/things/1' });
+        expect(res.statusCode).toBe(401);
+        expect(res.json()).toEqual({
+          statusCode: 401,
+          code: 'ACME_UNAUTHORIZED',
+          error: 'Unauthorized',
+          message: 'Missing key',
+        });
+        await app.close();
+      });
+    });
   });
 
   describe('non-JSON entries', () => {
@@ -435,7 +707,7 @@ describe('registerCatalogRoutes', () => {
         readme: () =>
           Promise.resolve(
             fail
-              ? { status: 404 as const, body: { error: 'gone' } }
+              ? { status: 404 as const, body: { message: 'gone' } }
               : {
                   status: 200,
                   body: 'plain',
@@ -448,7 +720,12 @@ describe('registerCatalogRoutes', () => {
       fail = true;
       const missing = await app.inject('/readme');
       expect(missing.statusCode).toBe(404);
-      expect(missing.json()).toEqual({ error: 'gone' });
+      expect(missing.headers['content-type']).toMatch(/^application\/json/);
+      expect(missing.json()).toEqual({
+        statusCode: 404,
+        error: 'Not Found',
+        message: 'gone',
+      });
       await app.close();
     });
   });
@@ -475,7 +752,24 @@ describe('registerCatalogRoutes', () => {
         payload: { patch: { a: 'x' } },
       });
       expect(bad.statusCode).toBe(400);
-      expect(bad.json()).toMatchObject({ error: 'Config validation failed' });
+      expect(bad.json()).toEqual({
+        statusCode: 400,
+        code: JEEVES_CONFIG_INVALID,
+        error: 'Bad Request',
+        message:
+          'Config validation failed: a: Invalid input: expected number, received string',
+      });
+      const query = await app.inject({
+        url: '/config',
+        query: { path: '$[?(' },
+      });
+      expect(query.statusCode).toBe(400);
+      expect(query.json()).toEqual({
+        statusCode: 400,
+        code: JEEVES_CONFIG_QUERY_INVALID,
+        error: 'Bad Request',
+        message: 'Unexpected "?" at character 0',
+      });
       await app.close();
     });
   });
@@ -488,10 +782,23 @@ describe('registerCatalogRoutes', () => {
       expect(guarded.length).toBeGreaterThan(0);
       for (const entry of open)
         expect((await hit(app, entry)).statusCode).not.toBe(401);
-      for (const entry of guarded)
-        expect((await hit(app, entry)).statusCode).toBe(401);
+      for (const entry of guarded) {
+        const res = await hit(app, entry);
+        expect(res.statusCode).toBe(401);
+        expect(res.json()).toEqual({
+          statusCode: 401,
+          error: 'Unauthorized',
+          message: 'Missing or wrong key',
+        });
+      }
       const authed = await app.inject({ url: '/config', headers: auth });
       expect(authed.statusCode).toBe(200);
+      // An unknown route has no route URL; the hook lets it through.
+      expect((await app.inject('/nowhere')).json()).toEqual({
+        statusCode: 404,
+        error: 'Not Found',
+        message: 'Route GET:/nowhere not found',
+      });
       await app.close();
     });
   });

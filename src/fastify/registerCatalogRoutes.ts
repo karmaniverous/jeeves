@@ -4,77 +4,24 @@
  * @module
  */
 
-import type {
-  FastifyInstance,
-  FastifyReply,
-  FastifyRequest,
-  FastifySchema,
-} from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifySchema } from 'fastify';
 import type { z } from 'zod';
 
+import { errorBody, SERVER_ERROR_MESSAGE } from '../api/errorBody.js';
 import { errorBodySchema } from '../catalog/errorBody.js';
 import { isJsonContentType } from '../catalog/schemaHelpers.js';
 import type { Catalog, CatalogEntry } from '../catalog/types.js';
+import { errorHandlerFor, ResponseMismatchError } from './errorHandler.js';
 import type {
   CatalogHandler,
   CatalogHandlers,
   CatalogRouteLogger,
-  CatalogValidationIssue,
+  HandlerErrorBody,
   HandlerResult,
   RegisterCatalogRoutesOptions,
   RequestInput,
 } from './types.js';
-import {
-  isCatalogValidationError,
-  type ValidationEntry,
-  validatorCompiler,
-} from './zodValidation.js';
-
-/** Body of a strict-mode response mismatch (spec 5a.3). */
-const RESPONSE_FAILED = {
-  code: 'internal_error',
-  error: 'Response validation failed',
-} as const;
-
-/** Fastify's names for the validated request parts, mapped to slots. */
-const SLOT_OF = {
-  params: 'params',
-  querystring: 'query',
-  body: 'body',
-} as const;
-
-/** Thrown by the serializer on a strict-mode mismatch; never escapes the scope. */
-class ResponseMismatchError extends Error {
-  /**
-   * @param issues - Zod issues from the response parse.
-   */
-  constructor(readonly issues: z.core.$ZodIssue[]) {
-    super('Response validation failed');
-    this.name = 'ResponseMismatchError';
-  }
-}
-
-/**
- * Request-validation issues from a Fastify validation error.
- *
- * @param error - Error carrying this module's validation entries.
- * @param context - Fastify's validation context (`body`, `querystring`,
- *   `params`).
- * @returns The issues.
- */
-function issuesOf(
-  error: { validation: ValidationEntry[] },
-  context: string,
-): CatalogValidationIssue[] {
-  const slot = SLOT_OF[context as keyof typeof SLOT_OF];
-  return error.validation.map((v) => ({
-    slot,
-    path: v.instancePath.split('/').filter(Boolean),
-    code: v.keyword,
-    message: v.message,
-    params: v.params,
-  }));
-}
+import { validatorCompiler } from './zodValidation.js';
 
 /**
  * The serializer for one response schema.
@@ -122,22 +69,32 @@ function routeSchema(entry: CatalogEntry): FastifySchema {
 }
 
 /**
- * Send a handler result.
+ * Send a handler result. An error result goes out as Fastify's body, built
+ * from the status; a 5xx's message is logged and replaced with the generic
+ * one.
  *
  * @param entry - Catalog entry.
  * @param result - Handler result.
  * @param reply - Fastify reply.
+ * @param log - Where a 5xx's message is logged.
  * @returns The sent reply.
  */
 function send(
   entry: CatalogEntry,
   result: HandlerResult<CatalogEntry>,
   reply: FastifyReply,
+  log: CatalogRouteLogger,
 ): FastifyReply {
-  reply.status(result.status);
+  const { status } = result;
+  reply.status(status);
   if (result.headers) void reply.headers(result.headers);
-  if (isJsonContentType(entry.contentType) || result.status >= 400)
-    return reply.send(result.body);
+  if (status >= 400) {
+    const { code, message } = result.body as HandlerErrorBody;
+    if (status < 500) return reply.send(errorBody(status, message, code));
+    log.error({ statusCode: status, code, message }, 'Handler returned 5xx');
+    return reply.send(errorBody(status, SERVER_ERROR_MESSAGE, code));
+  }
+  if (isJsonContentType(entry.contentType)) return reply.send(result.body);
   if (!reply.hasHeader('content-type'))
     void reply.type(entry.contentType as string);
   const { body } = result;
@@ -149,56 +106,22 @@ function send(
 }
 
 /**
- * The catalog scope's error handler: request-validation errors become a 400
- * with the formatted body, a strict response mismatch becomes core's 500,
- * and anything else is rethrown to the app's own error handler. Its reply
- * is the app's (spec 5.5), so it is sent as plain JSON, bypassing the
- * scope's response schemas.
- *
- * @param format - Validation error body formatter.
- * @param logger - Logger option, else the request's logger.
- * @returns The error handler.
- */
-function errorHandlerFor(
-  format: NonNullable<RegisterCatalogRoutesOptions['formatValidationError']>,
-  logger: CatalogRouteLogger | undefined,
-) {
-  return (error: unknown, request: FastifyRequest, reply: FastifyReply) => {
-    if (isCatalogValidationError(error))
-      return reply
-        .status(400)
-        .send(format(issuesOf(error, error.validationContext), request));
-    if (error instanceof ResponseMismatchError) {
-      (logger ?? request.log).error(
-        { issues: error.issues },
-        'Response validation failed',
-      );
-      return reply.status(500).send(RESPONSE_FAILED);
-    }
-    // Strings go out as the app sent them; objects as JSON, typed as such
-    // unless the app set a content type.
-    reply.serializer((payload: unknown) => {
-      if (typeof payload === 'string') return payload;
-      if (!reply.hasHeader('content-type'))
-        void reply.type('application/json; charset=utf-8');
-      return JSON.stringify(payload);
-    });
-    throw error;
-  };
-}
-
-/**
  * Register every catalog route on the app, in one encapsulated plugin whose
  * validator, serializer and error handler don't affect the rest of the app.
  *
  * @remarks
+ * Every error in the scope (a thrown error, a request-validation failure, a
+ * strict response mismatch, an error result) is answered in Fastify's body,
+ * `{ statusCode, code?, error, message }`, with 5xx messages masked and
+ * logged; the app's own error handler is not consulted (spec 5c.5).
+ *
  * Auth isn't enforced here: register the component's auth hook on the root
  * app before calling this, so it applies to the catalog routes.
  *
  * @param app - Fastify app.
  * @param catalog - The catalog.
  * @param handlers - One handler per entry name.
- * @param options - Validation error body and response validation mode.
+ * @param options - Response validation mode and logger.
  * @returns Resolves when the routes are registered.
  */
 export async function registerCatalogRoutes<C extends Catalog>(
@@ -210,12 +133,6 @@ export async function registerCatalogRoutes<C extends Catalog>(
   options: RegisterCatalogRoutesOptions = {},
 ): Promise<void> {
   const mode = options.responseValidation ?? 'strict';
-  const format =
-    options.formatValidationError ??
-    ((issues: CatalogValidationIssue[]) => ({
-      error: 'Request validation failed',
-      issues,
-    }));
   const byName = handlers as unknown as Record<
     string,
     CatalogHandler<CatalogEntry>
@@ -236,7 +153,7 @@ export async function registerCatalogRoutes<C extends Catalog>(
             );
           }),
         );
-        scope.setErrorHandler(errorHandlerFor(format, options.logger));
+        scope.setErrorHandler(errorHandlerFor(options.logger));
 
         for (const entry of catalog.entries) {
           const handler = byName[entry.name];
@@ -250,7 +167,12 @@ export async function registerCatalogRoutes<C extends Catalog>(
                 query: request.query,
                 body: request.body ?? {},
               } as RequestInput<CatalogEntry>;
-              return send(entry, await handler(input, request), reply);
+              return send(
+                entry,
+                await handler(input, request),
+                reply,
+                options.logger ?? request.log,
+              );
             },
           });
         }
