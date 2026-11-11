@@ -11,8 +11,9 @@
  * The schema's parsed output is never written: keys the schema doesn't know
  * are kept and defaults are not materialized in the file.
  *
- * A failure's response carries a caller-facing message and code only; the
- * config file path and the underlying error are logged (spec 5d.2).
+ * A failure's response, or the warning when `onConfigApply` throws, carries
+ * a caller-facing message (and code) only; the config file path and the
+ * underlying error are logged (spec 5d.2).
  */
 
 import { existsSync, readFileSync, statSync } from 'node:fs';
@@ -22,8 +23,8 @@ import { formatIssues } from '../catalog/formatIssues.js';
 import type { JeevesComponentDescriptor } from '../component/descriptor.js';
 import { getComponentConfigDir, getComponentConfigPath } from '../init.js';
 import { atomicWrite } from '../managed/fileOps.js';
-import { getErrorMessage } from '../utils.js';
 import { errorBody } from './errorBody.js';
+import { consoleHandlerLogger, type HandlerLogger } from './handlerLogger.js';
 
 /** Code of the 400 sent when the merged config fails the schema. */
 export const JEEVES_CONFIG_INVALID = 'JEEVES_CONFIG_INVALID';
@@ -48,26 +49,8 @@ const READ_FAILED_MESSAGE = 'The config file could not be read.';
 /** Caller-facing message of the {@link JEEVES_CONFIG_WRITE_FAILED} 500. */
 const WRITE_FAILED_MESSAGE = 'The config file could not be written.';
 
-/**
- * Where the config apply handler logs what its failure responses leave out
- * (pino-compatible: a Fastify `request.log` or app logger fits).
- */
-export interface ConfigApplyLogger {
-  /**
-   * Logs a failure.
-   *
-   * @param details - The config file `path` and the underlying `err`.
-   * @param message - What failed.
-   */
-  error: (details: object, message: string) => void;
-}
-
-/** Default {@link ConfigApplyLogger}: `console.error`. */
-const consoleLogger: ConfigApplyLogger = {
-  error: (details, message) => {
-    console.error(message, details);
-  },
-};
+/** The success reply's `warning` when `onConfigApply` throws. */
+const APPLY_FAILED_WARNING = 'The config was written but could not be applied.';
 
 /** Request shape for the config apply handler. */
 export interface ConfigApplyRequest {
@@ -95,7 +78,7 @@ export interface ConfigApplyResult {
  */
 export type ConfigApplyHandler = (
   request: ConfigApplyRequest,
-  logger?: ConfigApplyLogger,
+  logger?: HandlerLogger,
 ) => Promise<ConfigApplyResult>;
 
 /**
@@ -196,7 +179,9 @@ function writeRawConfigFile(
  * 3. Validates the merged object against `descriptor.configSchema`
  * 4. Writes the merged object (not the schema's parsed output) atomically,
  *    keeping the existing file mode (0600 for a new file)
- * 5. Calls `descriptor.onConfigApply` with the validated (parsed) config
+ * 5. Calls `descriptor.onConfigApply` with the validated (parsed) config;
+ *    if it throws, the reply is still 200 (the file is written) with
+ *    `warning`: "The config was written but could not be applied."
  *
  * The response `config` is the validated (parsed) config, as before.
  * Failures are Fastify's error body ({@link errorBody}): 400 with code
@@ -205,9 +190,10 @@ function writeRawConfigFile(
  * {@link JEEVES_CONFIG_READ_FAILED} when the file can't be read (message:
  * "The config file could not be read.") and
  * {@link JEEVES_CONFIG_WRITE_FAILED} when it can't be written (message:
- * "The config file could not be written."). A 500's message is
- * sent to the caller (spec 5d.1), so it names neither the file nor the OS
- * error: those are logged to the handler's `logger` (spec 5d.2).
+ * "The config file could not be written."). A 500's message and the
+ * warning are sent to the caller (spec 5d.1), so they name neither the file
+ * nor the underlying error: those are logged to the handler's `logger`
+ * (spec 5d.2).
  *
  * @param descriptor - The component descriptor.
  * @param configPath - Optional explicit config file path. When provided, takes
@@ -220,7 +206,7 @@ export function createConfigApplyHandler(
 ): ConfigApplyHandler {
   return async (
     request: ConfigApplyRequest,
-    logger: ConfigApplyLogger = consoleLogger,
+    logger: HandlerLogger = consoleHandlerLogger,
   ): Promise<ConfigApplyResult> => {
     const { patch, replace } = request;
 
@@ -288,11 +274,15 @@ export function createConfigApplyHandler(
           validatedConfig as Record<string, unknown>,
         );
       } catch (err: unknown) {
+        logger.error(
+          { path: resolvedConfigPath, err },
+          'Config apply: the config was written but could not be applied',
+        );
         return {
           status: 200,
           body: {
             applied: true,
-            warning: `Config written but callback failed: ${getErrorMessage(err)}`,
+            warning: APPLY_FAILED_WARNING,
             config: validatedConfig,
           },
         };

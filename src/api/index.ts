@@ -6,7 +6,6 @@
 
 export {
   type ConfigApplyHandler,
-  type ConfigApplyLogger,
   type ConfigApplyRequest,
   type ConfigApplyResult,
   createConfigApplyHandler,
@@ -25,6 +24,7 @@ export {
   JEEVES_RESPONSE_VALIDATION,
   SERVER_ERROR_MESSAGE,
 } from './errorBody.js';
+export { type HandlerLogger } from './handlerLogger.js';
 export {
   createStatusHandler,
   type CreateStatusHandlerOptions,

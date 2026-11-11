@@ -81,7 +81,11 @@ export const configApplyResponseSchema = z.object({
   applied: z.literal(true),
   /** The validated config. */
   config: z.looseObject({}),
-  /** Set when the write succeeded but `onConfigApply` failed. */
+  /**
+   * Set when the write succeeded but `onConfigApply` failed: core's handler
+   * sends `The config was written but could not be applied.` and logs the
+   * error.
+   */
   warning: z.string().optional(),
 });
 

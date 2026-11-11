@@ -55,15 +55,16 @@ const asResult = (result: {
  * handlers: spread them into the handlers passed to `registerCatalogRoutes`.
  *
  * @remarks
- * Config apply's failures send caller-facing messages only; the config
- * file path and the underlying error are logged to `options.logger`, else
- * the request's Fastify logger (spec 5d.2). Pass the same `logger` as to
+ * Config apply's failures and warning, and status's `health.error` when the
+ * health check throws, are caller-facing text only; the underlying error
+ * (and the config file path) is logged to `options.logger`, else the
+ * request's Fastify logger (spec 5d.2, 5d.3). Pass the same `logger` as to
  * `registerCatalogRoutes` when the app was created with `logger: false`.
  *
  * @param sources - The existing status, config query and config apply
  *   handlers.
- * @param options - Where config apply logs its failures (only `error` is
- *   called). Default: the request's Fastify logger.
+ * @param options - Where status and config apply log their failures (only
+ *   `error` is called). Default: the request's Fastify logger.
  * @returns Handlers keyed `status`, `config` and `configApply`.
  */
 export function standardHandlers(
@@ -71,7 +72,8 @@ export function standardHandlers(
   options: RegisterErrorHandlersOptions = {},
 ): StandardCatalogHandlers {
   return {
-    status: async () => asResult(await sources.status()),
+    status: async (_input, request) =>
+      asResult(await sources.status(options.logger ?? request.log)),
     config: async ({ query }) =>
       asResult(
         await sources.config({ path: (query as { path?: string }).path }),

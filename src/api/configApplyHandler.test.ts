@@ -298,18 +298,55 @@ describe('createConfigApplyHandler', () => {
     expect(customMerge).not.toHaveBeenCalled();
   });
 
-  it('should return warning when callback fails', async () => {
-    const callback = vi.fn().mockRejectedValue(new Error('reload failed'));
+  it('callback fails: 200 with a caller-facing warning; error and path logged (spec 5d.2)', async () => {
+    const error = new Error('reload failed: secret detail');
+    const callback = vi.fn().mockRejectedValue(error);
     const handler = createConfigApplyHandler(
       makeDescriptor({ onConfigApply: callback }),
     );
+    const logger = { error: vi.fn() };
 
-    const result = await handler({ patch: { port: 2000 } });
+    const result = await handler({ patch: { port: 2000 } }, logger);
 
-    expect(result.status).toBe(200);
-    const body = result.body as Record<string, unknown>;
-    expect(body.applied).toBe(true);
-    expect(body.warning).toContain('reload failed');
+    expect(result).toEqual({
+      status: 200,
+      body: {
+        applied: true,
+        warning: 'The config was written but could not be applied.',
+        config: { port: 2000, watchPaths: [], debug: false },
+      },
+    });
+    expect(JSON.stringify(result.body)).not.toMatch(/secret|reload/);
+    expect(logger.error.mock.calls).toEqual([
+      [
+        {
+          path: join(configDir, 'jeeves-watcher', 'config.json'),
+          err: error,
+        },
+        'Config apply: the config was written but could not be applied',
+      ],
+    ]);
+    // The file was written before the callback ran.
+    expect(
+      JSON.parse(
+        readFileSync(join(configDir, 'jeeves-watcher', 'config.json'), 'utf-8'),
+      ),
+    ).toEqual({ port: 2000 });
+  });
+
+  it('callback succeeds: nothing logged, no warning', async () => {
+    const handler = createConfigApplyHandler(
+      makeDescriptor({ onConfigApply: vi.fn().mockResolvedValue(undefined) }),
+    );
+    const logger = { error: vi.fn() };
+
+    const result = await handler({ patch: { port: 2000 } }, logger);
+
+    expect(result.body).toEqual({
+      applied: true,
+      config: { port: 2000, watchPaths: [], debug: false },
+    });
+    expect(logger.error).not.toHaveBeenCalled();
   });
 
   it('should use explicit configPath when provided', async () => {

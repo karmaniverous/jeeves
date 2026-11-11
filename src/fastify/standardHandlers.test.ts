@@ -1,7 +1,7 @@
 /**
- * Config apply failures through the standard catalog route (spec 5d.2): the
- * caller gets a caller-facing message and code; the config file path and the
- * underlying error reach the server log only.
+ * Config apply and status failures through the standard catalog routes
+ * (spec 5d.2, 5d.3): the caller gets caller-facing text; the config file
+ * path and the underlying error reach the server log only.
  */
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -43,7 +43,15 @@ const WRITE_FAILED = {
   message: 'The config file could not be written.',
 };
 
-describe('standardHandlers: config apply failures (spec 5d.2)', () => {
+/** What makes the app's status and config apply fail. */
+interface Failures {
+  /** The status handler's `getHealth`. */
+  getHealth?: () => Promise<Record<string, unknown>>;
+  /** The descriptor's `onConfigApply`. */
+  onConfigApply?: (config: Record<string, unknown>) => Promise<void>;
+}
+
+describe('standardHandlers: config apply and status failures (spec 5d.2, 5d.3)', () => {
   let dir: string;
   let app: FastifyInstance | undefined;
 
@@ -63,9 +71,14 @@ describe('standardHandlers: config apply failures (spec 5d.2)', () => {
    * @param configPath - Config file path.
    * @param logger - Passed to `standardHandlers` and `registerCatalogRoutes`;
    *   when absent, Fastify logs JSON lines into `lines`.
+   * @param failures - Throwing `getHealth` / `onConfigApply`.
    * @returns The app and the captured Fastify log lines.
    */
-  async function build(configPath: string, logger?: CatalogRouteLogger) {
+  async function build(
+    configPath: string,
+    logger?: CatalogRouteLogger,
+    failures: Failures = {},
+  ) {
     const lines: string[] = [];
     const instance = Fastify({
       logger: logger
@@ -78,10 +91,17 @@ describe('standardHandlers: config apply failures (spec 5d.2)', () => {
       catalog,
       standardHandlers(
         {
-          status: createStatusHandler({ name: 'acme', version: '1.0.0' }),
+          status: createStatusHandler({
+            name: 'acme',
+            version: '1.0.0',
+            getHealth: failures.getHealth,
+          }),
           config: createConfigQueryHandler(() => ({})),
           configApply: createConfigApplyHandler(
-            makeTestDescriptor({ configSchema: z.object({ a: z.number() }) }),
+            makeTestDescriptor({
+              configSchema: z.object({ a: z.number() }),
+              onConfigApply: failures.onConfigApply,
+            }),
             configPath,
           ),
         },
@@ -95,8 +115,84 @@ describe('standardHandlers: config apply failures (spec 5d.2)', () => {
         url: '/config/apply',
         payload: { patch: { a: 2 } },
       });
-    return { apply, lines };
+    const status = () => instance.inject({ method: 'GET', url: '/status' });
+    return { apply, status, lines };
   }
+
+  /**
+   * Parsed Fastify JSON log lines.
+   *
+   * @param lines - Captured lines.
+   * @returns One object per line.
+   */
+  const parse = (lines: string[]) =>
+    lines.map((l) => JSON.parse(l) as Record<string, unknown>);
+
+  it('onConfigApply throws: 200 with the caller-facing warning; path and error in the request log only', async () => {
+    const path = join(dir, 'config.json');
+    const { apply, lines } = await build(path, undefined, {
+      onConfigApply: () => Promise.reject(new Error('reload: secret detail')),
+    });
+    const res = await apply();
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({
+      applied: true,
+      warning: 'The config was written but could not be applied.',
+      config: { a: 2 },
+    });
+    expect(res.body).not.toMatch(/secret|reload|config\.json/);
+    expect(parse(lines)).toEqual([
+      expect.objectContaining({
+        level: 50,
+        msg: 'Config apply: the config was written but could not be applied',
+        path,
+        err: expect.objectContaining({
+          message: 'reload: secret detail',
+        }) as unknown,
+      }),
+    ]);
+  });
+
+  it('health check throws: degraded with the caller-facing error; error in the request log only', async () => {
+    const { status, lines } = await build(join(dir, 'config.json'), undefined, {
+      getHealth: () => Promise.reject(new Error('Qdrant at 10.0.0.5 down')),
+    });
+    const res = await status();
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({
+      name: 'acme',
+      version: '1.0.0',
+      uptime: expect.any(Number) as unknown,
+      status: 'degraded',
+      health: { error: 'The health check failed.' },
+    });
+    expect(res.body).not.toMatch(/Qdrant|10\.0\.0\.5/);
+    expect(parse(lines)).toEqual([
+      expect.objectContaining({
+        level: 50,
+        msg: 'Status: the acme health check failed',
+        err: expect.objectContaining({
+          message: 'Qdrant at 10.0.0.5 down',
+        }) as unknown,
+      }),
+    ]);
+  });
+
+  it('health check throws: logged to the logger option, not Fastify', async () => {
+    const logger = { warn: vi.fn(), error: vi.fn() };
+    const error = new Error('Qdrant down');
+    const { status, lines } = await build(join(dir, 'config.json'), logger, {
+      getHealth: () => Promise.reject(error),
+    });
+    const res = await status();
+    expect(res.json<{ health: unknown }>().health).toEqual({
+      error: 'The health check failed.',
+    });
+    expect(lines).toEqual([]);
+    expect(logger.error.mock.calls).toEqual([
+      [{ err: error }, 'Status: the acme health check failed'],
+    ]);
+  });
 
   it('read failure: caller-facing 500; path and error in the request log only', async () => {
     const path = join(dir, 'config.json');
