@@ -1,8 +1,8 @@
 /**
- * The one place a catalog error reply's body is built (spec 5c.1, 5c.5):
- * `statusCode` and `error` from the reply status, `code` kept, `message`
- * kept on a 4xx and replaced with the generic one on a 5xx, whose cause is
- * logged.
+ * The one place a catalog error reply's body is built (spec 5c.1, 5c.5,
+ * 5d.1): `statusCode` and `error` from the reply status, `code` kept,
+ * `message` kept on a 4xx and on a deliberate 5xx, and replaced with the
+ * generic one on any other 5xx. Every 5xx's cause is logged.
  *
  * @module
  */
@@ -64,12 +64,19 @@ function keptCode(code: unknown): string | undefined {
 
 /**
  * The body of an error reply with this status: Fastify's
- * `{ statusCode, code?, error, message }`. On a 5xx the message is replaced
- * with {@link SERVER_ERROR_MESSAGE} and the cause is logged at `error`.
+ * `{ statusCode, code?, error, message }`. Every 5xx's cause is logged at
+ * `error`. A 5xx's message is kept when the reply is deliberate (spec 5d.1:
+ * a thrown error that declares its status, a handler error result, a
+ * standard error body sent from a hook) and replaced with
+ * {@link SERVER_ERROR_MESSAGE} otherwise (an undeclared crash, raw text, a
+ * stream, a web `Response`, no body, a response mismatch).
  *
  * @param status - Reply status (400 to 599).
  * @param message - The error's message.
  * @param code - The error's `code`; kept when a string.
+ * @param deliberate - Whether the reply's message was written for the
+ *   caller; when `false`, a 5xx's message is masked. A 4xx's message is
+ *   always kept.
  * @param log - Where a 5xx's cause is logged.
  * @param cause - What a 5xx's cause is logged as; default its status, code
  *   and message.
@@ -79,6 +86,7 @@ export function errorReplyBody(
   status: number,
   message: string,
   code: unknown,
+  deliberate: boolean,
   log: Pick<CatalogRouteLogger, 'error'>,
   cause: ErrorCause = {
     details: { statusCode: status, code, message },
@@ -86,12 +94,9 @@ export function errorReplyBody(
   },
 ): ErrorBody {
   const kept = keptCode(code);
+  const masked = status >= 500 && !deliberate;
   if (status >= 500) log.error(cause.details, cause.message);
-  const body = errorBody(
-    status,
-    status >= 500 ? SERVER_ERROR_MESSAGE : message,
-    kept,
-  );
+  const body = errorBody(status, masked ? SERVER_ERROR_MESSAGE : message, kept);
   builtBodies.add(body);
   return body;
 }
@@ -123,13 +128,14 @@ const messageSchema = z.object({ message: z.string() });
 /**
  * Normalise an object payload sent with an error status (a handler result,
  * or a reply a hook sent): rebuilt by {@link errorReplyBody} from the
- * status, its `message` and its `code`.
+ * status, its `message` and its `code`. Such a body is deliberate: a 5xx
+ * keeps its `message` (spec 5d.1), so write it for the caller.
  *
  * @remarks
  * A payload without a string `message` throws a
  * {@link ResponseMismatchError} in `'strict'` mode (answered with the
- * mismatch 500); in `'log'` mode it gets the status's generic message and a
- * warning is logged.
+ * mismatch 500); in `'log'` mode it gets the status text as its message (a
+ * 5xx the generic one) and a warning is logged.
  *
  * @param status - Reply status (400 to 599).
  * @param payload - The payload.
@@ -150,7 +156,7 @@ export function normaliseErrorPayload(
   ) as { code?: unknown };
   const parsed = messageSchema.safeParse(payload);
   if (parsed.success)
-    return errorReplyBody(status, parsed.data.message, code, log);
+    return errorReplyBody(status, parsed.data.message, code, true, log);
   if (mode === 'strict') throw new ResponseMismatchError(parsed.error.issues);
   log.warn(
     {
@@ -161,7 +167,13 @@ export function normaliseErrorPayload(
     },
     'Error body has no message (log mode): sent with the generic one',
   );
-  return errorReplyBody(status, STATUS_CODES[status] ?? 'Error', code, log);
+  return errorReplyBody(
+    status,
+    STATUS_CODES[status] ?? 'Error',
+    code,
+    false,
+    log,
+  );
 }
 
 /**
@@ -231,10 +243,11 @@ function parseJson(text: string): { value: unknown } | undefined {
  * @remarks
  * Text (a string or bytes) sent with a JSON content type is parsed and
  * normalised exactly like an object payload
- * ({@link normaliseErrorPayload}). Other text, and JSON text that doesn't
- * parse, is the `message`: kept on a 4xx (the status text when there is
- * none), masked and logged on a 5xx. A stream or a `Response` is released
- * unread and gets the status text.
+ * ({@link normaliseErrorPayload}), so a 5xx keeps its `message`. Other
+ * text, and JSON text that doesn't parse, is the `message`: kept on a 4xx
+ * (the status text when there is none), masked and logged on a 5xx (it is
+ * not a standard body, so not deliberate). A stream or a `Response` is
+ * released unread and gets the status text (a 5xx the generic message).
  *
  * @param status - Reply status (400 to 599).
  * @param payload - The raw payload.
@@ -273,6 +286,7 @@ export function rawErrorPayloadBody(
       status,
       text ?? STATUS_CODES[status] ?? 'Error',
       undefined,
+      false,
       log,
     ),
   );

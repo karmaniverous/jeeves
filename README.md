@@ -88,7 +88,7 @@ The packages under **Needs** are optional peers: install them in the project tha
 
 A component can describe its HTTP API once, as a catalog of entries (method, path, Zod schemas for params, query, body and response, an `auth` description and a `kind`). From that one catalog:
 
-- `registerCatalogRoutes` registers the Fastify routes with request validation and checked responses (`responseValidation: 'strict'` by default, or `'log'` while migrating), answering every error in Fastify's standard body `{ statusCode, code?, error, message }` with 5xx messages masked ([Errors](guides/endpoint-catalog.md#errors));
+- `registerCatalogRoutes` registers the Fastify routes with request validation and checked responses (`responseValidation: 'strict'` by default, or `'log'` while migrating), answering every error in Fastify's standard body `{ statusCode, code?, error, message }`, a deliberate 5xx keeping its message and an unexpected crash's masked ([Errors](guides/endpoint-catalog.md#errors));
 - `writeOpenApiDocument` and `checkOpenApiDrift` keep a committed OpenAPI 3.1 document in step;
 - `createCatalogClient` gives a typed client with one method per entry;
 - `createPluginToolset` builds plugin tools for the entries you select.
@@ -516,7 +516,7 @@ Marked `@deprecated` in 0.8.0 and removed in 4.0.0:
 
 - [Platform Overview](https://docs.karmanivero.us/jeeves/documents/Platform_Overview.html) — architecture, components, design philosophy
 - [Managed Content System](https://docs.karmanivero.us/jeeves/documents/Managed_Content_System.html) — static content, markers, budgets, `jeeves install`
-- [Migrating to 0.10](guides/migrating-to-0.10.md) — Fastify's standard error body for every catalog error: 400, 500 and config handler bodies, the client's `code` and `message`
+- [Migrating to 0.10](guides/migrating-to-0.10.md) — Fastify's standard error body for every catalog error: 400, 500 and config handler bodies, the client's `code` and `message`, and (after 0.10.0) a deliberate 5xx keeping its message
 - [Migrating to v1](guides/migrating-to-v1.md) — what was removed and what replaces it
 - [Migrating to 0.8](guides/migrating-to-0.8.md) — the endpoint catalog, new plugin options, behaviour corrections and deprecations
 - [Adopting the Endpoint Catalog](guides/endpoint-catalog.md) — catalog, routes, OpenAPI, client and plugin tools, step by step

@@ -1,15 +1,12 @@
 /**
- * Fastify's standard error body for every error (spec 5c.1, 5c.5).
+ * Fastify's standard error body for every error (spec 5c.1, 5c.5, 5d.1).
  *
  * @module
  */
 
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
-import {
-  JEEVES_RESPONSE_VALIDATION,
-  SERVER_ERROR_MESSAGE,
-} from '../api/errorBody.js';
+import { JEEVES_RESPONSE_VALIDATION } from '../api/errorBody.js';
 import {
   errorReplyBody,
   ResponseMismatchError,
@@ -52,13 +49,17 @@ function declaredStatus({
 }
 
 /**
- * An error handler answering every error in Fastify's body: 4xx keep their
- * `message` and `code`; 5xx get a generic `message` and the error is
- * logged. A 5xx keeps its `code` only when the error declares its status
- * (a `createError` error does); an undeclared crash is a 500 without one,
- * so a system code such as `ENOENT` never reaches the client. The error's `headers` (e.g. `Retry-After`) are
- * applied. A strict response mismatch is a 500 with code
- * `JEEVES_RESPONSE_VALIDATION`; its Zod issues are logged only.
+ * An error handler answering every error in Fastify's body. An error that
+ * declares its status (`statusCode`, or `status`, from 400 to 599; a
+ * `createError` error does) is deliberate: it keeps its `message` and
+ * `code`, on a 4xx or a 5xx, so a deliberate 5xx's message reaches the
+ * client and must be written for the caller, with no internals in it. An
+ * error that declares none is an unexpected crash: a 500 with the generic
+ * `message` and no `code`, so neither its text nor a system code such as
+ * `ENOENT` reaches the client. Every 5xx is logged. The error's `headers`
+ * (e.g. `Retry-After`) are applied. A strict response mismatch is a 500
+ * with the generic message and code `JEEVES_RESPONSE_VALIDATION`; its Zod
+ * issues are logged only.
  *
  * @param logger - Where 5xx causes are logged; default the request's logger.
  * @returns The handler, for `setErrorHandler`.
@@ -74,10 +75,12 @@ export function errorHandlerFor(
     const log = logger ?? request.log;
     if (error instanceof ResponseMismatchError)
       return reply.status(500).send(
+        // Not deliberate: masked, so the mismatch never reaches the client.
         errorReplyBody(
           500,
-          SERVER_ERROR_MESSAGE,
+          error.message,
           JEEVES_RESPONSE_VALIDATION,
+          false,
           log,
           {
             details: { issues: error.issues },
@@ -98,6 +101,7 @@ export function errorHandlerFor(
           status,
           typeof fields.message === 'string' ? fields.message : '',
           declared === undefined ? undefined : fields.code,
+          declared !== undefined,
           log,
           { details: { err: error }, message: 'Request failed' },
         ),
@@ -106,8 +110,10 @@ export function errorHandlerFor(
 }
 
 /**
- * Make the app's error handler send Fastify's standard error body, with the
- * `message` of every 5xx replaced by a generic one and the error logged.
+ * Make the app's error handler send Fastify's standard error body, by the
+ * catalog's rule: an error that declares its status keeps its `message` and
+ * `code` (a deliberate 5xx included); an undeclared crash is a 500 with a
+ * generic `message` and no `code`. Every 5xx is logged.
  *
  * @remarks
  * Catalog routes answer their own errors this way already; this covers the

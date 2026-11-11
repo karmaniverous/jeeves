@@ -9,7 +9,11 @@ import { STATUS_CODES } from 'node:http';
 
 import type { ErrorBody } from '../catalog/errorBody.js';
 
-/** The `message` of every 5xx a catalog route sends; the cause is logged. */
+/**
+ * The `message` of a 5xx that is not deliberate (an undeclared crash, raw
+ * text, a stream, no body, a response mismatch); the cause is logged. A
+ * deliberate 5xx keeps its own message (spec 5d.1).
+ */
 export const SERVER_ERROR_MESSAGE =
   'The server could not complete the request.';
 

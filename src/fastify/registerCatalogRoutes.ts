@@ -75,7 +75,8 @@ function routeSchema(entry: CatalogEntry): FastifySchema {
 /**
  * Send a handler result. An error result's body goes out as JSON, and the
  * scope's `preSerialization` hook rebuilds it from the status (Fastify's
- * body, a 5xx masked and logged), like every other error reply.
+ * body; a 5xx keeps its message and is logged), like every other error
+ * reply.
  *
  * @param entry - Catalog entry.
  * @param result - Handler result.
@@ -113,8 +114,11 @@ function send(
  * strict response mismatch, an error result, a reply one of the app's hooks
  * sends for a catalog route) is answered in Fastify's body,
  * `{ statusCode, code?, error, message }`, rebuilt from the reply status,
- * with 5xx messages masked and logged; the app's own error handler is not
- * consulted (spec 5c.5). Pre-serialized JSON text is parsed and treated like
+ * every 5xx logged; the app's own error handler is not consulted (spec
+ * 5c.5). A deliberate 5xx (a thrown error that declares its status, an
+ * error result, a standard body a hook sends) keeps its `message`; an
+ * undeclared crash, raw text, a stream, no body or a response mismatch
+ * gets the generic one (spec 5d.1). Pre-serialized JSON text is parsed and treated like
  * an object; other text, a stream, a web `Response` with an error status or
  * no body gets the standard body. Routes outside the scope are untouched.
  * The error's (or error result's) headers are applied, except body headers

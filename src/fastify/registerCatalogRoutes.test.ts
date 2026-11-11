@@ -275,7 +275,7 @@ describe('registerCatalogRoutes', () => {
     });
   });
 
-  describe('thrown errors: Fastify body, 5xx masked (spec 5c.5)', () => {
+  describe('thrown errors: Fastify body, crashes masked (spec 5c.5, 5d.1)', () => {
     /** An app whose `broken` handler throws `error`. */
     const throwing = async (
       error: unknown,
@@ -353,40 +353,79 @@ describe('registerCatalogRoutes', () => {
       await app.close();
     });
 
-    it('a createError 5xx keeps its code, masks its message', async () => {
-      const Down = createError('ACME_DOWN', 'Database at 10.0.0.5 down', 503);
-      const app = await throwing(new Down());
+    it('a createError 5xx is deliberate: code and message kept, cause logged', async () => {
+      const logger = { warn: vi.fn(), error: vi.fn() };
+      const ScanInProgress = createError(
+        'WATCHER_SCAN_IN_PROGRESS',
+        'A scan is in progress; retry when it finishes',
+        503,
+      );
+      const error = new ScanInProgress();
+      const app = await throwing(error, { logger });
       const res = await app.inject('/broken');
       expect(res.statusCode).toBe(503);
       expect(res.json()).toEqual({
         statusCode: 503,
-        code: 'ACME_DOWN',
+        code: 'WATCHER_SCAN_IN_PROGRESS',
         error: 'Service Unavailable',
+        message: 'A scan is in progress; retry when it finishes',
+      });
+      expect(logger.error).toHaveBeenCalledTimes(1);
+      expect(logger.error).toHaveBeenCalledWith(
+        { err: error },
+        'Request failed',
+      );
+      await app.close();
+    });
+
+    it('a thrown ENOENT crash: 500, masked, no code, cause logged', async () => {
+      const logger = { warn: vi.fn(), error: vi.fn() };
+      const error = Object.assign(
+        new Error("ENOENT: no such file or directory, open '/etc/secret'"),
+        { code: 'ENOENT' },
+      );
+      const app = await throwing(error, { logger });
+      const res = await app.inject('/broken');
+      expect(res.statusCode).toBe(500);
+      expect(res.json()).toEqual({
+        statusCode: 500,
+        error: 'Internal Server Error',
         message: SERVER_ERROR_MESSAGE,
       });
+      expect(logger.error).toHaveBeenCalledWith(
+        { err: error },
+        'Request failed',
+      );
       await app.close();
     });
 
     it.each([
-      [399, 500],
-      [400, 400],
-      [599, 599],
-      [600, 500],
-      [200, 500],
-      [302, 500],
-      [404.5, 500],
-      ['404', 500],
-    ])('statusCode %j answers %i', async (statusCode, status) => {
-      const app = await throwing(Object.assign(new Error('m'), { statusCode }));
-      const res = await app.inject('/broken');
-      expect(res.statusCode).toBe(status);
-      expect(res.json()).toEqual({
-        statusCode: status,
-        error: STATUS_CODES[status] ?? 'Error',
-        message: status < 500 ? 'm' : SERVER_ERROR_MESSAGE,
-      });
-      await app.close();
-    });
+      [399, 500, SERVER_ERROR_MESSAGE],
+      [400, 400, 'm'],
+      [499, 499, 'm'],
+      [500, 500, 'm'],
+      [599, 599, 'm'],
+      [600, 500, SERVER_ERROR_MESSAGE],
+      [200, 500, SERVER_ERROR_MESSAGE],
+      [302, 500, SERVER_ERROR_MESSAGE],
+      [503.5, 500, SERVER_ERROR_MESSAGE],
+      ['503', 500, SERVER_ERROR_MESSAGE],
+    ])(
+      'statusCode %j answers %i with message %j',
+      async (statusCode, status, message) => {
+        const app = await throwing(
+          Object.assign(new Error('m'), { statusCode }),
+        );
+        const res = await app.inject('/broken');
+        expect(res.statusCode).toBe(status);
+        expect(res.json()).toEqual({
+          statusCode: status,
+          error: STATUS_CODES[status] ?? 'Error',
+          message,
+        });
+        await app.close();
+      },
+    );
 
     it.each([
       ['a string', 'boom'],
@@ -405,17 +444,24 @@ describe('registerCatalogRoutes', () => {
     });
 
     it.each([
-      ['status alone', { status: 404 }, 404],
-      ['statusCode over status', { statusCode: 409, status: 404 }, 409],
-      ['a status below 400', { status: 200 }, 500],
-    ])('honours %s', async (_label, fields, status) => {
+      ['status alone', { status: 404 }, 404, 'gone'],
+      ['statusCode over status', { statusCode: 409, status: 404 }, 409, 'gone'],
+      ['a status below 400', { status: 200 }, 500, SERVER_ERROR_MESSAGE],
+      [
+        'a 5xx status alone, deliberate',
+        { status: 502, code: 'ACME_UPSTREAM' },
+        502,
+        'gone',
+      ],
+    ])('honours %s', async (_label, fields, status, message) => {
       const app = await throwing(Object.assign(new Error('gone'), fields));
       const res = await app.inject('/broken');
       expect(res.statusCode).toBe(status);
       expect(res.json()).toEqual({
         statusCode: status,
+        ...('code' in fields ? { code: fields.code } : {}),
         error: STATUS_CODES[status],
-        message: status < 500 ? 'gone' : SERVER_ERROR_MESSAGE,
+        message,
       });
       await app.close();
     });
@@ -451,20 +497,20 @@ describe('registerCatalogRoutes', () => {
     });
 
     it('a thrown 503 keeps its Retry-After; non-object headers are ignored', async () => {
-      const masked = await throwing(
-        Object.assign(new Error('db down'), {
+      const busy = await throwing(
+        Object.assign(new Error('Busy, retry later'), {
           statusCode: 503,
           headers: { 'retry-after': '30' },
         }),
       );
-      const res = await masked.inject('/broken');
+      const res = await busy.inject('/broken');
       expect(res.headers['retry-after']).toBe('30');
       expect(res.json()).toEqual({
         statusCode: 503,
         error: 'Service Unavailable',
-        message: SERVER_ERROR_MESSAGE,
+        message: 'Busy, retry later',
       });
-      await masked.close();
+      await busy.close();
       for (const headers of [null, 'retry-after: 5']) {
         const app = await throwing(
           Object.assign(new Error('m'), { statusCode: 400, headers }),
@@ -496,7 +542,7 @@ describe('registerCatalogRoutes', () => {
         {
           broken: () =>
             Promise.reject(
-              Object.assign(new Error('db secret'), {
+              Object.assign(new Error('Down for maintenance'), {
                 statusCode: 503,
                 headers: {
                   'x-a': 'a\r\nset-cookie: evil=1',
@@ -519,7 +565,7 @@ describe('registerCatalogRoutes', () => {
       expect(res.json()).toEqual({
         statusCode: 503,
         error: 'Service Unavailable',
-        message: SERVER_ERROR_MESSAGE,
+        message: 'Down for maintenance',
       });
       expect(appHandler).not.toHaveBeenCalled();
       const skipped = lines
@@ -649,12 +695,15 @@ describe('registerCatalogRoutes', () => {
       await app.close();
     });
 
-    it('a 5xx keeps its code, masks its message and logs it', async () => {
+    it('a 5xx is deliberate: code and message kept, logged', async () => {
       const logger = { warn: vi.fn(), error: vi.fn() };
       const app = await returning(
         {
           status: 503,
-          body: { message: 'Database at 10.0.0.5 down', code: 'ACME_DOWN' },
+          body: {
+            message: 'Embedding service unavailable; retry shortly',
+            code: 'WATCHER_EMBEDDING_UNAVAILABLE',
+          },
         },
         { logger },
       );
@@ -662,15 +711,16 @@ describe('registerCatalogRoutes', () => {
       expect(res.statusCode).toBe(503);
       expect(res.json()).toEqual({
         statusCode: 503,
-        code: 'ACME_DOWN',
+        code: 'WATCHER_EMBEDDING_UNAVAILABLE',
         error: 'Service Unavailable',
-        message: SERVER_ERROR_MESSAGE,
+        message: 'Embedding service unavailable; retry shortly',
       });
+      expect(logger.error).toHaveBeenCalledTimes(1);
       expect(logger.error).toHaveBeenCalledWith(
         {
           statusCode: 503,
-          code: 'ACME_DOWN',
-          message: 'Database at 10.0.0.5 down',
+          code: 'WATCHER_EMBEDDING_UNAVAILABLE',
+          message: 'Embedding service unavailable; retry shortly',
         },
         'Error reply masked',
       );
@@ -689,21 +739,21 @@ describe('registerCatalogRoutes', () => {
         deleteThing: () =>
           Promise.resolve({
             status: 503 as const,
-            body: { message: 'Database at 10.0.0.5 down' },
+            body: { message: 'Busy, retry later' },
           }),
       });
       const res = await app.inject({ method: 'DELETE', url: '/things/1' });
       expect(res.json()).toEqual({
         statusCode: 503,
         error: 'Service Unavailable',
-        message: SERVER_ERROR_MESSAGE,
+        message: 'Busy, retry later',
       });
       const logged = lines.map((l) => JSON.parse(l) as Record<string, unknown>);
       expect(logged).toEqual([
         expect.objectContaining({
           msg: 'Error reply masked',
           statusCode: 503,
-          message: 'Database at 10.0.0.5 down',
+          message: 'Busy, retry later',
         }),
       ]);
       await app.close();
@@ -773,13 +823,13 @@ describe('registerCatalogRoutes', () => {
       await app.close();
     });
 
-    it('a 500 without a code has none', async () => {
+    it('a 500 without a code has none; its message is kept', async () => {
       const app = await returning({ status: 500, body: { message: 'x' } });
       const res = await app.inject({ method: 'DELETE', url: '/things/1' });
       expect(res.json()).toEqual({
         statusCode: 500,
         error: 'Internal Server Error',
-        message: SERVER_ERROR_MESSAGE,
+        message: 'x',
       });
       await app.close();
     });
@@ -921,26 +971,32 @@ describe('registerCatalogRoutes', () => {
       });
 
       it.each(['strict', 'log'] as const)(
-        '%s: a 503 errorBody is masked and its message logged',
+        '%s: a 503 errorBody is deliberate: message kept and logged',
         async (responseValidation) => {
           const logger = { warn: vi.fn(), error: vi.fn() };
           const app = await hooked(
             async (reply) =>
               reply
                 .status(503)
-                .send(errorBody(503, 'db 10.0.0.5 down', 'ACME_DOWN')),
+                .send(
+                  errorBody(503, 'Auth service unavailable', 'ACME_AUTH_DOWN'),
+                ),
             { responseValidation, logger },
           );
           const res = await del(app);
           expect(res.statusCode).toBe(503);
           expect(res.json()).toEqual({
             statusCode: 503,
-            code: 'ACME_DOWN',
+            code: 'ACME_AUTH_DOWN',
             error: 'Service Unavailable',
-            message: SERVER_ERROR_MESSAGE,
+            message: 'Auth service unavailable',
           });
           expect(logger.error).toHaveBeenCalledWith(
-            { statusCode: 503, code: 'ACME_DOWN', message: 'db 10.0.0.5 down' },
+            {
+              statusCode: 503,
+              code: 'ACME_AUTH_DOWN',
+              message: 'Auth service unavailable',
+            },
             'Error reply masked',
           );
           await app.close();
@@ -1106,7 +1162,7 @@ describe('registerCatalogRoutes', () => {
         },
       );
 
-      it('JSON text: statusCode from the reply, 5xx masked and logged', async () => {
+      it('JSON text: statusCode from the reply, 5xx message kept and logged', async () => {
         const logger = { warn: vi.fn(), error: vi.fn() };
         const app = await hooked(
           async (reply) =>
@@ -1117,7 +1173,7 @@ describe('registerCatalogRoutes', () => {
                 JSON.stringify({
                   statusCode: 400,
                   code: 'ACME_DOWN',
-                  message: 'db 10.0.0.5 down',
+                  message: 'Store offline',
                   stack: 'secret',
                 }),
               ),
@@ -1129,11 +1185,11 @@ describe('registerCatalogRoutes', () => {
           statusCode: 503,
           code: 'ACME_DOWN',
           error: 'Service Unavailable',
-          message: SERVER_ERROR_MESSAGE,
+          message: 'Store offline',
         });
         expect(logger.error).toHaveBeenCalledTimes(1);
         expect(logger.error).toHaveBeenCalledWith(
-          { statusCode: 503, code: 'ACME_DOWN', message: 'db 10.0.0.5 down' },
+          { statusCode: 503, code: 'ACME_DOWN', message: 'Store offline' },
           'Error reply masked',
         );
         await app.close();
@@ -1484,18 +1540,18 @@ describe('registerCatalogRoutes', () => {
       await old.close();
     });
 
-    it('a hook 500 is masked', async () => {
+    it('a hook 500 standard body keeps its message', async () => {
       const app = await textApp(async (reply) =>
         reply
           .status(500)
-          .send({ statusCode: 500, error: 'x', message: 'secret' }),
+          .send({ statusCode: 500, error: 'x', message: 'Renderer offline' }),
       );
       const res = await app.inject('/readme');
       expect(res.statusCode).toBe(500);
       expect(res.json()).toEqual({
         statusCode: 500,
         error: 'Internal Server Error',
-        message: SERVER_ERROR_MESSAGE,
+        message: 'Renderer offline',
       });
       await app.close();
     });

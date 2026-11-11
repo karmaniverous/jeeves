@@ -1,5 +1,5 @@
 /**
- * The shared error body (spec 5c.1).
+ * The shared error body (spec 5c.1, 5d.1).
  *
  * @module
  */
@@ -24,7 +24,11 @@ export const errorBodySchema = z.object({
   code: z.string().optional(),
   /** Standard HTTP status text (`Bad Request`, `Conflict`, ...). */
   error: z.string(),
-  /** Human-readable message; generic on every 5xx. */
+  /**
+   * Human-readable message. A deliberate 5xx (an error that declares its
+   * status, a handler error result) keeps its own, written for the caller;
+   * an unexpected crash's is the generic `SERVER_ERROR_MESSAGE`.
+   */
   message: z.string(),
 });
 

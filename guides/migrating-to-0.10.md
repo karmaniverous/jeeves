@@ -19,6 +19,26 @@ title: Migrating to 0.10.0
 
 Every change below is breaking for a service or client that reads core's 0.9 error bodies.
 
+## After 0.10.0: a deliberate 5xx keeps its message (#167)
+
+0.10.0 replaced the `message` of **every** 5xx with `SERVER_ERROR_MESSAGE`. From the 0.10 patch release after 0.10.0, only an unexpected crash is masked; a deliberate 5xx's `message` reaches the client, as in Fastify. Wherever the 0.10.0 notes below say a 5xx's message is masked, read this rule. The same line now governs `code` and `message`: declared means deliberate.
+
+| 5xx source | 0.10.0 | Now |
+| --- | --- | --- |
+| Thrown error that declares its status (`createError`, or `statusCode`/`status` 500 to 599) | message masked, code kept | message and code kept |
+| Thrown error that declares no status (a crash, an `ENOENT`) | 500, masked, no code | unchanged |
+| Handler error result `{ status: 503, body: { message, code? } }` | message masked | message kept |
+| Standard error body a hook sends (object, or JSON text, with a string `message`) | message masked | message kept |
+| Raw text, a stream, a web `Response` or no body under a 5xx | masked | unchanged |
+| Strict response mismatch (`JEEVES_RESPONSE_VALIDATION`) | masked | unchanged |
+
+What to do:
+
+- **Services:** a deliberate 5xx's `message` is now sent, so write it for the caller ("A scan is in progress; retry when it finishes") and keep internals (hosts, paths, driver errors) out of it. To keep a 5xx's text private, throw an error that declares no status (it becomes a masked 500), or log the detail and send a caller-facing message. `registerErrorHandlers` follows the same rule.
+- **Clients:** `CatalogClientError.message` is now the service's own text for a deliberate 5xx instead of `SERVER_ERROR_MESSAGE`. Keep branching on `code`.
+- **Logs:** every 5xx is still logged at `error`, with the same messages (`Request failed`, `Error reply masked`) and details as in 0.10.0.
+- **Core's config apply 500s** (unreadable config file, failed write) are handler results, so through the standard `/config/apply` catalog route their message, which names the config file and the OS error, is now sent.
+
 ## Services (`/fastify`)
 
 - **The catalog scope answers every error itself**, in Fastify's body. 0.9 passed errors a handler threw to your app's error handler and sent its reply unchanged; that handler is **no longer consulted for catalog routes**, and there is no option to restore it. 4xx errors keep their `message` and `code`; 5xx errors keep their `code` only when they declare their status (a `createError` error does; a crash such as `ENOENT` is a 500 without a `code`), get the generic `message` (`SERVER_ERROR_MESSAGE`) and are logged through `logger` (or Fastify's logger). As in Fastify, the status is the error's `statusCode`, or its `status` when it has none, and the error's `headers` (for example `Retry-After` on a 429 or 503) are applied, except body headers (`content-type`, `content-encoding`, `content-length`, `transfer-encoding`) and names or values Node would reject, which are skipped. A status set on the reply before a throw is ignored: put it on the error. Throw deliberate errors made with `@fastify/error`'s `createError`, with an upper-case code:
@@ -54,7 +74,7 @@ Every change below is breaking for a service or client that reads core's 0.9 err
 
 ## Core handlers (root)
 
-- **`createConfigApplyHandler`'s 400** is `{ statusCode: 400, code: 'JEEVES_CONFIG_INVALID', error: 'Bad Request', message: 'Config validation failed: a.b: Invalid input: expected number, received string; c: ...' }`, the Zod issues folded into `message`. It was `{ error: 'Config validation failed', issues }`. Its 500s (unreadable file, failed write) are Fastify's body too; through a catalog route their message is masked.
+- **`createConfigApplyHandler`'s 400** is `{ statusCode: 400, code: 'JEEVES_CONFIG_INVALID', error: 'Bad Request', message: 'Config validation failed: a.b: Invalid input: expected number, received string; c: ...' }`, the Zod issues folded into `message`. It was `{ error: 'Config validation failed', issues }`. Its 500s (unreadable file, failed write) are Fastify's body too; through a catalog route their message was masked in 0.10.0 and is sent from the next patch (see above).
 - **`createConfigQueryHandler`'s 400** for an invalid JSONPath is `{ statusCode: 400, code: 'JEEVES_CONFIG_QUERY_INVALID', error: 'Bad Request', message }`. It was `{ error }`.
 - The codes are exported as `JEEVES_CONFIG_INVALID` and `JEEVES_CONFIG_QUERY_INVALID`.
 

@@ -61,15 +61,36 @@ describe('registerErrorHandlers', () => {
     await app.close();
   });
 
-  it('keeps the code of a 5xx that declares its status', async () => {
-    const app = await buildApp({ logger: { error: vi.fn() } });
+  it('keeps the code and message of a 5xx that declares its status, and logs it', async () => {
+    const logger = { error: vi.fn() };
+    const app = await buildApp({ logger });
     const res = await app.inject('/down');
     expect(res.statusCode).toBe(503);
     expect(res.json()).toEqual({
       statusCode: 503,
       code: 'ACME_DOWN',
       error: 'Service Unavailable',
-      message: SERVER_ERROR_MESSAGE,
+      message: 'Store db1 down',
+    });
+    expect(logger.error).toHaveBeenCalledWith(
+      { err: expect.any(Error) as unknown },
+      'Request failed',
+    );
+    await app.close();
+  });
+
+  it('keeps the message of a 5xx declared by its status field', async () => {
+    const app = Fastify({ logger: false });
+    registerErrorHandlers(app, { logger: { error: vi.fn() } });
+    app.get('/x', () => {
+      throw Object.assign(new Error('Upstream refused'), { status: 502 });
+    });
+    const res = await app.inject('/x');
+    expect(res.statusCode).toBe(502);
+    expect(res.json()).toEqual({
+      statusCode: 502,
+      error: 'Bad Gateway',
+      message: 'Upstream refused',
     });
     await app.close();
   });
