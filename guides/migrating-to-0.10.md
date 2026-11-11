@@ -37,7 +37,14 @@ What to do:
 - **Services:** a deliberate 5xx's `message` is now sent, so write it for the caller ("A scan is in progress; retry when it finishes") and keep internals (hosts, paths, driver errors) out of it. To keep a 5xx's text private, throw an error that declares no status (it becomes a masked 500), or log the detail and send a caller-facing message. `registerErrorHandlers` follows the same rule.
 - **Clients:** `CatalogClientError.message` is now the service's own text for a deliberate 5xx instead of `SERVER_ERROR_MESSAGE`. Keep branching on `code`.
 - **Logs:** every 5xx is still logged at `error`, with the same messages (`Request failed`, `Error reply masked`) and details as in 0.10.0.
-- **Core's config apply 500s** (unreadable config file, failed write) are handler results, so through the standard `/config/apply` catalog route their message, which names the config file and the OS error, is now sent.
+- **Core's config apply 500s** (unreadable config file, failed write) are handler results, so their message is now sent. It is caller-facing, with a code of its own; the config file path and the OS error go to the server log only (spec 5d.2):
+
+  | Failure | `code` | `message` |
+  | --- | --- | --- |
+  | The existing config file can't be read, or isn't a JSON object (left untouched) | `JEEVES_CONFIG_READ_FAILED` | `The config file could not be read.` |
+  | The merged config can't be written (the file is unchanged) | `JEEVES_CONFIG_WRITE_FAILED` | `The config file could not be written.` |
+
+  0.10.0 sent no code and masked the message, which named the file and the OS error (`Could not read config file <path>: <error>`, `Failed to write config: <error>`). Both codes are exported from the root. The handler logs `{ path, err }` with `Config apply: the config file could not be read` (or `written`) to the `logger` it is called with: `standardHandlers(sources, { logger })` passes its `logger` option, else the request's Fastify logger, so pass the same `logger` you give `registerCatalogRoutes` if your app runs with `logger: false`. Called directly, `createConfigApplyHandler(...)(request, logger?)` takes the logger as its second argument and logs to `console.error` without one.
 
 ## Services (`/fastify`)
 
@@ -74,7 +81,7 @@ What to do:
 
 ## Core handlers (root)
 
-- **`createConfigApplyHandler`'s 400** is `{ statusCode: 400, code: 'JEEVES_CONFIG_INVALID', error: 'Bad Request', message: 'Config validation failed: a.b: Invalid input: expected number, received string; c: ...' }`, the Zod issues folded into `message`. It was `{ error: 'Config validation failed', issues }`. Its 500s (unreadable file, failed write) are Fastify's body too; through a catalog route their message was masked in 0.10.0 and is sent from the next patch (see above).
+- **`createConfigApplyHandler`'s 400** is `{ statusCode: 400, code: 'JEEVES_CONFIG_INVALID', error: 'Bad Request', message: 'Config validation failed: a.b: Invalid input: expected number, received string; c: ...' }`, the Zod issues folded into `message`. It was `{ error: 'Config validation failed', issues }`. Its 500s (unreadable file, failed write) are Fastify's body too; through a catalog route their message was masked in 0.10.0; from the next patch it is sent, caller-facing, with the codes `JEEVES_CONFIG_READ_FAILED` and `JEEVES_CONFIG_WRITE_FAILED` (see above).
 - **`createConfigQueryHandler`'s 400** for an invalid JSONPath is `{ statusCode: 400, code: 'JEEVES_CONFIG_QUERY_INVALID', error: 'Bad Request', message }`. It was `{ error }`.
 - The codes are exported as `JEEVES_CONFIG_INVALID` and `JEEVES_CONFIG_QUERY_INVALID`.
 

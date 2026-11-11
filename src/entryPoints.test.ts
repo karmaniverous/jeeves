@@ -52,6 +52,10 @@ const EXPECTED: Record<keyof typeof ENTRIES, string[]> = {
     'JEEVES_RESPONSE_VALIDATION',
     'SERVER_ERROR_MESSAGE',
     'errorBody',
+    // 0.10.x (spec 5d.2, #167).
+    'ConfigApplyLogger',
+    'JEEVES_CONFIG_READ_FAILED',
+    'JEEVES_CONFIG_WRITE_FAILED',
   ],
   catalog: [
     'AuthScheme',

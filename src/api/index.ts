@@ -6,10 +6,13 @@
 
 export {
   type ConfigApplyHandler,
+  type ConfigApplyLogger,
   type ConfigApplyRequest,
   type ConfigApplyResult,
   createConfigApplyHandler,
   JEEVES_CONFIG_INVALID,
+  JEEVES_CONFIG_READ_FAILED,
+  JEEVES_CONFIG_WRITE_FAILED,
 } from './configApplyHandler.js';
 export {
   type ConfigQueryHandler,

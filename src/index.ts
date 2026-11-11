@@ -14,6 +14,7 @@
 
 export {
   type ConfigApplyHandler,
+  type ConfigApplyLogger,
   type ConfigApplyRequest,
   type ConfigApplyResult,
   type ConfigQueryHandler,
@@ -25,6 +26,8 @@ export {
   errorBody,
   JEEVES_CONFIG_INVALID,
   JEEVES_CONFIG_QUERY_INVALID,
+  JEEVES_CONFIG_READ_FAILED,
+  JEEVES_CONFIG_WRITE_FAILED,
   JEEVES_RESPONSE_VALIDATION,
   SERVER_ERROR_MESSAGE,
   type StatusHandler,

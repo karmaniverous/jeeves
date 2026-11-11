@@ -10,6 +10,7 @@ import { makeTestDescriptor } from '../test/makeTestDescriptor';
 import {
   createConfigApplyHandler,
   JEEVES_CONFIG_INVALID,
+  JEEVES_CONFIG_WRITE_FAILED,
 } from './configApplyHandler';
 
 const testSchema = z.object({
@@ -138,22 +139,61 @@ describe('createConfigApplyHandler', () => {
     });
   });
 
-  it('answers 500 in the error body when the write fails', async () => {
-    const handler = createConfigApplyHandler(
-      makeDescriptor(),
-      join(testDir, 'no-such-dir', 'config.json'),
-    );
-    const result = await handler({ patch: { port: 2000 } });
+  it('answers a caller-facing 500 when the write fails; path and error are logged only', async () => {
+    const path = join(testDir, 'no-such-dir', 'config.json');
+    const handler = createConfigApplyHandler(makeDescriptor(), path);
+    const logger = { error: vi.fn() };
+    const result = await handler({ patch: { port: 2000 } }, logger);
     expect(result).toEqual({
       status: 500,
       body: {
         statusCode: 500,
+        code: JEEVES_CONFIG_WRITE_FAILED,
         error: 'Internal Server Error',
-        message: expect.stringMatching(
-          /^Failed to write config: ENOENT/,
-        ) as unknown,
+        message: 'The config file could not be written.',
       },
     });
+    expect(JSON.stringify(result.body)).not.toMatch(/no-such-dir|ENOENT/);
+    expect(logger.error).toHaveBeenCalledExactlyOnceWith(
+      {
+        path,
+        err: expect.objectContaining({ code: 'ENOENT' }) as unknown,
+      },
+      'Config apply: the config file could not be written',
+    );
+  });
+
+  it('logs a failure to console.error when no logger is passed', async () => {
+    const path = join(testDir, 'no-such-dir', 'config.json');
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    try {
+      const result = await createConfigApplyHandler(
+        makeDescriptor(),
+        path,
+      )({
+        patch: { port: 2000 },
+      });
+      expect(result.status).toBe(500);
+      expect(spy).toHaveBeenCalledExactlyOnceWith(
+        'Config apply: the config file could not be written',
+        {
+          path,
+          err: expect.objectContaining({ code: 'ENOENT' }) as unknown,
+        },
+      );
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('logs nothing on success', async () => {
+    const logger = { error: vi.fn() };
+    const result = await createConfigApplyHandler(makeDescriptor())(
+      { patch: { port: 2000 } },
+      logger,
+    );
+    expect(result.status).toBe(200);
+    expect(logger.error).not.toHaveBeenCalled();
   });
 
   it('should call onConfigApply with merged config', async () => {

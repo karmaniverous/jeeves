@@ -10,6 +10,9 @@
  *
  * The schema's parsed output is never written: keys the schema doesn't know
  * are kept and defaults are not materialized in the file.
+ *
+ * A failure's response carries a caller-facing message and code only; the
+ * config file path and the underlying error are logged (spec 5d.2).
  */
 
 import { existsSync, readFileSync, statSync } from 'node:fs';
@@ -24,6 +27,47 @@ import { errorBody } from './errorBody.js';
 
 /** Code of the 400 sent when the merged config fails the schema. */
 export const JEEVES_CONFIG_INVALID = 'JEEVES_CONFIG_INVALID';
+
+/**
+ * Code of the 500 sent when the existing config file can't be read (or isn't
+ * a JSON object); the file is left untouched. The path and the underlying
+ * error are logged, never sent.
+ */
+export const JEEVES_CONFIG_READ_FAILED = 'JEEVES_CONFIG_READ_FAILED';
+
+/**
+ * Code of the 500 sent when the merged config can't be written; the file is
+ * unchanged (the write is atomic). The path and the underlying error are
+ * logged, never sent.
+ */
+export const JEEVES_CONFIG_WRITE_FAILED = 'JEEVES_CONFIG_WRITE_FAILED';
+
+/** Caller-facing message of the {@link JEEVES_CONFIG_READ_FAILED} 500. */
+const READ_FAILED_MESSAGE = 'The config file could not be read.';
+
+/** Caller-facing message of the {@link JEEVES_CONFIG_WRITE_FAILED} 500. */
+const WRITE_FAILED_MESSAGE = 'The config file could not be written.';
+
+/**
+ * Where the config apply handler logs what its failure responses leave out
+ * (pino-compatible: a Fastify `request.log` or app logger fits).
+ */
+export interface ConfigApplyLogger {
+  /**
+   * Logs a failure.
+   *
+   * @param details - The config file `path` and the underlying `err`.
+   * @param message - What failed.
+   */
+  error: (details: object, message: string) => void;
+}
+
+/** Default {@link ConfigApplyLogger}: `console.error`. */
+const consoleLogger: ConfigApplyLogger = {
+  error: (details, message) => {
+    console.error(message, details);
+  },
+};
 
 /** Request shape for the config apply handler. */
 export interface ConfigApplyRequest {
@@ -41,9 +85,17 @@ export interface ConfigApplyResult {
   body: unknown;
 }
 
-/** Config apply handler function signature. */
+/**
+ * Config apply handler function signature.
+ *
+ * @param request - The patch and `replace` flag.
+ * @param logger - Where a failure's path and underlying error are logged
+ *   (e.g. the Fastify request's `log`); default `console.error`.
+ *   `standardHandlers` passes its `logger` option, else `request.log`.
+ */
 export type ConfigApplyHandler = (
   request: ConfigApplyRequest,
+  logger?: ConfigApplyLogger,
 ) => Promise<ConfigApplyResult>;
 
 /**
@@ -149,8 +201,13 @@ function writeRawConfigFile(
  * The response `config` is the validated (parsed) config, as before.
  * Failures are Fastify's error body ({@link errorBody}): 400 with code
  * {@link JEEVES_CONFIG_INVALID} and the Zod issues in `message` when the
- * merged config fails the schema, 500 when the file can't be read or
- * written.
+ * merged config fails the schema; 500 with code
+ * {@link JEEVES_CONFIG_READ_FAILED} when the file can't be read (message:
+ * "The config file could not be read.") and
+ * {@link JEEVES_CONFIG_WRITE_FAILED} when it can't be written (message:
+ * "The config file could not be written."). A 500's message is
+ * sent to the caller (spec 5d.1), so it names neither the file nor the OS
+ * error: those are logged to the handler's `logger` (spec 5d.2).
  *
  * @param descriptor - The component descriptor.
  * @param configPath - Optional explicit config file path. When provided, takes
@@ -161,7 +218,10 @@ export function createConfigApplyHandler(
   descriptor: JeevesComponentDescriptor,
   configPath?: string,
 ): ConfigApplyHandler {
-  return async (request: ConfigApplyRequest): Promise<ConfigApplyResult> => {
+  return async (
+    request: ConfigApplyRequest,
+    logger: ConfigApplyLogger = consoleLogger,
+  ): Promise<ConfigApplyResult> => {
     const { patch, replace } = request;
 
     // Prefer explicit > registered > derived config path
@@ -175,12 +235,13 @@ export function createConfigApplyHandler(
     try {
       existing = readRawConfigFile(resolvedConfigPath);
     } catch (err: unknown) {
+      logger.error(
+        { path: resolvedConfigPath, err },
+        'Config apply: the config file could not be read',
+      );
       return {
         status: 500,
-        body: errorBody(
-          500,
-          `Could not read config file ${resolvedConfigPath}: ${getErrorMessage(err)}`,
-        ),
+        body: errorBody(500, READ_FAILED_MESSAGE, JEEVES_CONFIG_READ_FAILED),
       };
     }
 
@@ -210,9 +271,13 @@ export function createConfigApplyHandler(
     try {
       writeRawConfigFile(resolvedConfigPath, merged, existing.mode);
     } catch (err: unknown) {
+      logger.error(
+        { path: resolvedConfigPath, err },
+        'Config apply: the config file could not be written',
+      );
       return {
         status: 500,
-        body: errorBody(500, `Failed to write config: ${getErrorMessage(err)}`),
+        body: errorBody(500, WRITE_FAILED_MESSAGE, JEEVES_CONFIG_WRITE_FAILED),
       };
     }
 

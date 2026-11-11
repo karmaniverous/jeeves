@@ -13,12 +13,15 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
 import { init, resetInit } from '../init';
 import { makeTestDescriptor } from '../test/makeTestDescriptor';
-import { createConfigApplyHandler } from './configApplyHandler';
+import {
+  createConfigApplyHandler,
+  JEEVES_CONFIG_READ_FAILED,
+} from './configApplyHandler';
 
 const testSchema = z.object({
   port: z.number().int().positive().default(1936),
@@ -124,16 +127,24 @@ describe('createConfigApplyHandler raw file handling', () => {
         writeFileSync(configPath(), original);
 
         const handler = createConfigApplyHandler(makeDescriptor());
-        const result = await handler({ patch: { port: 2000 } });
+        const logger = { error: vi.fn() };
+        const result = await handler({ patch: { port: 2000 } }, logger);
 
-        expect(result.status).toBe(500);
-        expect(result.body).toEqual({
-          statusCode: 500,
-          error: 'Internal Server Error',
-          message: expect.stringMatching(
-            /^Could not read config file .+config\.json: ./,
-          ) as unknown,
+        expect(result).toEqual({
+          status: 500,
+          body: {
+            statusCode: 500,
+            code: JEEVES_CONFIG_READ_FAILED,
+            error: 'Internal Server Error',
+            message: 'The config file could not be read.',
+          },
         });
+        // The path and the parse error are logged, never sent.
+        expect(JSON.stringify(result.body)).not.toMatch(/config\.json|JSON/);
+        expect(logger.error).toHaveBeenCalledExactlyOnceWith(
+          { path: configPath(), err: expect.any(Error) as unknown },
+          'Config apply: the config file could not be read',
+        );
         expect(readFileSync(configPath(), 'utf-8')).toBe(original);
       },
     );
