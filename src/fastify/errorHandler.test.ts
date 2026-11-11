@@ -18,6 +18,12 @@ async function buildApp(options?: Parameters<typeof registerErrorHandlers>[1]) {
   app.get('/conflict', () => {
     throw new (createError('ACME_BUSY', 'Busy with %s', 409))('j1');
   });
+  app.get('/enoent', () => {
+    throw Object.assign(new Error('open /etc/secret'), { code: 'ENOENT' });
+  });
+  app.get('/down', () => {
+    throw new (createError('ACME_DOWN', 'Store %s down', 503))('db1');
+  });
   app.post('/n', { schema: { body: z.object({ n: z.number() }) } }, () => ({
     ok: true,
   }));
@@ -40,6 +46,31 @@ describe('registerErrorHandlers', () => {
       { err: expect.any(Error) as unknown },
       'Request failed',
     );
+    await app.close();
+  });
+
+  it('drops the code of a 5xx crash that declares no status', async () => {
+    const app = await buildApp({ logger: { error: vi.fn() } });
+    const res = await app.inject('/enoent');
+    expect(res.statusCode).toBe(500);
+    expect(res.json()).toEqual({
+      statusCode: 500,
+      error: 'Internal Server Error',
+      message: SERVER_ERROR_MESSAGE,
+    });
+    await app.close();
+  });
+
+  it('keeps the code of a 5xx that declares its status', async () => {
+    const app = await buildApp({ logger: { error: vi.fn() } });
+    const res = await app.inject('/down');
+    expect(res.statusCode).toBe(503);
+    expect(res.json()).toEqual({
+      statusCode: 503,
+      code: 'ACME_DOWN',
+      error: 'Service Unavailable',
+      message: SERVER_ERROR_MESSAGE,
+    });
     await app.close();
   });
 

@@ -30,27 +30,33 @@ interface ThrownFields {
 }
 
 /**
- * The reply status for a thrown value: its `statusCode` (or, when absent,
- * its `status`, as Fastify reads it) when an integer from 400 to 599, else
- * 500.
+ * The error status a thrown value declares: its `statusCode` (or, when
+ * absent, its `status`, as Fastify reads it) when an integer from 400 to
+ * 599.
  *
  * @param thrown - The thrown value's fields.
- * @returns The status.
+ * @returns The status, or `undefined` when it declares none (an unexpected
+ *   crash, answered as a 500).
  */
-function statusOf({ statusCode, status }: ThrownFields): number {
+function declaredStatus({
+  statusCode,
+  status,
+}: ThrownFields): number | undefined {
   const candidate = statusCode ?? status;
   return typeof candidate === 'number' &&
     Number.isInteger(candidate) &&
     candidate >= 400 &&
     candidate <= 599
     ? candidate
-    : 500;
+    : undefined;
 }
 
 /**
  * An error handler answering every error in Fastify's body: 4xx keep their
- * `message` and `code`; 5xx keep their `code`, get a generic `message`, and
- * the error is logged. The error's `headers` (e.g. `Retry-After`) are
+ * `message` and `code`; 5xx get a generic `message` and the error is
+ * logged. A 5xx keeps its `code` only when the error declares its status
+ * (a `createError` error does); an undeclared crash is a 500 without one,
+ * so a system code such as `ENOENT` never reaches the client. The error's `headers` (e.g. `Retry-After`) are
  * applied. A strict response mismatch is a 500 with code
  * `JEEVES_RESPONSE_VALIDATION`; its Zod issues are logged only.
  *
@@ -82,7 +88,8 @@ export function errorHandlerFor(
     const fields = (
       typeof error === 'object' && error !== null ? error : {}
     ) as ThrownFields;
-    const status = statusOf(fields);
+    const declared = declaredStatus(fields);
+    const status = declared ?? 500;
     setErrorHeaders(reply, fields.headers);
     return reply
       .status(status)
@@ -90,7 +97,7 @@ export function errorHandlerFor(
         errorReplyBody(
           status,
           typeof fields.message === 'string' ? fields.message : '',
-          fields.code,
+          declared === undefined ? undefined : fields.code,
           log,
           { details: { err: error }, message: 'Request failed' },
         ),
