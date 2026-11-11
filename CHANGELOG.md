@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.10.0] - 2026-11-11
+
+### 🚀 Features
+
+- [**breaking**] Catalog apps return Fastify's standard error body
+- Drop the code of an undeclared 5xx crash
+
+### 🐛 Bug Fixes
+
+- Review 5853988629
+- Re-review of eb5b37f
+
+### 💼 Other
+
+- Updated dependencies
 ## [0.9.2] - 2026-11-10
 
 ### 🚀 Features
@@ -11,6 +26,10 @@ All notable changes to this project will be documented in this file.
 ### 🐛 Bug Fixes
 
 - Review 5837502032
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v0.9.2
 ## [0.9.1] - 2026-11-10
 
 ### 📚 Documentation
