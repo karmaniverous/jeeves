@@ -19,8 +19,8 @@ describe('fetchWithTimeout', () => {
   });
 
   it('returns response on success', async () => {
-    const mockResponse = { ok: true, status: 200 };
-    vi.mocked(fetch).mockResolvedValue(mockResponse as Response);
+    const mockResponse = new Response(null, { status: 200 });
+    vi.mocked(fetch).mockResolvedValue(mockResponse);
 
     const result = await fetchWithTimeout('http://localhost:1234/status', 3000);
 
@@ -34,8 +34,8 @@ describe('fetchWithTimeout', () => {
   });
 
   it('passes init options merged with signal', async () => {
-    const mockResponse = { ok: true, status: 200 };
-    vi.mocked(fetch).mockResolvedValue(mockResponse as Response);
+    const mockResponse = new Response(null, { status: 200 });
+    vi.mocked(fetch).mockResolvedValue(mockResponse);
 
     await fetchWithTimeout('http://localhost:1234/api', 5000, {
       method: 'POST',
@@ -77,8 +77,8 @@ describe('fetchWithTimeout', () => {
 
   it('clears timeout after successful fetch', async () => {
     const clearTimeoutSpy = vi.spyOn(globalThis, 'clearTimeout');
-    const mockResponse = { ok: true, status: 200 };
-    vi.mocked(fetch).mockResolvedValue(mockResponse as Response);
+    const mockResponse = new Response(null, { status: 200 });
+    vi.mocked(fetch).mockResolvedValue(mockResponse);
 
     await fetchWithTimeout('http://localhost:1234/api', 3000);
 
@@ -99,11 +99,7 @@ describe('fetchJson', () => {
   });
 
   it('returns parsed JSON on success', async () => {
-    const mockResponse = {
-      ok: true,
-      json: () => Promise.resolve({ data: 'hello' }),
-    };
-    vi.mocked(fetch).mockResolvedValue(mockResponse as Response);
+    vi.mocked(fetch).mockResolvedValue(Response.json({ data: 'hello' }));
 
     const result = await fetchJson('http://localhost:1234/api');
 
@@ -114,12 +110,9 @@ describe('fetchJson', () => {
   });
 
   it('throws on non-OK response', async () => {
-    const mockResponse = {
-      ok: false,
-      status: 404,
-      text: () => Promise.resolve('Not found'),
-    };
-    vi.mocked(fetch).mockResolvedValue(mockResponse as Response);
+    vi.mocked(fetch).mockResolvedValue(
+      new Response('Not found', { status: 404 }),
+    );
 
     await expect(fetchJson('http://localhost:1234/missing')).rejects.toThrow(
       'HTTP 404: Not found',
@@ -127,11 +120,7 @@ describe('fetchJson', () => {
   });
 
   it('passes init options through', async () => {
-    const mockResponse = {
-      ok: true,
-      json: () => Promise.resolve(null),
-    };
-    vi.mocked(fetch).mockResolvedValue(mockResponse as Response);
+    vi.mocked(fetch).mockResolvedValue(Response.json(null));
 
     const init: RequestInit = {
       method: 'DELETE',
@@ -146,10 +135,7 @@ describe('fetchJson', () => {
   });
 
   it('uses the caller signal instead of the default timeout', async () => {
-    vi.mocked(fetch).mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve(null),
-    } as Response);
+    vi.mocked(fetch).mockResolvedValue(Response.json(null));
     const timeoutSpy = vi.spyOn(AbortSignal, 'timeout');
     const signal = new AbortController().signal;
 
@@ -161,10 +147,7 @@ describe('fetchJson', () => {
   });
 
   it('applies the default timeout', async () => {
-    vi.mocked(fetch).mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve(null),
-    } as Response);
+    vi.mocked(fetch).mockResolvedValue(Response.json(null));
     const timeoutSpy = vi.spyOn(AbortSignal, 'timeout');
 
     await fetchJson('http://localhost:1234/api');
@@ -201,11 +184,7 @@ describe('postJson', () => {
   });
 
   it('sends POST with JSON body', async () => {
-    const mockResponse = {
-      ok: true,
-      json: () => Promise.resolve({ success: true }),
-    };
-    vi.mocked(fetch).mockResolvedValue(mockResponse as Response);
+    vi.mocked(fetch).mockResolvedValue(Response.json({ success: true }));
 
     const result = await postJson('http://localhost:1234/api', {
       key: 'value',
@@ -221,10 +200,7 @@ describe('postJson', () => {
   });
 
   it('passes timeoutMs through', async () => {
-    vi.mocked(fetch).mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve(null),
-    } as Response);
+    vi.mocked(fetch).mockResolvedValue(Response.json(null));
     const timeoutSpy = vi.spyOn(AbortSignal, 'timeout');
 
     await postJson('http://localhost:1234/api', {}, { timeoutMs: 1234 });
@@ -234,12 +210,9 @@ describe('postJson', () => {
   });
 
   it('throws on non-OK POST response', async () => {
-    const mockResponse = {
-      ok: false,
-      status: 500,
-      text: () => Promise.resolve('Internal Server Error'),
-    };
-    vi.mocked(fetch).mockResolvedValue(mockResponse as Response);
+    vi.mocked(fetch).mockResolvedValue(
+      new Response('Internal Server Error', { status: 500 }),
+    );
 
     await expect(
       postJson('http://localhost:1234/api', { data: 1 }),

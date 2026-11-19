@@ -1,14 +1,15 @@
 /**
  * Guards for the skills `@karmaniverous/jeeves` ships (spec Decisions 68
  * and 71): every shipped `SKILL.md` carries valid frontmatter whose `name`
- * matches its folder, stays thin, and (in the generic `skills/` set) carries
+ * matches its folder, stays thin, links only to files it ships, and (in the
+ * generic `skills/` set) carries
  * no managed-fleet specifics, which belong to jeeves-tools'
  * `jeeves-platform-managed`.
  */
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, posix } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
@@ -56,6 +57,36 @@ const skillDirs = (folder: string): string[] => {
 const read = (folder: string, name: string): string =>
   readFileSync(join(root, folder, name, 'SKILL.md'), 'utf8');
 
+/**
+ * Relative Markdown link targets in `content`, normalised and without their
+ * `#fragment` (URLs, `mailto:` and same-page anchors excluded). Accepts
+ * `<target>` (spaces allowed) and a `"title"`, `'title'` or `(title)`.
+ */
+const relativeLinks = (content: string): string[] =>
+  [
+    ...content.matchAll(
+      /\]\(\s*(?:<([^>]+)>|([^)\s]+))(?:\s+(?:"[^"]*"|'[^']*'|\([^)]*\)))?\s*\)/g,
+    ),
+  ]
+    // Exactly one group matched; join() renders the other (undefined) as ''.
+    .map((match) => [match[1], match[2]].join(''))
+    .filter((target) => !/^([a-z][a-z0-9+.-]*:|#)/i.test(target))
+    .map((target) => posix.normalize(target.replace(/#.*$/, '')));
+
+/** Files in a skill's `references/` folder (none when it has no folder). */
+const referenceFiles = (folder: string, name: string): string[] => {
+  const dir = join(root, folder, name, 'references');
+  return existsSync(dir) ? readdirSync(dir).sort() : [];
+};
+
+/** A skill's `SKILL.md` followed by each of its reference files' content. */
+const skillTexts = (folder: string, name: string): string[] => [
+  read(folder, name),
+  ...referenceFiles(folder, name).map((file) =>
+    readFileSync(join(root, folder, name, 'references', file), 'utf8'),
+  ),
+];
+
 describe('shipped skills', () => {
   it('ships the generic skills', () => {
     expect(skillDirs('skills')).toEqual(
@@ -76,23 +107,45 @@ describe('shipped skills', () => {
     expect(caught('a designated dev repos directory')).toBe(false);
   });
 
+  it('finds only relative link targets', () => {
+    expect(
+      relativeLinks(
+        '[a](references/a.md) [b](https://x.y) [c](#top) [d](mailto:x@y) ' +
+          '[e](./references/e.md#3-fix-rules) [f](<references/f.md> "F") ' +
+          "[g](references/g.md 'G') [h](references/h.md (H)) " +
+          '[i](<references/i i.md>) [j](../other/SKILL.md)',
+      ),
+    ).toEqual([
+      'references/a.md',
+      'references/e.md',
+      'references/f.md',
+      'references/g.md',
+      'references/h.md',
+      'references/i i.md',
+      '../other/SKILL.md',
+    ]);
+  });
+
   it('points jeeves-coding at jeeves-pr-review', () => {
     expect(read('skills', 'jeeves-coding')).toContain('`jeeves-pr-review`');
   });
 
-  it('includes every shipped skill in the npm package', () => {
-    const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+  it('includes every shipped skill and its linked files in the npm package', () => {
+    const packArgs = ['pack', '--dry-run', '--json', '--ignore-scripts'];
+    // Windows runs npm's .cmd shim through cmd.exe explicitly: `shell: true`
+    // with an args array is deprecated (DEP0190).
+    const [command, args] =
+      process.platform === 'win32'
+        ? ['cmd.exe', ['/d', '/s', '/c', 'npm', ...packArgs]]
+        : ['npm', packArgs];
     const [pack] = JSON.parse(
-      execFileSync(npm, ['pack', '--dry-run', '--json', '--ignore-scripts'], {
-        cwd: root,
-        encoding: 'utf8',
-        shell: process.platform === 'win32',
-      }),
+      execFileSync(command, args, { cwd: root, encoding: 'utf8' }),
     ) as [{ files: { path: string }[] }];
     const files = pack.files.map((file) => file.path);
     for (const folder of ['skills', 'skills-self-hosted'])
       for (const name of skillDirs(folder))
-        expect(files).toContain(`${folder}/${name}/SKILL.md`);
+        for (const target of ['SKILL.md', ...relativeLinks(read(folder, name))])
+          expect(files).toContain(posix.join(folder, name, target));
   }, 60_000);
 
   for (const folder of ['skills', 'skills-self-hosted']) {
@@ -114,11 +167,22 @@ describe('shipped skills', () => {
           expect(content.length).toBeLessThanOrEqual(MAX_SKILL_CHARS);
         });
 
+        it('links only to files it ships', () => {
+          for (const target of relativeLinks(content))
+            expect(existsSync(join(root, folder, name, target))).toBe(true);
+        });
+
         if (folder === 'skills') {
-          it('carries no managed-fleet specifics', () => {
-            for (const pattern of FLEET_PATTERNS) {
-              expect(content).not.toMatch(pattern);
-            }
+          it('carries no managed-fleet specifics, references included', () => {
+            for (const text of skillTexts(folder, name))
+              for (const pattern of FLEET_PATTERNS)
+                expect(text).not.toMatch(pattern);
+          });
+
+          it('links every reference file from its SKILL.md', () => {
+            const linked = relativeLinks(content);
+            for (const file of referenceFiles(folder, name))
+              expect(linked).toContain(`references/${file}`);
           });
         }
       });
