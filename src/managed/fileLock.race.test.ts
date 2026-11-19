@@ -27,9 +27,14 @@ const errno = (code: string) => Object.assign(new Error(code), { code });
 const eexist = () => {
   throw errno('EEXIST');
 };
-const oldStat = () => ({ mtimeMs: Date.now() - 10_000 }) as fs.Stats;
-const freshStat = () => ({ mtimeMs: Date.now() }) as fs.Stats;
 const real = await vi.importActual<typeof fs>('node:fs');
+/** A real `Stats` whose `mtimeMs` is `ageMs` in the past. */
+const statAged = (ageMs: number): fs.Stats =>
+  Object.assign(real.statSync(import.meta.dirname), {
+    mtimeMs: Date.now() - ageMs,
+  });
+const oldStat = () => statAged(10_000);
+const freshStat = () => statAged(0);
 
 describe('withFileLock races', () => {
   let target: string;

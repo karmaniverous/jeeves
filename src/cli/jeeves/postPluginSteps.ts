@@ -93,7 +93,7 @@ export async function runPostPluginSteps(
     skipPatch,
     skillsMode,
     runPatches = runOpenClawPatches,
-    runSkills = (opts) => runSkillsCommand('install', opts),
+    runSkills = (opts: RunSkillsOptions) => runSkillsCommand('install', opts),
   } = options;
 
   let patchFailed = false;
