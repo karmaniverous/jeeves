@@ -51,7 +51,7 @@ Done when the docs changed (or "none needed", with why) are in the notes.
 
 ### 4. All gates
 
-The repo's lint, typecheck, tests, build, and any dead-code, docs or audit scripts it has. Zero errors and zero warnings, tests included. No type suppression, and no `eslint-disable` beyond `jeeves-coding`'s narrow test-only exception.
+The repo's lint, typecheck, tests, build, and any dead-code, docs or audit scripts it has, run in a clean-room worktree as `jeeves-coding` describes. Zero errors and zero warnings, tests included. No type suppression, and no `eslint-disable` beyond `jeeves-coding`'s narrow test-only exception.
 
 ### 5. CI green on the pushed head
 

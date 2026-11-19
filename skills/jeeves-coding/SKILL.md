@@ -86,6 +86,8 @@ When a third-party dependency is broken:
 3. Recommend with rationale.
 4. Do NOT immediately code around the problem.
 
+**Tests broken by a dependency update** (find which update caused each failure, install missing test browsers, known jsdom 31 and lucide-react breaks): follow [references/dependency-bump-test-breaks.md](references/dependency-bump-test-breaks.md).
+
 ## CHANGELOG
 
 - **Do not manually update CHANGELOG.md** — it is generated as part of the release process (e.g. via `standard-version`, `changesets`, or equivalent). Conventional commit messages are the input; the tooling produces the output.
@@ -129,7 +131,7 @@ If any step fails, fix it before committing. Do NOT create the PR and "note" the
 - **Never disable lint/typecheck rules** without surfacing it for discussion first. Disabled rules are a major code smell. If a rule must be disabled, document the rationale inline at the point of suppression. The one standing exception is narrow and test-only: see the hard gate below.
 - **Multiple tsconfigs are a code smell.** Sometimes needed, but often they paper over poor configuration choices. Fix root causes rather than adding tsconfig variants.
 - **In a TS repo, all scripts should be authored in TS** (not JS). Prefer execution with `tsx`.
-- **Clean-room verify before claiming "all green."** Run `rimraf node_modules && npm install && npm run build` (or equivalent) to catch issues masked by cached state. If someone reports an error you can't reproduce, assume your cache is lying — not that they're wrong.
+- **Clean-room verify before calling a PR ready.** Check the branch out in a fresh worktree (`git worktree add <tmp> <branch> --detach`, plus any untracked config the install needs, such as `.npmrc`), run `npm ci`, then run every gate there. A long-lived checkout's gitignored artifacts (generated files, stale `dist/`, cached builds) hide failures CI will hit. A gate that only passes after some other script has generated a file is a repo bug: add a pre-script (e.g. `pretypecheck`) that generates it. If someone reports an error you can't reproduce, assume your cache is lying — not that they're wrong.
 - Verify build, test, and lint pass after updates.
 
 ## Issue Hygiene
