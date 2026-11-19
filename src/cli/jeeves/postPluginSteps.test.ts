@@ -35,6 +35,7 @@ let skillsOpts: RunSkillsOptions | undefined;
 beforeEach(() => {
   order = [];
   skillsOpts = undefined;
+  vi.clearAllMocks();
   vi.spyOn(console, 'log').mockImplementation(() => undefined);
 });
 
@@ -88,8 +89,12 @@ describe('runPostPluginSteps', () => {
   it('defaults to the dist patch step and `skills install`', async () => {
     const result = await runPostPluginSteps({ dryRun: true, skipPatch: false });
 
-    expect(runOpenClawPatches).toHaveBeenCalledWith({ dryRun: true });
-    expect(runSkillsCommand).toHaveBeenCalledWith('install', { dryRun: true });
+    expect(runOpenClawPatches).toHaveBeenCalledExactlyOnceWith({
+      dryRun: true,
+    });
+    expect(runSkillsCommand).toHaveBeenCalledExactlyOnceWith('install', {
+      dryRun: true,
+    });
     expect(result).toEqual({ failed: false, distChanged: false });
   });
 

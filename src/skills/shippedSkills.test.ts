@@ -60,11 +60,16 @@ const read = (folder: string, name: string): string =>
 /**
  * Relative Markdown link targets in `content`, normalised and without their
  * `#fragment` (URLs, `mailto:` and same-page anchors excluded). Accepts
- * `<target>` and a quoted link title.
+ * `<target>` (spaces allowed) and a `"title"`, `'title'` or `(title)`.
  */
 const relativeLinks = (content: string): string[] =>
-  [...content.matchAll(/\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\s*\)/g)]
-    .map((match) => match[1])
+  [
+    ...content.matchAll(
+      /\]\(\s*(?:<([^>]+)>|([^)\s]+))(?:\s+(?:"[^"]*"|'[^']*'|\([^)]*\)))?\s*\)/g,
+    ),
+  ]
+    // Exactly one group matched; join() renders the other (undefined) as ''.
+    .map((match) => [match[1], match[2]].join(''))
     .filter((target) => !/^([a-z][a-z0-9+.-]*:|#)/i.test(target))
     .map((target) => posix.normalize(target.replace(/#.*$/, '')));
 
@@ -106,9 +111,19 @@ describe('shipped skills', () => {
     expect(
       relativeLinks(
         '[a](references/a.md) [b](https://x.y) [c](#top) [d](mailto:x@y) ' +
-          '[e](./references/e.md#3-fix-rules) [f](<references/f.md> "F")',
+          '[e](./references/e.md#3-fix-rules) [f](<references/f.md> "F") ' +
+          "[g](references/g.md 'G') [h](references/h.md (H)) " +
+          '[i](<references/i i.md>) [j](../other/SKILL.md)',
       ),
-    ).toEqual(['references/a.md', 'references/e.md', 'references/f.md']);
+    ).toEqual([
+      'references/a.md',
+      'references/e.md',
+      'references/f.md',
+      'references/g.md',
+      'references/h.md',
+      'references/i i.md',
+      '../other/SKILL.md',
+    ]);
   });
 
   it('points jeeves-coding at jeeves-pr-review', () => {
@@ -130,7 +145,7 @@ describe('shipped skills', () => {
     for (const folder of ['skills', 'skills-self-hosted'])
       for (const name of skillDirs(folder))
         for (const target of ['SKILL.md', ...relativeLinks(read(folder, name))])
-          expect(files).toContain(`${folder}/${name}/${target}`);
+          expect(files).toContain(posix.join(folder, name, target));
   }, 60_000);
 
   for (const folder of ['skills', 'skills-self-hosted']) {
