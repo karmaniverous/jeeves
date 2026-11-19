@@ -86,7 +86,7 @@ When a third-party dependency is broken:
 3. Recommend with rationale.
 4. Do NOT immediately code around the problem.
 
-**Tests broken by a dependency update** (find which update caused each failure, install missing test browsers, known jsdom 31 and lucide-react breaks): follow [references/dependency-bump-test-breaks.md](references/dependency-bump-test-breaks.md).
+The steps above are for a dependency that is broken. When an update works but changed behaviour on purpose, so tests that relied on the old behaviour fail, adapt the tests instead. **Tests broken by a dependency update** (find which update caused each failure, install missing test browsers, known jsdom 31 and lucide-react breaks): follow [references/dependency-bump-test-breaks.md](references/dependency-bump-test-breaks.md).
 
 ## CHANGELOG
 
@@ -131,7 +131,7 @@ If any step fails, fix it before committing. Do NOT create the PR and "note" the
 - **Never disable lint/typecheck rules** without surfacing it for discussion first. Disabled rules are a major code smell. If a rule must be disabled, document the rationale inline at the point of suppression. The one standing exception is narrow and test-only: see the hard gate below.
 - **Multiple tsconfigs are a code smell.** Sometimes needed, but often they paper over poor configuration choices. Fix root causes rather than adding tsconfig variants.
 - **In a TS repo, all scripts should be authored in TS** (not JS). Prefer execution with `tsx`.
-- **Clean-room verify before calling a PR ready.** Check the branch out in a fresh worktree (`git worktree add <tmp> <branch> --detach`, plus any untracked config the install needs, such as `.npmrc`), run `npm ci`, then run every gate there. A long-lived checkout's gitignored artifacts (generated files, stale `dist/`, cached builds) hide failures CI will hit. A gate that only passes after some other script has generated a file is a repo bug: add a pre-script (e.g. `pretypecheck`) that generates it. If someone reports an error you can't reproduce, assume your cache is lying — not that they're wrong.
+- **Clean-room verify before calling a PR ready.** `git fetch`, check the pushed head out in a fresh worktree (`git worktree add <tmp> origin/<branch> --detach`, plus any untracked config the install needs, such as `.npmrc`), run `npm ci` (or the repo's equivalent clean install), then run every gate there; `git worktree remove <tmp>` afterwards. A long-lived checkout's gitignored artifacts (generated files, stale `dist/`, cached builds) hide failures CI will hit. A gate that only passes after some other script has generated a file is a repo bug: add a pre-script (e.g. `pretypecheck`) that generates it. If someone reports an error you can't reproduce, assume your cache is lying — not that they're wrong.
 - Verify build, test, and lint pass after updates.
 
 ## Issue Hygiene

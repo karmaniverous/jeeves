@@ -9,7 +9,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, posix } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
@@ -57,11 +57,30 @@ const skillDirs = (folder: string): string[] => {
 const read = (folder: string, name: string): string =>
   readFileSync(join(root, folder, name, 'SKILL.md'), 'utf8');
 
-/** Relative Markdown link targets in `content` (URLs and anchors excluded). */
+/**
+ * Relative Markdown link targets in `content`, normalised and without their
+ * `#fragment` (URLs, `mailto:` and same-page anchors excluded). Accepts
+ * `<target>` and a quoted link title.
+ */
 const relativeLinks = (content: string): string[] =>
-  [...content.matchAll(/\]\(([^)\s]+)\)/g)]
+  [...content.matchAll(/\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\s*\)/g)]
     .map((match) => match[1])
-    .filter((target) => !/^([a-z][a-z0-9+.-]*:|#)/i.test(target));
+    .filter((target) => !/^([a-z][a-z0-9+.-]*:|#)/i.test(target))
+    .map((target) => posix.normalize(target.replace(/#.*$/, '')));
+
+/** Files in a skill's `references/` folder (none when it has no folder). */
+const referenceFiles = (folder: string, name: string): string[] => {
+  const dir = join(root, folder, name, 'references');
+  return existsSync(dir) ? readdirSync(dir).sort() : [];
+};
+
+/** A skill's `SKILL.md` followed by each of its reference files' content. */
+const skillTexts = (folder: string, name: string): string[] => [
+  read(folder, name),
+  ...referenceFiles(folder, name).map((file) =>
+    readFileSync(join(root, folder, name, 'references', file), 'utf8'),
+  ),
+];
 
 describe('shipped skills', () => {
   it('ships the generic skills', () => {
@@ -86,9 +105,10 @@ describe('shipped skills', () => {
   it('finds only relative link targets', () => {
     expect(
       relativeLinks(
-        '[a](references/a.md) [b](https://x.y) [c](#top) [d](mailto:x@y)',
+        '[a](references/a.md) [b](https://x.y) [c](#top) [d](mailto:x@y) ' +
+          '[e](./references/e.md#3-fix-rules) [f](<references/f.md> "F")',
       ),
-    ).toEqual(['references/a.md']);
+    ).toEqual(['references/a.md', 'references/e.md', 'references/f.md']);
   });
 
   it('points jeeves-coding at jeeves-pr-review', () => {
@@ -138,10 +158,16 @@ describe('shipped skills', () => {
         });
 
         if (folder === 'skills') {
-          it('carries no managed-fleet specifics', () => {
-            for (const pattern of FLEET_PATTERNS) {
-              expect(content).not.toMatch(pattern);
-            }
+          it('carries no managed-fleet specifics, references included', () => {
+            for (const text of skillTexts(folder, name))
+              for (const pattern of FLEET_PATTERNS)
+                expect(text).not.toMatch(pattern);
+          });
+
+          it('links every reference file from its SKILL.md', () => {
+            const linked = relativeLinks(content);
+            for (const file of referenceFiles(folder, name))
+              expect(linked).toContain(`references/${file}`);
           });
         }
       });
@@ -153,13 +179,6 @@ describe('shipped skills', () => {
     expect(readdirSync(refs).sort()).toEqual([
       'spec-to-code-guide.md',
       'spec.md',
-    ]);
-  });
-
-  it('ships the jeeves-coding references', () => {
-    const refs = join(root, 'skills', 'jeeves-coding', 'references');
-    expect(readdirSync(refs).sort()).toEqual([
-      'dependency-bump-test-breaks.md',
     ]);
   });
 

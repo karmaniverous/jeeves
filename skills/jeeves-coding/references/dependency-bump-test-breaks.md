@@ -11,7 +11,7 @@ Use this when a dependency update (the repo owner's commit or your own `ncu` pas
 
 ## 2. e2e fails everywhere: host setup, not tests
 
-If every Playwright test fails with `browserType.launch: Executable doesn't exist ... ms-playwright...`, the update moved Playwright and the machine running the tests lacks its browser. Run `npx playwright install chromium`, then rerun the full e2e suite. Tell the repo owner they need the same before their next local e2e or release run.
+If every Playwright test fails with `browserType.launch: Executable doesn't exist ... ms-playwright...`, the update moved Playwright and the machine running the tests lacks its browsers. Run `npx playwright install` with the browsers the error names (e.g. `npx playwright install chromium`), or with no argument to install every browser the config's projects use, then rerun the full e2e suite. Tell the repo owner they need the same before their next local e2e or release run.
 
 ## 3. Fix rules
 
@@ -23,10 +23,11 @@ If every Playwright test fails with `browserType.launch: Executable doesn't exis
 - **jsdom 31: `getComputedStyle` is read-only.** Writing to it throws `NoModificationAllowedError`. A helper that forces a style should return a `Proxy` over the real declaration. The Proxy answers the forced property through both its camelCase name and `getPropertyValue('kebab-name')`, and binds every other function to the real target.
 - **jsdom 31: `:focus-visible` is the same as `:focus`.** Its selector engine has no input-modality heuristic. Add a setup shim, installed per test and removed in teardown:
   - Track the last input on `document` in the capture phase. A `keydown` without Ctrl, Alt or Meta means keyboard. `pointerdown` or `mousedown` means pointer. Before any input, treat focus as keyboard.
-  - Patch `Element.prototype.matches` only for `':focus-visible'`. It returns `:focus && (keyboard || field takes text)`.
+  - Patch `Element.prototype.matches` only for `':focus-visible'`. It returns `:focus && (keyboard || field takes text)`, where a field takes text if it is a text-type `input`, a `textarea` or `contenteditable`.
+  - The shim covers only `el.matches(':focus-visible')`. `querySelector`, `querySelectorAll`, `closest` and compound selectors such as `button:focus-visible` keep jsdom's behaviour, so write the tests' focus-visible assertions in the `matches` form.
   - Patch it via `Object.getOwnPropertyDescriptor` + `Object.defineProperty`, and call the original with `Reflect.apply`. Destructuring `proto.matches` fails lint (`unbound-method`). Restore the saved descriptor in teardown.
   - Give the shim its own unit tests.
-- **lucide-react minors rename rendered classes** (e.g. `TriangleAlert` now renders `lucide-triangle-exclamation-point`). Derive the expected class from the imported icon component in the test, not a string literal.
+- **lucide-react minors rename rendered classes** (e.g. `TriangleAlert` now renders `lucide-triangle-exclamation-point`). Derive the expected class from the imported icon component in the test, not a string literal: render that icon alone and read the `lucide-*` class from its `<svg>`.
 
 ## Done when
 
