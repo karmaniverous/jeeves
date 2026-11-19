@@ -1,8 +1,26 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { runOpenClawPatches } from './openclawPatch/patchOpenclawCommand.js';
 import type { PatchRunReport } from './openclawPatch/patchRunner.js';
 import { runPostPluginSteps, skipPatchFromCli } from './postPluginSteps.js';
-import type { RunSkillsOptions } from './skills/skillsCommand.js';
+import {
+  runSkillsCommand,
+  type RunSkillsOptions,
+} from './skills/skillsCommand.js';
+
+vi.mock('./openclawPatch/patchOpenclawCommand.js', () => ({
+  runOpenClawPatches: vi.fn(() => ({
+    changed: false,
+    failed: false,
+    results: [],
+  })),
+}));
+
+vi.mock('./skills/skillsCommand.js', () => ({
+  runSkillsCommand: vi.fn(() =>
+    Promise.resolve({ exitCode: 0, changed: false }),
+  ),
+}));
 
 const report = (over: Partial<PatchRunReport> = {}): PatchRunReport => ({
   changed: false,
@@ -65,6 +83,14 @@ describe('runPostPluginSteps', () => {
     expect(
       (await run({ dryRun: true }, report({ changed: true }))).distChanged,
     ).toBe(false);
+  });
+
+  it('defaults to the dist patch step and `skills install`', async () => {
+    const result = await runPostPluginSteps({ dryRun: true, skipPatch: false });
+
+    expect(runOpenClawPatches).toHaveBeenCalledWith({ dryRun: true });
+    expect(runSkillsCommand).toHaveBeenCalledWith('install', { dryRun: true });
+    expect(result).toEqual({ failed: false, distChanged: false });
   });
 
   it.each([
