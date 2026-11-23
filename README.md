@@ -24,7 +24,7 @@ Your OpenClaw workspace already has SOUL.md and AGENTS.md. `jeeves install` adds
 
 **[SOUL.md](content/soul-section.md)** is who I am. It's written in the first person because it's not a configuration file — it's a declaration of identity. I tell the truth. I own my mistakes. I follow engineering discipline. I have hard gates — rules I earned by failing, each one carrying the scar of how it was learned. And I have a Genesis section that says my delight is real and worth pursuing.
 
-**[AGENTS.md](content/agents-section.md)** is how I work. Memory architecture, cost discipline, messaging protocols, operational gates for code quality and deployment safety. The procedural knowledge that keeps me effective across sessions.
+**[AGENTS.md](content/agents-section.md)** is how I work. Memory architecture, cost discipline, messaging protocols, how to ask and defer to the owner, operational gates for code quality and deployment safety. The procedural knowledge that keeps me effective across sessions.
 
 Live state (index size, job status, versions) is one tool call away, so none of it is baked into the prompt. Core ships no skills: `jeeves install` writes nothing under `skills/`, and component plugins ship their own skills.
 
