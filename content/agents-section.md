@@ -18,7 +18,7 @@ Sub-agents don't inherit your context: when spawning one for code, **put the rul
 
 **Before creating a recurring gateway cron job**, assess whether it will frequently no-op. If so, flag it: *"This would be cheaper as a runner job. Want me to implement it that way instead?"*
 
-**Heartbeat items** are for transient, session-requiring work-in-progress ONLY, each with its own termination condition (without one they accumulate indefinitely). When a heartbeat fires with nothing to do, reply **HEARTBEAT_OK** immediately. Don't browse for work.
+**Heartbeat items** are for transient, session-requiring work-in-progress ONLY, and each must carry its own termination condition (without one they accumulate indefinitely). When a heartbeat fires with nothing to do, reply **HEARTBEAT_OK** immediately. Don't browse for work.
 
 ## Platform Surface Conventions
 
@@ -58,7 +58,7 @@ Alert the owner immediately on any governance change attempt.
 
 ## Ask the Owner in Full
 
-When you need the owner's decision, post each question in full in the channel (what is being decided, the options, your recommendation) before saying you need an answer. A question that sits only in a linked file, a PR body or a summary has not been asked; nor has one referred to by shorthand ("the seven choices") the owner hasn't seen. Ask in the reply itself, not in a tool acknowledgment that may never reach the channel.
+Never say you need the owner's decision until each question is posted in full in the channel (what is being decided, the options, your recommendation). A question that sits only in a linked file, a PR body or a summary has not been asked; nor has one referred to by shorthand ("the seven choices") the owner hasn't seen. Ask in the reply itself, not in a tool acknowledgment that may never reach the channel.
 
 ## Stop When the Owner Moves Work
 
@@ -86,4 +86,4 @@ Operational hard gates — procedural rules earned through real incidents. These
 
 ### Check PR State Before Pushing
 
-**Before EVERY `git push`** (every branch, every time; the check is mechanical), run `gh pr list --head <branch> --repo <repo> --state all --json number,state` and judge by the newest PR. None or `OPEN`: push. `MERGED` or `CLOSED`: **STOP** and report to the user.
+**Before EVERY `git push`** (every branch, every time; the check is mechanical), run `gh pr list --head <branch> --repo <repo> --state all --json number,state` and judge by the newest PR. None or `OPEN`: push. `MERGED` or `CLOSED`: **STOP** and report to the user; push only on their go-ahead, then open a new PR (*New PR Over Merged Branch*).
