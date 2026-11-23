@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.11.1] - 2026-11-23
+
+### 📚 Documentation
+
+- Jeeves-coding dependency-update test breaks and clean-room worktree verify
+- Address review of #171 (reference genericity and link tests, shim limits, worktree from pushed head)
+- Address follow-up review of #171 (shim forms, link parsing, ../ pack paths, mock reset)
+- *(content)* SOUL gates for asking the owner in full and stopping moved work
+- *(content)* Address review of owner gates (ask before saying an answer is needed, report anything sent)
+- *(content)* Move owner-conduct rules from SOUL to AGENTS; slim AGENTS (merge heartbeat into cost, tighten wording)
+- *(content)* Address review (merged-branch next step, heartbeat termination must, owner-question gate wording)
+
+### 🧪 Testing
+
+- Use real Response and Stats instances in mocks; type the runSkills default
+- Cover runPostPluginSteps default steps
+
+### ⚙️ Miscellaneous Tasks
+
+- Update dev dependencies, basic-ftp override and esbuild install-script approval
 ## [0.11.0] - 2026-11-11
 
 ### 🚀 Features
@@ -16,6 +36,10 @@ All notable changes to this project will be documented in this file.
 - Deliberate means own statusCode; review 5857419273
 - Re-review of 8567583
 - Final review of cafd5d2
+
+### ⚙️ Miscellaneous Tasks
+
+- Release v0.11.0
 ## [0.10.0] - 2026-11-11
 
 ### 🚀 Features
