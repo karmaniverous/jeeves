@@ -3,7 +3,8 @@
     "./src/index.ts",
     "./src/catalog/index.ts",
     "./src/openapi/index.ts",
-    "./src/fastify/index.ts"
+    "./src/fastify/index.ts",
+    "./src/mcp/index.ts"
   ],
   "highlightLanguages": [
     "bash",

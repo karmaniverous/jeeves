@@ -59,8 +59,12 @@ function runtimePackages(file: string): Set<string> {
 }
 
 describe('libraryEntries', () => {
-  it('scopes exactly Fastify and the OpenAPI library (spec Decision 89)', () => {
-    expect([...scopedPackages].sort()).toEqual(['fastify', 'zod-openapi']);
+  it('scopes exactly Fastify, the OpenAPI library (spec Decision 89) and the MCP server library (#136)', () => {
+    expect([...scopedPackages].sort()).toEqual([
+      '@modelcontextprotocol/server',
+      'fastify',
+      'zod-openapi',
+    ]);
   });
 
   it('declares fastify-type-provider-zod nowhere (core validates requests itself)', () => {
@@ -94,7 +98,12 @@ describe('libraryEntries', () => {
     expect(runtimePackages(libraryEntries['fastify/index'].input)).toContain(
       '@fastify/error',
     );
-    for (const name of ['index', 'catalog/index', 'openapi/index'] as const)
+    for (const name of [
+      'index',
+      'catalog/index',
+      'openapi/index',
+      'mcp/index',
+    ] as const)
       for (const p of fastifyOnlyPackages)
         expect(runtimePackages(libraryEntries[name].input)).not.toContain(p);
   });
