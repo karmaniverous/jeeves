@@ -20,6 +20,7 @@ Adoption is optional and per component. A component that doesn't adopt keeps wor
 | `core` | `@karmaniverous/jeeves` (already there), `zod` `^4.6`; `zod-openapi` `^6` as a dev dependency (writes `openapi.json`) |
 | `service` | `fastify` `^5` (your app) |
 | `openclaw` | nothing new |
+| `service`, for `/mcp` | `@modelcontextprotocol/server` `^2.4` (optional peer of `/mcp`) |
 
 `fastify` and `zod-openapi` are optional peers of `@karmaniverous/jeeves`: `/fastify` needs `fastify` (types; your app's own instance does the work) and `/openapi` needs `zod-openapi`. The root and `/catalog` need neither, so an SDK built on `createCatalogClient` stays light. Core validates requests itself; you don't need `fastify-type-provider-zod` unless the service uses it for its own routes outside the catalog.
 
@@ -287,6 +288,34 @@ const tools = createPluginToolset(descriptor, {
 
 Parameters are generated from the schemas, so they include keywords such as `additionalProperties: false`; the model can't pass parameters a route doesn't accept.
 
+## 8. MCP endpoint in `service`
+
+```ts
+const { registerMcpEndpoint } = await import('@karmaniverous/jeeves/mcp');
+
+registerMcpEndpoint(app, {
+  name: 'jeeves-acme',
+  version,
+  catalog,
+  prefix: 'acme',
+  tools: { search: true, listTags: { defaults: { prefix: [] } } },
+  instructions: promptRules,
+  skill: {
+    uri: 'skill://jeeves-acme/SKILL.md',
+    name: 'jeeves-acme',
+    text: skill,
+  },
+});
+```
+
+- `POST /mcp` (Streamable HTTP, stateless) serves MCP clients outside OpenClaw (Claude Code, Codex, Cursor and others); inside OpenClaw the plugin stays the interface. It serves the 2026-07-28 revision and, for 2025-era clients, the stateless fallback; `GET` and `DELETE` answer `405`.
+- Tools come from the same shared tool definition as plugin tools, in catalog order: the entry's `description` (no override), the merged input schema and hints from `kind`. Per entry you can rename fields with `inputAliases`, fill omitted parameters with `defaults` (no longer required in the tool schema) and set a `timeoutMs` (default 120 s).
+- Each tool call goes to the app's own route through `app.inject`, so auth, validation and error mapping are the HTTP API's. The endpoint adds no auth of its own: register it after your auth hook, which guards `/mcp` like any route. Each call carries the caller's credential headers (`authorization` for bearer, a named header, `cookie`) as sent, and the route checks them again.
+- A request with a browser `Origin` that isn't allowed gets `403` (DNS rebinding); requests without `Origin` (CLI clients) pass. `allowedOrigins` takes hostnames and defaults to the localhost ones.
+- `instructions` are sent on `initialize`; `skill` is served as a `text/markdown` resource.
+
+Install `@modelcontextprotocol/server` in `service`. Importing `/mcp` with `await import()` keeps it out of the startup path of a service that leaves it optional.
+
 ## Checklist
 
 - [ ] One `zod` in `npm ls zod`.
@@ -296,3 +325,4 @@ Parameters are generated from the schemas, so they include keywords such as `add
 - [ ] Auth hook before `registerCatalogRoutes`, exempting `/openapi.json`; 401 tests per protected entry.
 - [ ] Every response schema names every field or is loose; responses tested; `responseValidation: 'strict'`.
 - [ ] Plugin tools from the catalog; tool names and results checked against the previous release.
+- [ ] `/mcp` registered after the auth hook; a tool call to a protected entry tested with and without the key.
