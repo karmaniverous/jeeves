@@ -48,7 +48,12 @@ export interface CatalogRequest {
    * Raw request body (spec 5.8), exclusive with `body`: sent with its own
    * `contentType` in place of `application/json`.
    */
-  rawBody?: { contentType: string; data: Uint8Array };
+  rawBody?: {
+    /** The body's media type, sent as `Content-Type`. */
+    contentType: string;
+    /** The bytes. */
+    data: Uint8Array;
+  };
   /** Request headers (credentials are added by the caller). */
   headers: Record<string, string>;
 }
