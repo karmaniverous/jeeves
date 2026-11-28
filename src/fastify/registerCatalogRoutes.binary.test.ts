@@ -94,10 +94,13 @@ async function build(
         Promise.resolve({ status: 200, body: { text: input.body.text } }),
       image: (input) => {
         const type = input.query.type;
+        const headers: Record<string, string> = type
+          ? { 'content-type': type }
+          : { 'x-trace': '1' };
         return Promise.resolve({
           status: 200,
           body: new Uint8Array([1, 2, 3]),
-          headers: type ? { 'content-type': type } : { 'x-trace': '1' },
+          headers,
         });
       },
     },
