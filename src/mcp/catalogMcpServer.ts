@@ -31,7 +31,11 @@ import type { Catalog, CatalogEntry } from '../catalog/types.js';
 import { DEFAULT_FETCH_TIMEOUT_MS } from '../plugin/http.js';
 import { fail } from '../plugin/results.js';
 import { getErrorMessage } from '../utils.js';
-import { mcpResultFromResponse, toCallToolResult } from './mcpResult.js';
+import {
+  DEFAULT_MAX_IMAGE_BYTES,
+  mcpResultFromResponse,
+  toCallToolResult,
+} from './mcpResult.js';
 
 /** Settings for one selected entry. */
 export interface McpToolSettings {
@@ -80,6 +84,11 @@ export interface CatalogMcpContent<C extends Catalog = Catalog> {
   tools: Partial<Record<C['entries'][number]['name'], true | McpToolSettings>>;
   /** Default per-call timeout in milliseconds; default 120 s. */
   timeoutMs?: number;
+  /**
+   * Largest image result, in decoded bytes (spec 5.2 Results); default
+   * 5 MiB. A larger image is an error result stating its size and the limit.
+   */
+  maxImageBytes?: number;
   /** Always-on rules, sent as the server `instructions`. */
   instructions?: string;
   /** The component skill. */
@@ -231,12 +240,14 @@ function prepareTools(content: CatalogMcpContent): PreparedTool[] {
  * @param tool - The prepared tool.
  * @param args - Tool arguments.
  * @param transport - How the request reaches the service.
+ * @param maxImageBytes - Largest image result.
  * @returns The tool result.
  */
 async function callTool(
   tool: PreparedTool,
   args: Record<string, unknown>,
   transport: CatalogTransport,
+  maxImageBytes: number,
 ): Promise<CallToolResult> {
   const { entry, settings } = tool;
   let request;
@@ -251,7 +262,7 @@ async function callTool(
   }
   try {
     const res = await transport(request, AbortSignal.timeout(tool.timeoutMs));
-    return await mcpResultFromResponse(entry, res);
+    return await mcpResultFromResponse(entry, res, maxImageBytes);
   } catch (error) {
     return toCallToolResult(
       fail(`service not reachable: ${getErrorMessage(error)}`),
@@ -277,6 +288,7 @@ export function prepareCatalogMcpServer<C extends Catalog>(
   content: CatalogMcpContent<C>,
 ): CatalogMcpServerFactory {
   const tools = prepareTools(content);
+  const maxImageBytes = content.maxImageBytes ?? DEFAULT_MAX_IMAGE_BYTES;
   const { skill } = content;
 
   return (transport) => {
@@ -292,7 +304,7 @@ export function prepareCatalogMcpServer<C extends Catalog>(
           inputSchema: tool.inputSchema,
           annotations: tool.annotations,
         },
-        (args) => callTool(tool, args, transport),
+        (args) => callTool(tool, args, transport, maxImageBytes),
       );
     if (skill)
       mcp.registerResource(

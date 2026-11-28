@@ -14,7 +14,11 @@ import type { z } from 'zod';
 
 import { SERVER_ERROR_MESSAGE } from '../api/errorBody.js';
 import { errorBodySchema } from '../catalog/errorBody.js';
-import { isJsonContentType } from '../catalog/schemaHelpers.js';
+import {
+  isJsonContentType,
+  isMediaRange,
+  mediaTypeOf,
+} from '../catalog/schemaHelpers.js';
 import type { Catalog, CatalogEntry } from '../catalog/types.js';
 import { errorHandlerFor } from './errorHandler.js';
 import {
@@ -99,32 +103,6 @@ function routeSchema(entry: CatalogEntry): FastifySchema {
       '5xx': errorBodySchema,
     },
   };
-}
-
-/**
- * A content type's bare type and subtype, lower-cased, parameters dropped
- * (spec 5.2 Matching).
- *
- * @param contentType - A content type.
- * @returns Its type and subtype (empty strings when absent).
- */
-function mediaTypeOf(contentType: string): { type: string; subtype: string } {
-  const [type = '', subtype = ''] = contentType
-    .split(';')[0]
-    .trim()
-    .toLowerCase()
-    .split('/');
-  return { type, subtype };
-}
-
-/**
- * Whether a content type is a media range (`<type>/*`), e.g. `image/*`.
- *
- * @param contentType - A content type.
- * @returns `true` for a media range.
- */
-function isMediaRange(contentType: string): boolean {
-  return mediaTypeOf(contentType).subtype === '*';
 }
 
 /**

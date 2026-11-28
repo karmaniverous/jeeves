@@ -67,6 +67,35 @@ export function isTextContentType(contentType: string): boolean {
 }
 
 /**
+ * A content type's bare type and subtype, lower-cased, parameters dropped
+ * (spec 0.12.0 §5.2 Matching).
+ *
+ * @param contentType - A content type.
+ * @returns Its type and subtype (empty strings when absent).
+ */
+export function mediaTypeOf(contentType: string): {
+  type: string;
+  subtype: string;
+} {
+  const [type = '', subtype = ''] = contentType
+    .split(';')[0]
+    .trim()
+    .toLowerCase()
+    .split('/');
+  return { type, subtype };
+}
+
+/**
+ * Whether a content type is a media range (`<type>/*`), e.g. `image/*`.
+ *
+ * @param contentType - A content type.
+ * @returns `true` for a media range.
+ */
+export function isMediaRange(contentType: string): boolean {
+  return mediaTypeOf(contentType).subtype === '*';
+}
+
+/**
  * Object shape of a slot schema, or undefined when it isn't an object.
  *
  * @param schema - Slot schema.
