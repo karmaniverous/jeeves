@@ -100,6 +100,14 @@ describe('mcpResultFromResponse (spec 5.2 Results)', () => {
     });
   });
 
+  it('says so when an image/* response has no Content-Type', async () => {
+    const res = new Response(PNG, { status: 200 });
+    res.headers.delete('content-type');
+    const result = await map('image/*', res);
+    expect(result.isError).toBe(true);
+    expect(JSON.stringify(result.content)).toContain('Missing Content-Type');
+  });
+
   it('is an error result for another type under image/*', async () => {
     const result = await map('image/*', respond(PNG, 'image/tiff'));
     expect(result.isError).toBe(true);

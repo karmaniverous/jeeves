@@ -21,7 +21,10 @@ import {
 } from './registerMcpEndpoint.js';
 
 const KEY = 'test-key';
-const bearer = { schemes: [{ in: 'bearer' }] } as const;
+/** Bearer, or a session cookie (a browser's way in, never MCP's). */
+const bearer = {
+  schemes: [{ in: 'bearer' }, { in: 'cookie', name: 'session' }],
+} as const;
 
 const CATALOG = defineCatalog([
   {
@@ -388,7 +391,13 @@ describe('authenticate, body limit and forwarding (spec 5.4, 5.5)', () => {
       authorization: `Bearer ${KEY}`,
       cookie: 'session=abc',
     });
-    await mcp.callTool({ name: 'acme_get_thing', arguments: { id: 'x' } });
+    // createThing declares a cookie scheme; the route still sees no cookie.
+    const result = await mcp.callTool({
+      name: 'acme_create_thing',
+      arguments: { name: 'n' },
+    });
+    expect(result.isError).toBe(false);
+    expect(seen.at(-1)).toHaveProperty('authorization');
     expect(seen.at(-1)).not.toHaveProperty('cookie');
     await mcp.close();
   });
@@ -417,6 +426,7 @@ describe('credentialHeaderNames', () => {
         auth: {
           schemes: [
             { in: 'header', name: 'X-Api-Key' },
+            { in: 'header', name: 'Cookie' },
             { in: 'cookie', name: 'session' },
             { in: 'query', name: 'key' },
           ],

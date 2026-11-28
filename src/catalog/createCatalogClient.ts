@@ -139,11 +139,15 @@ export function createCatalogClient<C extends Catalog>(
       const { body: rawInput, ...rest } = (input ?? {}) as {
         body?: Uint8Array | Blob;
       } & Record<string, unknown>;
+      if (!(rawInput instanceof Uint8Array) && !(rawInput instanceof Blob))
+        throw new TypeError(
+          `${entry.name}: body must be a Uint8Array or Blob (binary request body)`,
+        );
       request = buildCatalogRequest(entry, rest as never);
       const data =
         rawInput instanceof Blob
           ? new Uint8Array(await rawInput.arrayBuffer())
-          : (rawInput as Uint8Array);
+          : rawInput;
       request.rawBody = { contentType: entry.requestContentType, data };
     } else {
       request = buildCatalogRequest(entry, input as never);

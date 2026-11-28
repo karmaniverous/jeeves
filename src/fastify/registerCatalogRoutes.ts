@@ -247,7 +247,11 @@ export async function registerCatalogRoutes<C extends Catalog>(
               const input = {
                 params: request.params,
                 query: request.query,
-                body: request.body ?? {},
+                // A bodiless request skips parsing: a binary entry still
+                // gets a (empty) Buffer, as its type says.
+                body:
+                  request.body ??
+                  (entry.requestContentType ? Buffer.alloc(0) : {}),
               } as RequestInput<CatalogEntry>;
               return send(
                 entry,

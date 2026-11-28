@@ -2,7 +2,7 @@
  * An MCP server over an endpoint catalog (#136).
  *
  * @remarks
- * One tool per selected entry, from the shared tool definition (spec 5.7):
+ * One tool per selected entry, from the shared tool definition (§4 Plugin Tools; spec 0.12.0 §5.2):
  * name, the entry's description, input schema and hints from `kind`. The
  * definitions are built and checked once, by {@link prepareCatalogMcpServer};
  * the factory it returns creates a server per transport (stateless serving

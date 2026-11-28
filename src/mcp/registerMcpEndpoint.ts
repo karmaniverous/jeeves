@@ -75,7 +75,8 @@ export interface McpEndpointOptions<
  * Request headers that carry a credential under the catalog's auth schemes:
  * `authorization` for bearer and the named header. A query credential is not
  * forwarded (it names the endpoint URL, not a tool call's), and a cookie
- * never is, even when the catalog declares a cookie scheme: MCP clients are
+ * never is, even when the catalog declares a cookie scheme (or a header
+ * scheme named `Cookie`): MCP clients are
  * not browsers, and a session cookie must not run tools as its owner
  * (Decision 96).
  *
@@ -88,7 +89,8 @@ export function credentialHeaderNames(catalog: Catalog): string[] {
     if (auth === 'none') continue;
     for (const scheme of auth.schemes) {
       if (scheme.in === 'bearer') names.add('authorization');
-      else if (scheme.in === 'header') names.add(scheme.name.toLowerCase());
+      else if (scheme.in === 'header' && scheme.name.toLowerCase() !== 'cookie')
+        names.add(scheme.name.toLowerCase());
     }
   }
   return [...names].sort();

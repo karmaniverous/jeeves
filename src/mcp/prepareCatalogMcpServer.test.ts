@@ -180,6 +180,47 @@ describe('prepareCatalogMcpServer', () => {
     ).toThrow(message);
   });
 
+  it('applies the content maxImageBytes to image results', async () => {
+    const images = defineCatalog([
+      {
+        name: 'image',
+        method: 'GET',
+        path: '/image',
+        description: 'An image.',
+        contentType: 'image/png',
+        response: z.instanceof(Uint8Array),
+        auth: 'none',
+        kind: 'read',
+      },
+    ]);
+    const png = () =>
+      Promise.resolve(
+        new Response(new Uint8Array(8), {
+          status: 200,
+          headers: { 'content-type': 'image/png' },
+        }),
+      );
+    const serve = (maxImageBytes: number) =>
+      connect(
+        prepareCatalogMcpServer({
+          name: 'srv',
+          version: '1',
+          catalog: images,
+          prefix: 'srv',
+          tools: { image: true },
+          maxImageBytes,
+        })(vi.fn<CatalogTransport>(png)),
+      );
+    const small = await serve(4);
+    const refused = await small.callTool({ name: 'srv_image', arguments: {} });
+    expect(refused.isError).toBe(true);
+    expect(JSON.stringify(refused.content)).toContain('limit of 4 bytes');
+    const large = await serve(8);
+    const served = await large.callTool({ name: 'srv_image', arguments: {} });
+    expect(served.isError).toBe(false);
+    expect((served.content as { type: string }[])[0].type).toBe('image');
+  });
+
   it('serves an entry with no inputs', async () => {
     const bare = defineCatalog([
       {

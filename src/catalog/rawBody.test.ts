@@ -70,6 +70,20 @@ describe('raw request bodies (spec 5.8)', () => {
     },
   );
 
+  it('the client refuses a binary body that is not bytes', async () => {
+    const { fetchFn } = recordingFetch();
+    const client = createCatalogClient(catalog, {
+      baseUrl: 'http://svc',
+      fetch: fetchFn,
+    });
+    await expect(
+      client.upload({ name: 'a.bin' } as unknown as Parameters<
+        typeof client.upload
+      >[0]),
+    ).rejects.toThrow('body must be a Uint8Array or Blob');
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
+
   it('httpTransport refuses a request with both body and rawBody', async () => {
     const { fetchFn } = recordingFetch();
     const transport = httpTransport({ baseUrl: 'http://svc', fetch: fetchFn });

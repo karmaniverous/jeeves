@@ -143,6 +143,16 @@ describe('binary request bodies (spec 5.8)', () => {
     await app.close();
   });
 
+  it('hands an empty Buffer for a request with no body', async () => {
+    const { app } = await build();
+    const res = await app.inject({ method: 'PUT', url: '/upload/a.bin' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ name: 'a.bin', size: 0 });
+    const received = uploadHandler.mock.calls[0][0].body as unknown;
+    expect(Buffer.isBuffer(received)).toBe(true);
+    await app.close();
+  });
+
   it('answers 413 over the entry bodyLimit', async () => {
     const { app } = await build();
     const res = await app.inject({
@@ -288,6 +298,8 @@ describe('wildcard replies (spec 5.2)', () => {
     ['no content-type', ''],
     ['a range', 'image/*'],
     ['a non-matching type', 'text/plain'],
+    ['a type with no subtype', 'image'],
+    ['an empty subtype', 'image/'],
   ])(
     'answers a logged 500 for %s, never the literal range',
     async (_label, type) => {

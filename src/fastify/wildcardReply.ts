@@ -15,7 +15,7 @@ import type { CatalogRouteLogger, HandlerResult } from './types.js';
 
 /**
  * Whether `actual` is a concrete type matching the media range `range`
- * (same type, case-insensitively, a concrete, non-range subtype).
+ * (same type, case-insensitively, and a non-empty, non-range subtype).
  *
  * @param range - The declared media range (e.g. `image/*`).
  * @param actual - A reply's `content-type`.
@@ -24,7 +24,7 @@ import type { CatalogRouteLogger, HandlerResult } from './types.js';
 function matchesRange(range: string, actual: string): boolean {
   const want = mediaTypeOf(range);
   const got = mediaTypeOf(actual);
-  return got.subtype !== '*' && got.type === want.type;
+  return got.subtype !== '' && got.subtype !== '*' && got.type === want.type;
 }
 
 /**

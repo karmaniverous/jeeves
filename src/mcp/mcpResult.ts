@@ -125,7 +125,10 @@ export async function mcpResultFromResponse(
   let type = declaredBare;
   if (isMediaRange(declaredBare)) {
     if (!declaredBare.startsWith('image/')) return deferred();
-    type = bare(res.headers.get('content-type') ?? '');
+    const header = res.headers.get('content-type');
+    if (!header)
+      return errorResult('Missing Content-Type for an image/* tool result');
+    type = bare(header);
     if (!IMAGE_TYPES.has(type) && type !== SVG)
       return errorResult(
         `Unsupported image type "${type}" for an image/* tool result`,
