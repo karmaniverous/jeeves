@@ -29,7 +29,7 @@ import type { Catalog } from '../catalog/types.js';
 import { DEFAULT_FETCH_TIMEOUT_MS } from '../plugin/http.js';
 import {
   type CatalogMcpContent,
-  createCatalogMcpServer,
+  prepareCatalogMcpServer,
 } from './catalogMcpServer.js';
 import { injectTransport } from './injectTransport.js';
 
@@ -160,17 +160,18 @@ export function registerMcpEndpoint<C extends Catalog>(
     ...content
   } = options;
   const credentials = credentialHeaderNames(content.catalog);
+  // Built and checked once: a configuration mistake throws here, at
+  // registration (spec 5.2, Decision 94).
+  const serverFor = prepareCatalogMcpServer({ ...content, timeoutMs });
 
   const handler = createMcpHandler(
     ({ requestInfo }) =>
-      createCatalogMcpServer({
-        ...content,
-        timeoutMs,
-        transport: injectTransport(
+      serverFor(
+        injectTransport(
           app,
           requestInfo ? pick(requestInfo.headers, credentials) : {},
         ),
-      }),
+      ),
     {
       onerror: (error) => {
         app.log.error({ err: error }, 'MCP request failed');

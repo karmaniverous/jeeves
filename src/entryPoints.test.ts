@@ -137,6 +137,7 @@ const EXPECTED: Record<keyof typeof ENTRIES, string[]> = {
   // #136.
   mcp: [
     'CatalogMcpContent',
+    'CatalogMcpServerFactory',
     'CatalogMcpServerOptions',
     'MCP_PATH',
     'McpEndpointOptions',
@@ -145,6 +146,7 @@ const EXPECTED: Record<keyof typeof ENTRIES, string[]> = {
     'createCatalogMcpServer',
     'credentialHeaderNames',
     'injectTransport',
+    'prepareCatalogMcpServer',
     'registerMcpEndpoint',
   ],
 };

@@ -3,12 +3,14 @@
  *
  * @remarks
  * One tool per selected entry, from the shared tool definition (spec 5.7):
- * name, the entry's description, input schema and hints from `kind`. Each
- * call is built with `toolInputToRequest`, sent through a
- * {@link CatalogTransport} and mapped with `toolResultFromResponse`, as
- * plugin tools are. The rules are the server `instructions`; the skill is a
- * resource. The SDK validates arguments against the tool's JSON Schema
- * first; `toolInputToRequest` then parses them with the entry's own schemas.
+ * name, the entry's description, input schema and hints from `kind`. The
+ * definitions are built and checked once, by {@link prepareCatalogMcpServer};
+ * the factory it returns creates a server per transport (stateless serving
+ * needs a server per request). Each call is built with `toolInputToRequest`,
+ * sent through a {@link CatalogTransport} and mapped to an MCP result. The
+ * rules are the server `instructions`; the skill is a resource. The SDK
+ * validates arguments against the tool's JSON Schema first;
+ * `toolInputToRequest` then parses them with the entry's own schemas.
  *
  * @module
  */
@@ -20,29 +22,40 @@ import {
 } from '@modelcontextprotocol/server';
 
 import {
+  type CatalogToolAnnotations,
   catalogToolDefinition,
   toolInputToRequest,
-  toolResultFromResponse,
 } from '../catalog/catalogTool.js';
 import type { CatalogTransport } from '../catalog/httpTransport.js';
 import type { Catalog, CatalogEntry } from '../catalog/types.js';
+import { DEFAULT_FETCH_TIMEOUT_MS } from '../plugin/http.js';
 import { fail } from '../plugin/results.js';
-import type { ToolResult } from '../plugin/types.js';
 import { getErrorMessage } from '../utils.js';
+import { mcpResultFromResponse, toCallToolResult } from './mcpResult.js';
 
 /** Settings for one selected entry. */
 export interface McpToolSettings {
   /** Tool parameter names for entry fields (e.g. `{ patch: 'config' }`). */
   inputAliases?: Readonly<Record<string, string>>;
-  /** Parameters sent when the caller omits them. */
+  /**
+   * Parameters sent when the caller omits them, keyed by tool parameter
+   * name. They stay in the published schema, no longer required, and the
+   * caller may override them.
+   */
   defaults?: Readonly<Record<string, unknown>>;
-  /** Per-call timeout in milliseconds; default the server's `timeoutMs`. */
+  /**
+   * Parameters always sent with these values, keyed by tool parameter name
+   * (spec 5.2, Decision 97). They are removed from the published schema, so
+   * an MCP client can neither see nor override them.
+   */
+  fixed?: Readonly<Record<string, unknown>>;
+  /** Per-call timeout in milliseconds; default the content's `timeoutMs`. */
   timeoutMs?: number;
 }
 
 /** A skill served as an MCP resource. */
 export interface McpSkill {
-  /** Resource URI (e.g. `skill://jeeves-watcher/SKILL.md`). */
+  /** Resource URI (e.g. `skill://jeeves-server/SKILL.md`). */
   uri: string;
   /** Resource name. */
   name: string;
@@ -65,8 +78,8 @@ export interface CatalogMcpContent<C extends Catalog = Catalog> {
    * name; unselected entries get no tool. Descriptions are the entries'.
    */
   tools: Partial<Record<C['entries'][number]['name'], true | McpToolSettings>>;
-  /** Default per-call timeout in milliseconds. */
-  timeoutMs: number;
+  /** Default per-call timeout in milliseconds; default 120 s. */
+  timeoutMs?: number;
   /** Always-on rules, sent as the server `instructions`. */
   instructions?: string;
   /** The component skill. */
@@ -82,48 +95,163 @@ export interface CatalogMcpServerOptions<
 }
 
 /**
- * A jeeves tool result as an MCP one (same shape; `isError` always set).
- *
- * @param result - `ok`/`fail`/`toolResultFromResponse` result.
- * @returns The MCP tool result.
+ * Creates an MCP server whose tools send their calls through `transport`.
  */
-const toCallToolResult = (result: ToolResult): CallToolResult => ({
-  content: result.content.map(({ text }) => ({ type: 'text', text })),
-  isError: result.isError === true,
-});
+export type CatalogMcpServerFactory = (
+  transport: CatalogTransport,
+) => McpServer;
+
+/** A tool definition built once, at preparation. */
+interface PreparedTool {
+  entry: CatalogEntry;
+  settings: McpToolSettings;
+  name: string;
+  description: string;
+  inputSchema: ReturnType<typeof fromJsonSchema<Record<string, unknown>>>;
+  annotations: CatalogToolAnnotations;
+  timeoutMs: number;
+}
+
+/**
+ * The published input schema: fixed parameters removed altogether, and
+ * defaulted ones no longer required (the SDK checks arguments before the
+ * call fills them in).
+ *
+ * @param schema - Tool input schema.
+ * @param defaulted - Parameters with defaults.
+ * @param fixed - Fixed parameters.
+ * @returns The schema.
+ */
+function publishedSchema(
+  schema: Record<string, unknown>,
+  defaulted: string[],
+  fixed: string[],
+): Record<string, unknown> {
+  const { required, properties, ...rest } = schema;
+  const out: Record<string, unknown> = { ...rest };
+  if (properties && typeof properties === 'object')
+    out.properties = Object.fromEntries(
+      Object.entries(properties).filter(([name]) => !fixed.includes(name)),
+    );
+  if (Array.isArray(required)) {
+    const left = required.filter(
+      (name: unknown) =>
+        typeof name !== 'string' ||
+        (!defaulted.includes(name) && !fixed.includes(name)),
+    );
+    if (left.length > 0) out.required = left;
+  }
+  return out;
+}
+
+/**
+ * Check a tool's `defaults` and `fixed` against its parameters.
+ *
+ * @param entry - The tool's entry.
+ * @param parameters - The tool's parameter names.
+ * @param settings - Its settings.
+ * @throws Error for a `fixed` key that names no parameter, or a parameter
+ *   in both `defaults` and `fixed`.
+ */
+function checkPresets(
+  entry: CatalogEntry,
+  parameters: string[],
+  settings: McpToolSettings,
+): void {
+  const at = `MCP tool for entry "${entry.name}"`;
+  for (const name of Object.keys(settings.fixed ?? {})) {
+    if (!parameters.includes(name))
+      throw new Error(`${at}: fixed parameter "${name}" is not a parameter`);
+    if (settings.defaults && name in settings.defaults)
+      throw new Error(`${at}: "${name}" is in both defaults and fixed`);
+  }
+}
+
+/**
+ * Build and check every selected tool's definition.
+ *
+ * @param content - What the server serves.
+ * @returns The prepared tools, in catalog order.
+ * @throws Error for an unknown entry, a duplicate tool name, an invalid or
+ *   colliding alias, an entry with a binary request body, a `fixed` key that
+ *   names no parameter, or a parameter in both `defaults` and `fixed`.
+ */
+function prepareTools(content: CatalogMcpContent): PreparedTool[] {
+  const selection = content.tools;
+  const known = new Set(content.catalog.entries.map((e) => e.name));
+  for (const name of Object.keys(selection))
+    if (!known.has(name))
+      throw new Error(`MCP tools: unknown catalog entry "${name}"`);
+
+  const tools: PreparedTool[] = [];
+  const names = new Set<string>();
+  for (const entry of content.catalog.entries) {
+    const selected = selection[entry.name];
+    if (selected === undefined) continue;
+    const settings = selected === true ? {} : selected;
+    const definition = catalogToolDefinition(entry, {
+      prefix: content.prefix,
+      ...(settings.inputAliases ? { inputAliases: settings.inputAliases } : {}),
+    });
+    if (names.has(definition.name))
+      throw new Error(`MCP tools: duplicate tool name "${definition.name}"`);
+    names.add(definition.name);
+    const properties = definition.inputSchema.properties;
+    checkPresets(
+      entry,
+      properties && typeof properties === 'object'
+        ? Object.keys(properties)
+        : [],
+      settings,
+    );
+    tools.push({
+      entry,
+      settings,
+      name: definition.name,
+      description: definition.description,
+      inputSchema: fromJsonSchema<Record<string, unknown>>(
+        publishedSchema(
+          definition.inputSchema,
+          Object.keys(settings.defaults ?? {}),
+          Object.keys(settings.fixed ?? {}),
+        ),
+      ),
+      annotations: definition.annotations,
+      timeoutMs:
+        settings.timeoutMs ?? content.timeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS,
+    });
+  }
+  return tools;
+}
 
 /**
  * Call one tool: build the request, send it through the transport and map
  * the response.
  *
- * @param entry - The tool's catalog entry.
- * @param settings - The tool's settings.
+ * @param tool - The prepared tool.
  * @param args - Tool arguments.
- * @param options - Transport and default timeout.
+ * @param transport - How the request reaches the service.
  * @returns The tool result.
  */
 async function callTool(
-  entry: CatalogEntry,
-  settings: McpToolSettings,
+  tool: PreparedTool,
   args: Record<string, unknown>,
-  options: Pick<CatalogMcpServerOptions, 'transport' | 'timeoutMs'>,
+  transport: CatalogTransport,
 ): Promise<CallToolResult> {
+  const { entry, settings } = tool;
   let request;
   try {
     request = toolInputToRequest(
       entry,
-      { ...settings.defaults, ...args },
+      { ...settings.defaults, ...args, ...settings.fixed },
       settings.inputAliases,
     );
   } catch (error) {
     return toCallToolResult(fail(error));
   }
   try {
-    const res = await options.transport(
-      request,
-      AbortSignal.timeout(settings.timeoutMs ?? options.timeoutMs),
-    );
-    return toCallToolResult(await toolResultFromResponse(entry, res));
+    const res = await transport(request, AbortSignal.timeout(tool.timeoutMs));
+    return await mcpResultFromResponse(entry, res);
   } catch (error) {
     return toCallToolResult(
       fail(`service not reachable: ${getErrorMessage(error)}`),
@@ -132,81 +260,67 @@ async function callTool(
 }
 
 /**
- * A tool input schema that no longer requires the given parameters: the
- * SDK checks arguments before the call fills in defaults.
+ * Build and check the tool definitions once, and return a factory that
+ * creates an MCP server per transport (spec 5.2, Decision 94).
  *
- * @param schema - Tool input schema.
- * @param names - Parameters with defaults.
- * @returns The schema.
+ * @remarks
+ * Every configuration mistake throws here, so a component that calls this
+ * at startup fails at startup, not on the first request.
+ *
+ * @param content - Content and tool selection.
+ * @returns A factory: a server whose tools call through the given transport.
+ * @throws Error for an unknown entry, a duplicate tool name, an invalid or
+ *   colliding alias, an entry with a binary request body, a `fixed` key that
+ *   names no parameter, or a parameter in both `defaults` and `fixed`.
  */
-function withoutRequired(
-  schema: Record<string, unknown>,
-  names: string[],
-): Record<string, unknown> {
-  const { required, ...rest } = schema;
-  if (!Array.isArray(required)) return schema;
-  const left = required.filter(
-    (name: unknown) => typeof name !== 'string' || !names.includes(name),
-  );
-  return left.length > 0 ? { ...rest, required: left } : rest;
+export function prepareCatalogMcpServer<C extends Catalog>(
+  content: CatalogMcpContent<C>,
+): CatalogMcpServerFactory {
+  const tools = prepareTools(content);
+  const { skill } = content;
+
+  return (transport) => {
+    const mcp = new McpServer(
+      { name: content.name, version: content.version },
+      content.instructions ? { instructions: content.instructions } : {},
+    );
+    for (const tool of tools)
+      mcp.registerTool(
+        tool.name,
+        {
+          description: tool.description,
+          inputSchema: tool.inputSchema,
+          annotations: tool.annotations,
+        },
+        (args) => callTool(tool, args, transport),
+      );
+    if (skill)
+      mcp.registerResource(
+        skill.name,
+        skill.uri,
+        { description: `${skill.name} skill`, mimeType: 'text/markdown' },
+        () => ({
+          contents: [
+            { uri: skill.uri, mimeType: 'text/markdown', text: skill.text },
+          ],
+        }),
+      );
+    return mcp;
+  };
 }
 
 /**
- * Create an MCP server over a catalog: the selected tools, in catalog order.
- * Connect it to any MCP transport, or return it from a `createMcpHandler`
- * factory.
+ * Create one MCP server over a catalog: `prepareCatalogMcpServer(content)`
+ * applied to `transport`. Connect it to any MCP transport; for a server per
+ * request, use {@link prepareCatalogMcpServer} once instead.
  *
  * @param options - Content, selection and transport.
  * @returns The server.
- * @throws Error for an invalid tool name or invalid aliases.
+ * @throws Error as {@link prepareCatalogMcpServer}.
  */
 export function createCatalogMcpServer<C extends Catalog>(
   options: CatalogMcpServerOptions<C>,
 ): McpServer {
-  const mcp = new McpServer(
-    { name: options.name, version: options.version },
-    options.instructions ? { instructions: options.instructions } : {},
-  );
-
-  const selection = options.tools as Partial<
-    Record<string, true | McpToolSettings>
-  >;
-  for (const entry of options.catalog.entries) {
-    const selected = selection[entry.name];
-    if (selected === undefined) continue;
-    const settings = selected === true ? {} : selected;
-    const { name, description, inputSchema, annotations } =
-      catalogToolDefinition(entry, {
-        prefix: options.prefix,
-        ...(settings.inputAliases
-          ? { inputAliases: settings.inputAliases }
-          : {}),
-      });
-    mcp.registerTool(
-      name,
-      {
-        description,
-        inputSchema: fromJsonSchema<Record<string, unknown>>(
-          withoutRequired(inputSchema, Object.keys(settings.defaults ?? {})),
-        ),
-        annotations,
-      },
-      (args) => callTool(entry, settings, args, options),
-    );
-  }
-
-  const { skill } = options;
-  if (skill)
-    mcp.registerResource(
-      skill.name,
-      skill.uri,
-      { description: `${skill.name} skill`, mimeType: 'text/markdown' },
-      () => ({
-        contents: [
-          { uri: skill.uri, mimeType: 'text/markdown', text: skill.text },
-        ],
-      }),
-    );
-
-  return mcp;
+  const { transport, ...content } = options;
+  return prepareCatalogMcpServer(content)(transport);
 }

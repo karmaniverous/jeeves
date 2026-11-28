@@ -292,6 +292,19 @@ describe('registerMcpEndpoint', () => {
     }
   });
 
+  it('throws at registration, not on the first request, for an invalid selection', () => {
+    app = Fastify({ logger: false });
+    expect(() => {
+      registerMcpEndpoint(app, {
+        name: 'acme',
+        version: '1',
+        catalog: CATALOG,
+        prefix: 'acme',
+        tools: { getThing: { inputAliases: { nope: 'x' } } },
+      });
+    }).toThrow('input alias for unknown field "nope"');
+  });
+
   it('serves on a custom path', async () => {
     await build({ path: '/acme/mcp' });
 

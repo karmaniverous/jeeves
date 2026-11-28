@@ -13,10 +13,12 @@
 
 export {
   type CatalogMcpContent,
+  type CatalogMcpServerFactory,
   type CatalogMcpServerOptions,
   createCatalogMcpServer,
   type McpSkill,
   type McpToolSettings,
+  prepareCatalogMcpServer,
 } from './catalogMcpServer.js';
 export { injectTransport } from './injectTransport.js';
 export {
