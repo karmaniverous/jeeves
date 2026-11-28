@@ -34,7 +34,7 @@ export const promptContextOptionsSchema = z.object({
   content: z.union([
     z.string(),
     z.custom<PromptContextProvider>((v) => typeof v === 'function', {
-      message: 'content must be a string or a function',
+      error: 'content must be a string or a function',
     }),
   ]),
   /** Hook priority (higher runs first; controls concatenation order). */

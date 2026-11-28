@@ -49,7 +49,7 @@ export const jeevesComponentDescriptorSchema = z.object({
       typeof val === 'object' &&
       typeof (val as ZodType).parse === 'function' &&
       typeof (val as ZodType).safeParse === 'function',
-    { message: 'configSchema must be a Zod schema (with parse and safeParse)' },
+    { error: 'configSchema must be a Zod schema (with parse and safeParse)' },
   ),
 
   /** Config file name (e.g., 'jeeves-watcher.config.json'). */
