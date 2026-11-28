@@ -8,7 +8,12 @@ import type { FastifyRequest } from 'fastify';
 import type { z } from 'zod';
 
 import type { ErrorBody } from '../catalog/errorBody.js';
-import type { Catalog, CatalogEntry, IsJsonEntry } from '../catalog/types.js';
+import type {
+  Catalog,
+  CatalogEntry,
+  HasRawBody,
+  IsJsonEntry,
+} from '../catalog/types.js';
 
 /** Successful HTTP status codes a handler may return. */
 export type SuccessStatus = 200 | 201 | 202 | 203 | 204 | 205 | 206;
@@ -59,14 +64,18 @@ export type SlotValue<S> = S extends z.ZodType
   ? z.output<S>
   : Record<string, never>;
 
-/** What a handler receives: the validated `params`, `query` and `body`. */
+/**
+ * What a handler receives: the validated `params`, `query` and `body`. An
+ * entry with `requestContentType` (spec 5.8) has no `body` schema, so its
+ * `body` is the raw request `Buffer` instead of a parsed Zod shape.
+ */
 export interface RequestInput<E extends CatalogEntry> {
   /** Path parameters. */
   params: SlotValue<E['params']>;
   /** Query parameters. */
   query: SlotValue<E['query']>;
-  /** Request body. */
-  body: SlotValue<E['body']>;
+  /** Request body; a `Buffer` for an entry with `requestContentType`. */
+  body: HasRawBody<E> extends true ? Buffer : SlotValue<E['body']>;
 }
 
 /** Response headers a handler may set. */

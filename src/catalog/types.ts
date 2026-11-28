@@ -87,6 +87,21 @@ export interface CatalogEntry {
   readonly kind: EntryKind;
   /** Response content type; default `application/json`. */
   readonly contentType?: string;
+  /**
+   * Media type of a raw request body (spec 5.8), e.g.
+   * `application/octet-stream`. An entry that sets it has no `body` schema,
+   * uses `POST`, `PUT` or `PATCH`, and must set `bodyLimit`; it may still
+   * take `params` and `query`. Never a JSON type (catalog rule).
+   */
+  readonly requestContentType?: string;
+  /**
+   * Largest request body this route accepts, in bytes; passed to Fastify
+   * as the route's `bodyLimit` (spec 5.8). Applies to any entry, JSON or
+   * binary; without it a JSON entry gets the app's default. Required (and
+   * a positive integer) for an entry with `requestContentType`, which has
+   * no default.
+   */
+  readonly bodyLimit?: number;
 }
 
 /**
@@ -136,3 +151,10 @@ export type IsJsonEntry<E extends CatalogEntry> =
       ? true
       : false
     : true;
+
+/**
+ * Whether an entry takes a raw request body (spec 5.8): the type-level
+ * counterpart of checking `entry.requestContentType`.
+ */
+export type HasRawBody<E extends CatalogEntry> =
+  E['requestContentType'] extends string ? true : false;

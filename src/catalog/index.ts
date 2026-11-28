@@ -57,5 +57,6 @@ export type {
   Catalog,
   CatalogEntry,
   EntryKind,
+  HasRawBody,
   IsJsonEntry,
 } from './types.js';

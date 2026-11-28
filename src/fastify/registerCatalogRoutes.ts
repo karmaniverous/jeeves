@@ -4,14 +4,21 @@
  * @module
  */
 
-import type { FastifyInstance, FastifyReply, FastifySchema } from 'fastify';
+import type {
+  FastifyInstance,
+  FastifyReply,
+  FastifyRequest,
+  FastifySchema,
+} from 'fastify';
 import type { z } from 'zod';
 
+import { SERVER_ERROR_MESSAGE } from '../api/errorBody.js';
 import { errorBodySchema } from '../catalog/errorBody.js';
 import { isJsonContentType } from '../catalog/schemaHelpers.js';
 import type { Catalog, CatalogEntry } from '../catalog/types.js';
 import { errorHandlerFor } from './errorHandler.js';
 import {
+  errorReplyBody,
   isBuiltErrorBody,
   normaliseErrorPayload,
   rawErrorPayloadBody,
@@ -95,21 +102,122 @@ function routeSchema(entry: CatalogEntry): FastifySchema {
 }
 
 /**
+ * A content type's bare type and subtype, lower-cased, parameters dropped
+ * (spec 5.2 Matching).
+ *
+ * @param contentType - A content type.
+ * @returns Its type and subtype (empty strings when absent).
+ */
+function mediaTypeOf(contentType: string): { type: string; subtype: string } {
+  const [type = '', subtype = ''] = contentType
+    .split(';')[0]
+    .trim()
+    .toLowerCase()
+    .split('/');
+  return { type, subtype };
+}
+
+/**
+ * Whether a content type is a media range (`<type>/*`), e.g. `image/*`.
+ *
+ * @param contentType - A content type.
+ * @returns `true` for a media range.
+ */
+function isMediaRange(contentType: string): boolean {
+  return mediaTypeOf(contentType).subtype === '*';
+}
+
+/**
+ * Whether `actual` is a concrete type matching the media range `range`
+ * (same type, case-insensitively, a concrete, non-range subtype).
+ *
+ * @param range - The declared media range (e.g. `image/*`).
+ * @param actual - A reply's `content-type`.
+ * @returns `true` when `actual` matches.
+ */
+function matchesRange(range: string, actual: string): boolean {
+  const want = mediaTypeOf(range);
+  const got = mediaTypeOf(actual);
+  return got.subtype !== '*' && got.type === want.type;
+}
+
+/**
+ * A result header, read case-insensitively.
+ *
+ * @param headers - Result headers.
+ * @param name - Lower-case header name.
+ * @returns Its value, if set.
+ */
+function headerValue(
+  headers: HandlerResult<CatalogEntry>['headers'],
+  name: string,
+): string | undefined {
+  if (!headers) return undefined;
+  const key = Object.keys(headers).find((k) => k.toLowerCase() === name);
+  return key ? headers[key] : undefined;
+}
+
+/**
+ * Answer a handler fault (spec 5.2 Wildcard replies) as a logged 500 in
+ * core's error body; never the literal declared range.
+ *
+ * @param entry - Catalog entry.
+ * @param actual - The reply's `content-type`, if any.
+ * @param reply - Fastify reply.
+ * @param log - Where the fault is logged.
+ * @returns The sent reply.
+ */
+function sendWildcardFault(
+  entry: CatalogEntry,
+  actual: string | undefined,
+  reply: FastifyReply,
+  log: Pick<CatalogRouteLogger, 'error'>,
+): FastifyReply {
+  const body = errorReplyBody(500, SERVER_ERROR_MESSAGE, undefined, log, {
+    deliberate: false,
+    cause: {
+      details: {
+        entry: entry.name,
+        declaredContentType: entry.contentType,
+        actualContentType: actual,
+      },
+      message:
+        'Handler fault: a 2xx reply for a wildcard contentType entry did not set a concrete, matching content-type header',
+    },
+  });
+  return reply.status(500).send(body);
+}
+
+/**
  * Send a handler result. An error result's body goes out as JSON, and the
  * scope's `preSerialization` hook rebuilds it from the status (Fastify's
  * body; a 5xx keeps its message and is logged), like every other error
- * reply.
+ * reply. For an entry whose declared `contentType` is a media range (spec
+ * 5.2 Wildcard replies), a 2xx result without a concrete, matching
+ * `content-type` in its headers is a logged handler fault, answered 500
+ * instead: the declared range itself never reaches the wire.
  *
  * @param entry - Catalog entry.
  * @param result - Handler result.
  * @param reply - Fastify reply.
+ * @param log - Where a wildcard-reply fault is logged.
  * @returns The sent reply.
  */
 function send(
   entry: CatalogEntry,
   result: HandlerResult<CatalogEntry>,
   reply: FastifyReply,
+  log: Pick<CatalogRouteLogger, 'error'>,
 ): FastifyReply {
+  if (
+    result.status < 400 &&
+    entry.contentType !== undefined &&
+    isMediaRange(entry.contentType)
+  ) {
+    const actual = headerValue(result.headers, 'content-type');
+    if (!actual || !matchesRange(entry.contentType, actual))
+      return sendWildcardFault(entry, actual, reply, log);
+  }
   reply.status(result.status);
   if (result.status >= 400) {
     setErrorHeaders(reply, result.headers);
@@ -264,19 +372,54 @@ export async function registerCatalogRoutes<C extends Catalog>(
 
         for (const entry of catalog.entries) {
           const handler = byName[entry.name];
-          scope.route({
+          const routeOptions = {
             method: entry.method,
             url: entry.path,
             schema: routeSchema(entry),
-            handler: async (request, reply) => {
+            ...(entry.bodyLimit !== undefined
+              ? { bodyLimit: entry.bodyLimit }
+              : {}),
+            handler: async (request: FastifyRequest, reply: FastifyReply) => {
               const input = {
                 params: request.params,
                 query: request.query,
                 body: request.body ?? {},
               } as RequestInput<CatalogEntry>;
-              return send(entry, await handler(input, request), reply);
+              return send(
+                entry,
+                await handler(input, request),
+                reply,
+                options.logger ?? request.log,
+              );
             },
-          });
+          };
+          if (!entry.requestContentType) {
+            scope.route(routeOptions);
+            continue;
+          }
+          // A binary-body entry gets its own encapsulated child of the
+          // catalog scope (spec 5.8), so its buffer content-type parser
+          // applies to exactly this route and no other; the child inherits
+          // the scope's hooks (and so the component's access hook), error
+          // handler and serializers.
+          void scope.register(
+            (child) =>
+              new Promise<void>((resolveChild) => {
+                // Only the declared media type parses here: the inherited
+                // JSON and text parsers go, so any other content type,
+                // JSON included, is Fastify's 415.
+                child.removeAllContentTypeParsers();
+                child.addContentTypeParser(
+                  entry.requestContentType as string,
+                  { parseAs: 'buffer' },
+                  (_request, body, done) => {
+                    done(null, body);
+                  },
+                );
+                child.route(routeOptions);
+                resolveChild();
+              }),
+          );
         }
         resolve();
       }),

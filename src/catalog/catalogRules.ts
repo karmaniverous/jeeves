@@ -216,8 +216,43 @@ function checkNonJsonResponse(entry: CatalogEntry): string[] {
     : ['a non-JSON response must be z.instanceof(Uint8Array) or z.string()'];
 }
 
+/** Methods whose requests may carry a body. */
+const BODY_METHODS = new Set(['POST', 'PUT', 'PATCH']);
+
 /**
- * The per-entry rules (1 and 3-8) for one entry.
+ * Rule 9: binary request bodies (spec 5.8). `requestContentType` is
+ * lowercase and not JSON; with it, `body` is absent, the method takes a
+ * body and `bodyLimit` is set. `bodyLimit`, on any entry, is a positive
+ * integer.
+ *
+ * @param entry - The entry.
+ * @returns Violations.
+ */
+function checkBinaryBody(entry: CatalogEntry): string[] {
+  const violations: string[] = [];
+  const { requestContentType, bodyLimit } = entry;
+  if (requestContentType !== undefined) {
+    if (requestContentType !== requestContentType.toLowerCase())
+      violations.push('requestContentType must be lowercase');
+    if (isJsonContentType(requestContentType))
+      violations.push('requestContentType must not be JSON');
+    if (entry.body)
+      violations.push('an entry with requestContentType must not declare body');
+    if (!BODY_METHODS.has(entry.method))
+      violations.push('requestContentType requires method POST, PUT or PATCH');
+    if (bodyLimit === undefined)
+      violations.push('requestContentType requires bodyLimit');
+  }
+  if (
+    bodyLimit !== undefined &&
+    (!Number.isInteger(bodyLimit) || bodyLimit <= 0)
+  )
+    violations.push('bodyLimit must be a positive integer');
+  return violations;
+}
+
+/**
+ * The per-entry rules (1, 3-9) for one entry.
  *
  * @param entry - The entry.
  * @returns Violation messages, each prefixed with the entry name.
@@ -232,6 +267,7 @@ export function checkEntry(entry: CatalogEntry): string[] {
     ...checkQueryFields(shapes),
     ...checkConvertible(entry, shapes),
     ...checkNonJsonResponse(entry),
+    ...checkBinaryBody(entry),
   ].map((v) => `entry "${entry.name}": ${v}`);
 }
 

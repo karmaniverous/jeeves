@@ -154,6 +154,83 @@ describe('defineCatalog', () => {
       [entry({ contentType: 'image/png', response: z.number() })],
       /non-JSON response must be/,
     ],
+    [
+      'rule 9: requestContentType uppercase',
+      [
+        entry({
+          method: 'POST',
+          params: undefined,
+          path: '/things',
+          requestContentType: 'Application/octet-stream',
+          bodyLimit: 10,
+          response: z.instanceof(Uint8Array),
+        }),
+      ],
+      /requestContentType must be lowercase/,
+    ],
+    [
+      'rule 9: requestContentType is JSON',
+      [
+        entry({
+          method: 'POST',
+          params: undefined,
+          path: '/things',
+          requestContentType: 'application/json',
+          bodyLimit: 10,
+          response: z.instanceof(Uint8Array),
+        }),
+      ],
+      /requestContentType must not be JSON/,
+    ],
+    [
+      'rule 9: requestContentType with a body schema',
+      [
+        entry({
+          method: 'POST',
+          params: undefined,
+          path: '/things',
+          requestContentType: 'application/octet-stream',
+          bodyLimit: 10,
+          body: z.object({ a: z.string() }),
+          response: z.instanceof(Uint8Array),
+        }),
+      ],
+      /must not declare body/,
+    ],
+    [
+      'rule 9: requestContentType on a GET',
+      [
+        entry({
+          requestContentType: 'application/octet-stream',
+          bodyLimit: 10,
+          response: z.instanceof(Uint8Array),
+        }),
+      ],
+      /requires method POST, PUT or PATCH/,
+    ],
+    [
+      'rule 9: requestContentType without bodyLimit',
+      [
+        entry({
+          method: 'POST',
+          params: undefined,
+          path: '/things',
+          requestContentType: 'application/octet-stream',
+          response: z.instanceof(Uint8Array),
+        }),
+      ],
+      /requestContentType requires bodyLimit/,
+    ],
+    [
+      'rule 9: bodyLimit not a positive integer',
+      [entry({ bodyLimit: 0 })],
+      /bodyLimit must be a positive integer/,
+    ],
+    [
+      'rule 9: bodyLimit not an integer',
+      [entry({ bodyLimit: 1.5 })],
+      /bodyLimit must be a positive integer/,
+    ],
   ])('rejects %s', (_label, entries, message) => {
     const found = violations(entries);
     expect(found.some((v) => message.test(v))).toBe(true);
@@ -238,6 +315,23 @@ describe('defineCatalog', () => {
         entry({ contentType: 'image/png', response: z.instanceof(Date) }),
       ]),
     ).toHaveLength(1);
+  });
+
+  it('rule 9 accepts a valid binary-body entry (PUT/PATCH too, and JSON bodyLimit)', () => {
+    const upload = (method: 'POST' | 'PUT' | 'PATCH') =>
+      entry({
+        name: `upload${method}`,
+        method,
+        params: undefined,
+        path: '/upload',
+        requestContentType: 'application/octet-stream',
+        bodyLimit: 1024,
+        response: z.object({ size: z.number() }),
+      });
+    expect(violations([upload('POST')])).toEqual([]);
+    expect(violations([upload('PUT')])).toEqual([]);
+    expect(violations([upload('PATCH')])).toEqual([]);
+    expect(violations([entry({ bodyLimit: 10 })])).toEqual([]);
   });
 
   it('treats +json content types as JSON', () => {

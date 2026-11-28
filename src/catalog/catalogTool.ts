@@ -127,12 +127,18 @@ function checkAliases(
  * @param entry - Catalog entry.
  * @param options - Prefix, description override and input aliases.
  * @returns The definition.
- * @throws Error for an invalid tool name or invalid aliases.
+ * @throws Error for an invalid tool name or invalid aliases, or when the
+ *   entry has a binary request body (spec 5.8): tool input is JSON, so such
+ *   an entry can never be a tool.
  */
 export function catalogToolDefinition(
   entry: CatalogEntry,
   options: CatalogToolOptions,
 ): CatalogToolDefinition {
+  if (entry.requestContentType !== undefined)
+    throw new Error(
+      `Tool for entry "${entry.name}": an entry with a binary request body cannot be a tool`,
+    );
   const aliases = options.inputAliases ?? {};
   const merged = mergedInputSchema(entry);
   checkAliases(entry, Object.keys(merged.shape), aliases);

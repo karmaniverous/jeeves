@@ -144,6 +144,19 @@ describe('catalogToolDefinition', () => {
     expect(def.inputSchema.required).toBeUndefined();
     expect(def.inputSchema).toMatchObject({ type: 'object' });
   });
+
+  it('throws for a binary-body entry (spec 5.8: never a tool)', () => {
+    const upload = entry({
+      name: 'upload',
+      requestContentType: 'application/octet-stream',
+      bodyLimit: 1024,
+      body: undefined,
+      response: z.object({ size: z.number() }),
+    });
+    expect(() => catalogToolDefinition(upload, { prefix: 'p' })).toThrow(
+      'Tool for entry "upload": an entry with a binary request body cannot be a tool',
+    );
+  });
 });
 
 describe('toolInputToRequest', () => {

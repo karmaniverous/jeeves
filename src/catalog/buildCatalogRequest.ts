@@ -14,18 +14,25 @@ import {
   REQUEST_SLOTS,
   shapeOf,
 } from './schemaHelpers.js';
-import type { CatalogEntry } from './types.js';
+import type { CatalogEntry, HasRawBody } from './types.js';
 
 /** Wire input of an optional slot schema; `unknown` when absent. */
 export type SlotInput<S> = S extends z.ZodType ? z.input<S> : unknown;
 
 /**
  * One flat input object for an entry: its `params`, `query` and `body`
- * fields merged (rule 4 keeps their names distinct).
+ * fields merged (rule 4 keeps their names distinct). An entry with
+ * `requestContentType` (spec 5.8) takes its raw request body as a required
+ * `body` field instead, as `Uint8Array | Blob`.
  */
 export type CatalogInput<E extends CatalogEntry> = SlotInput<E['params']> &
   SlotInput<E['query']> &
-  SlotInput<E['body']>;
+  (HasRawBody<E> extends true
+    ? {
+        /** Raw request body (a `Blob` is read to bytes). */
+        readonly body: Uint8Array | Blob;
+      }
+    : SlotInput<E['body']>);
 
 /** A built request, ready for a transport. */
 export interface CatalogRequest {
@@ -37,6 +44,11 @@ export interface CatalogRequest {
   query: [string, string][];
   /** JSON body; absent when the entry has none. */
   body?: Record<string, unknown>;
+  /**
+   * Raw request body (spec 5.8), exclusive with `body`: sent with its own
+   * `contentType` in place of `application/json`.
+   */
+  rawBody?: { contentType: string; data: Uint8Array };
   /** Request headers (credentials are added by the caller). */
   headers: Record<string, string>;
 }

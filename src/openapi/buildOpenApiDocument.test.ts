@@ -240,6 +240,39 @@ describe('buildOpenApiDocument', () => {
     });
   });
 
+  it('writes a binary request body as required, format: binary (spec 5.8)', () => {
+    const binary = buildOpenApiDocument(
+      defineCatalog([
+        {
+          name: 'upload',
+          method: 'POST',
+          path: '/upload',
+          description: 'Upload raw bytes.',
+          requestContentType: 'application/octet-stream',
+          bodyLimit: 1024,
+          response: z.object({ size: z.number() }),
+          auth: 'none',
+          kind: 'write',
+        },
+      ]),
+      info,
+    );
+    const operation = (
+      (binary.paths ?? {})['/upload'] as Record<
+        string,
+        { requestBody?: { required?: boolean; content: unknown } }
+      >
+    ).post;
+    expect(operation.requestBody).toEqual({
+      required: true,
+      content: {
+        'application/octet-stream': {
+          schema: { type: 'string', format: 'binary' },
+        },
+      },
+    });
+  });
+
   it('helpers map paths and scheme keys', () => {
     expect(toOpenApiPath('/a/:b/c/:d_e/*')).toBe('/a/{b}/c/{d_e}/{*}');
     expect(securitySchemeKey({ in: 'header', name: 'X-Api.Key' })).toBe(

@@ -80,6 +80,7 @@ const EXPECTED: Record<keyof typeof ENTRIES, string[]> = {
     'Credential',
     'EntryKind',
     'ErrorBody',
+    'HasRawBody',
     'HttpTransportOptions',
     'IsJsonEntry',
     'Secret',

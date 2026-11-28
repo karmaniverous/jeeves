@@ -65,7 +65,11 @@ function untilAborted<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
   });
 }
 
-/** The `fetch` calls `httpTransport` makes: a URL string, a method, a signal, and a string body or none. */
+/**
+ * The `fetch` calls `httpTransport` makes: a URL string, a method, a
+ * signal, and a string (JSON) or `Uint8Array` (a raw body, spec 5.8) body,
+ * or none.
+ */
 type TransportFetch = (
   url: string,
   init: RequestInit & { method: string; signal: AbortSignal },
@@ -92,7 +96,11 @@ function injectFetch(
           ...headers,
           ...Object.fromEntries(new Headers(init.headers)),
         },
-        ...(typeof init.body === 'string' ? { payload: init.body } : {}),
+        ...(typeof init.body === 'string'
+          ? { payload: init.body }
+          : init.body instanceof Uint8Array
+            ? { payload: Buffer.from(init.body) }
+            : {}),
       }),
       init.signal,
     );
