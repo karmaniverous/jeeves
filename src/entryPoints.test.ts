@@ -140,6 +140,7 @@ const EXPECTED: Record<keyof typeof ENTRIES, string[]> = {
     'CatalogMcpServerFactory',
     'CatalogMcpServerOptions',
     'MCP_PATH',
+    'McpAuthenticate',
     'McpEndpointOptions',
     'McpSkill',
     'McpToolSettings',

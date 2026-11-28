@@ -24,6 +24,7 @@ export { injectTransport } from './injectTransport.js';
 export {
   credentialHeaderNames,
   MCP_PATH,
+  type McpAuthenticate,
   type McpEndpointOptions,
   registerMcpEndpoint,
 } from './registerMcpEndpoint.js';

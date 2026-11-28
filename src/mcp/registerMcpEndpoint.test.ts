@@ -5,11 +5,13 @@ import {
   StreamableHTTPClientTransport,
 } from '@modelcontextprotocol/client';
 import Fastify, { type FastifyInstance } from 'fastify';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
 import { z } from 'zod';
 
 import { errorBody } from '../api/errorBody.js';
 import { defineCatalog } from '../catalog/defineCatalog.js';
+import { defineError } from '../fastify/defineError.js';
+import { registerErrorHandlers } from '../fastify/errorHandler.js';
 import { registerCatalogRoutes } from '../fastify/registerCatalogRoutes.js';
 import {
   credentialHeaderNames,
@@ -84,6 +86,7 @@ async function build(
     tools: { getThing: true, createThing: true },
     instructions: 'Rules.',
     skill: SKILL,
+    authenticate: () => undefined,
     ...options,
   });
   await app.ready();
@@ -301,6 +304,7 @@ describe('registerMcpEndpoint', () => {
         catalog: CATALOG,
         prefix: 'acme',
         tools: { getThing: { inputAliases: { nope: 'x' } } },
+        authenticate: () => undefined,
       });
     }).toThrow('input alias for unknown field "nope"');
   });
@@ -313,8 +317,95 @@ describe('registerMcpEndpoint', () => {
   });
 });
 
+describe('authenticate, body limit and forwarding (spec 5.4, 5.5)', () => {
+  const Refused = defineError('ACME_MCP_REFUSED', 'No MCP key', 401);
+
+  it('refuses through the app error handler when authenticate throws', async () => {
+    // An app with the core error handlers, so the thrown error keeps its
+    // status, code and message.
+    app = Fastify({ logger: false });
+    registerErrorHandlers(app);
+    await registerCatalogRoutes(app, CATALOG, {
+      getThing: ({ params }) =>
+        Promise.resolve({ status: 200, body: { id: params.id } }),
+      createThing: ({ body }) =>
+        Promise.resolve({ status: 201, body: { id: 'new', name: body.name } }),
+    });
+    registerMcpEndpoint(app, {
+      name: 'acme',
+      version: '1',
+      catalog: CATALOG,
+      prefix: 'acme',
+      tools: { getThing: true },
+      authenticate: (request) => {
+        if (request.headers.authorization !== `Bearer ${KEY}`)
+          throw new Refused();
+      },
+    });
+    await app.ready();
+
+    const refused = await rpc('tools/list');
+    expect(refused.statusCode).toBe(401);
+    expect(refused.json()).toMatchObject({
+      statusCode: 401,
+      code: 'ACME_MCP_REFUSED',
+      message: 'No MCP key',
+    });
+    const admitted = await rpc(
+      'tools/list',
+      {},
+      { authorization: `Bearer ${KEY}` },
+    );
+    expect(admitted.statusCode).toBe(200);
+  });
+
+  it('requires authenticate, and runs it after the origin check', async () => {
+    const options = {
+      name: 'acme',
+      version: '1',
+      catalog: CATALOG,
+      prefix: 'acme',
+      tools: { getThing: true },
+    } as const;
+    expectTypeOf(options).not.toExtend<McpEndpointOptions<typeof CATALOG>>();
+    expectTypeOf({
+      ...options,
+      authenticate: () => undefined,
+    }).toExtend<McpEndpointOptions<typeof CATALOG>>();
+
+    const authenticate = vi.fn();
+    await build({ authenticate });
+    const res = await rpc('tools/list', {}, { origin: 'http://evil.example' });
+    expect(res.statusCode).toBe(403);
+    expect(authenticate).not.toHaveBeenCalled();
+    await rpc('tools/list');
+    expect(authenticate).toHaveBeenCalledTimes(1);
+  });
+
+  it('never forwards a cookie, even under a cookie scheme', async () => {
+    await build();
+    const { mcp } = await client({
+      authorization: `Bearer ${KEY}`,
+      cookie: 'session=abc',
+    });
+    await mcp.callTool({ name: 'acme_get_thing', arguments: { id: 'x' } });
+    expect(seen.at(-1)).not.toHaveProperty('cookie');
+    await mcp.close();
+  });
+
+  it('answers 413 over the endpoint bodyLimit', async () => {
+    await build({ bodyLimit: 256 });
+    const res = await rpc('tools/call', {
+      name: 'acme_get_thing',
+      arguments: { id: 'x'.repeat(1024) },
+    });
+    expect(res.statusCode).toBe(413);
+    expect(seen).toHaveLength(0);
+  });
+});
+
 describe('credentialHeaderNames', () => {
-  it('names the bearer, header and cookie scheme headers, lowercased, never a query', () => {
+  it('names the bearer and header scheme headers, lowercased, never a cookie or query', () => {
     const catalog = defineCatalog([
       ...CATALOG.entries,
       {
@@ -336,7 +427,6 @@ describe('credentialHeaderNames', () => {
 
     expect(credentialHeaderNames(catalog)).toEqual([
       'authorization',
-      'cookie',
       'x-api-key',
     ]);
   });

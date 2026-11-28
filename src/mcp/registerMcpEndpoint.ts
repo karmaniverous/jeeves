@@ -5,12 +5,14 @@
  * Streamable HTTP, stateless: `createMcpHandler` serves the 2026-07-28
  * revision (a JSON response: tools send no notifications) and falls back to
  * stateless 2025-era serving (a one-event SSE response), with one server per
- * request from {@link createCatalogMcpServer}. The app's own auth hook admits
- * the request like any other route's; each tool call is a new request to the
- * app's own routes ({@link injectTransport}), checked by the hook again, so
- * it carries the caller's credential headers as sent. Requests whose
- * `Origin` is not allowed are refused with `403` (DNS rebinding); a request
- * without `Origin` (a non-browser client) passes.
+ * request from definitions built once ({@link prepareCatalogMcpServer}).
+ * Requests whose `Origin` is not allowed are refused with `403` (DNS
+ * rebinding); a request without `Origin` (a non-browser client) passes. The
+ * component's required `authenticate` then decides who may use the endpoint
+ * at all. Each tool call is a new request to the app's own routes
+ * ({@link injectTransport}), checked by the routes' own auth again, carrying
+ * only the caller's credential headers: `authorization` and named headers,
+ * never cookies (spec 5.5, Decisions 95, 96).
  *
  * @module
  */
@@ -26,7 +28,6 @@ import {
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
 import type { Catalog } from '../catalog/types.js';
-import { DEFAULT_FETCH_TIMEOUT_MS } from '../plugin/http.js';
 import {
   type CatalogMcpContent,
   prepareCatalogMcpServer,
@@ -36,13 +37,31 @@ import { injectTransport } from './injectTransport.js';
 /** Default path of the endpoint. */
 export const MCP_PATH = '/mcp';
 
+/**
+ * The component's front-door check for the endpoint (spec 5.5): called with
+ * every `/mcp` request after the origin check; throw to refuse. The error
+ * reaches the app's error handler like any route error (with
+ * `registerErrorHandlers`, a `defineError` error keeps its status, code and
+ * message).
+ */
+export type McpAuthenticate = (request: FastifyRequest) => void | Promise<void>;
+
 /** Options for {@link registerMcpEndpoint}. */
-export interface McpEndpointOptions<C extends Catalog = Catalog> extends Omit<
-  CatalogMcpContent<C>,
-  'timeoutMs'
-> {
-  /** Default per-call timeout in milliseconds; default 120 s (`DEFAULT_FETCH_TIMEOUT_MS`). */
-  timeoutMs?: number;
+export interface McpEndpointOptions<
+  C extends Catalog = Catalog,
+> extends CatalogMcpContent<C> {
+  /**
+   * Who may use the endpoint at all (required, so no component ships an
+   * unprotected `/mcp` by omission). Tool calls are checked again by the
+   * routes they reach.
+   */
+  authenticate: McpAuthenticate;
+  /**
+   * Largest `/mcp` request body, in bytes; default the app's `bodyLimit`.
+   * Tool arguments travel in this body: raise it (and the target entry's own
+   * `bodyLimit`) for tools that take large inputs.
+   */
+  bodyLimit?: number;
   /** Endpoint path; default `/mcp`. */
   path?: string;
   /**
@@ -54,8 +73,11 @@ export interface McpEndpointOptions<C extends Catalog = Catalog> extends Omit<
 
 /**
  * Request headers that carry a credential under the catalog's auth schemes:
- * `authorization` for bearer, the named header, and `cookie`. A query
- * credential is not forwarded: it names the endpoint URL, not a tool call's.
+ * `authorization` for bearer and the named header. A query credential is not
+ * forwarded (it names the endpoint URL, not a tool call's), and a cookie
+ * never is, even when the catalog declares a cookie scheme: MCP clients are
+ * not browsers, and a session cookie must not run tools as its owner
+ * (Decision 96).
  *
  * @param catalog - The endpoint catalog.
  * @returns Lowercase header names.
@@ -67,7 +89,6 @@ export function credentialHeaderNames(catalog: Catalog): string[] {
     for (const scheme of auth.schemes) {
       if (scheme.in === 'bearer') names.add('authorization');
       else if (scheme.in === 'header') names.add(scheme.name.toLowerCase());
-      else if (scheme.in === 'cookie') names.add('cookie');
     }
   }
   return [...names].sort();
@@ -142,12 +163,15 @@ function send(reply: FastifyReply, res: Response): FastifyReply {
  * component's app.
  *
  * @remarks
- * Register it after the app's auth hook: the endpoint relies on it and adds
- * no auth of its own. A tool call to an entry the caller may not use gets
- * the route's own `401`/`403` as an error result.
+ * Order per request: origin check (`403`), then `authenticate`, then the MCP
+ * handler. A tool call to an entry the caller may not use gets the route's
+ * own `401`/`403` as an error result. Register it where a scoped hook that
+ * refuses non-catalog routes doesn't cover it.
  *
  * @param app - The component's Fastify app (its routes and hooks registered).
- * @param options - Server content, tool selection, path and allowed origins.
+ * @param options - Server content, tool selection, `authenticate`, path,
+ *   allowed origins and body limit.
+ * @throws Error at registration for an invalid tool selection.
  */
 export function registerMcpEndpoint<C extends Catalog>(
   app: FastifyInstance,
@@ -156,13 +180,14 @@ export function registerMcpEndpoint<C extends Catalog>(
   const {
     path = MCP_PATH,
     allowedOrigins = localhostAllowedOrigins(),
-    timeoutMs = DEFAULT_FETCH_TIMEOUT_MS,
+    authenticate,
+    bodyLimit,
     ...content
   } = options;
   const credentials = credentialHeaderNames(content.catalog);
   // Built and checked once: a configuration mistake throws here, at
   // registration (spec 5.2, Decision 94).
-  const serverFor = prepareCatalogMcpServer({ ...content, timeoutMs });
+  const serverFor = prepareCatalogMcpServer(content);
 
   const handler = createMcpHandler(
     ({ requestInfo }) =>
@@ -182,14 +207,16 @@ export function registerMcpEndpoint<C extends Catalog>(
   app.route({
     method: ['GET', 'POST', 'DELETE'],
     url: path,
+    ...(bodyLimit !== undefined ? { bodyLimit } : {}),
     handler: async (request, reply) => {
       const webRequest = toWebRequest(request, reply);
-      const res =
-        originValidationResponse(webRequest, allowedOrigins) ??
-        (await handler.fetch(
-          webRequest,
-          request.body === undefined ? {} : { parsedBody: request.body },
-        ));
+      const refused = originValidationResponse(webRequest, allowedOrigins);
+      if (refused) return send(reply, refused);
+      await authenticate(request);
+      const res = await handler.fetch(
+        webRequest,
+        request.body === undefined ? {} : { parsedBody: request.body },
+      );
       return send(reply, res);
     },
   });
