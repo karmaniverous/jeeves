@@ -30,7 +30,7 @@ export const pluginToolsetOptionsSchema = z.object({
     .union([
       z.string(),
       z.custom<PluginApiUrlResolver>((v) => typeof v === 'function', {
-        message: 'apiUrl must be a string or a function',
+        error: 'apiUrl must be a string or a function',
       }),
     ])
     .optional(),
@@ -41,7 +41,7 @@ export const pluginToolsetOptionsSchema = z.object({
         typeof v === 'object' &&
         v !== null &&
         Array.isArray((v as Catalog).entries),
-      { message: 'catalog must come from defineCatalog' },
+      { error: 'catalog must come from defineCatalog' },
     )
     .optional(),
   /** Catalog entries to expose as tools, keyed by entry name. */
@@ -64,13 +64,13 @@ export const pluginToolsetOptionsSchema = z.object({
   /** Credential for catalog-built tools. */
   auth: z
     .custom<ClientAuth>((v) => typeof v === 'object' && v !== null, {
-      message: 'auth must be a ClientAuth object',
+      error: 'auth must be a ClientAuth object',
     })
     .optional(),
   /** Plugin API, passed to the descriptor's `customPluginTools`. */
   api: z
     .custom<PluginApi>((v) => typeof v === 'object' && v !== null, {
-      message: 'api must be the plugin API object',
+      error: 'api must be the plugin API object',
     })
     .optional(),
 });
