@@ -142,7 +142,7 @@ const stages: Stage[] = [
     peers: ['@modelcontextprotocol/server'],
     typeProbe: [
       `import { registerMcpEndpoint } from '${pkg.name}/mcp';`,
-      `export const probeMcp = (app: FastifyInstance) => registerMcpEndpoint(app, { name: 'probe', version: '1.0.0', catalog: probeCatalog, prefix: 'probe', tools: { ping: true } });`,
+      `export const probeMcp = (app: FastifyInstance) => registerMcpEndpoint(app, { name: 'probe', version: '1.0.0', catalog: probeCatalog, prefix: 'probe', tools: { ping: true }, authenticate: () => undefined });`,
     ].join('\n'),
     probe: [
       `const { default: Fastify } = await import('fastify');`,
@@ -153,7 +153,7 @@ const stages: Stage[] = [
       `const catalog = defineCatalog([{ name: 'ping', method: 'GET', path: '/ping', description: 'Ping.', response: z.object({ ok: z.boolean() }), auth: 'none', kind: 'read' }]);`,
       `const app = Fastify();`,
       `await registerCatalogRoutes(app, catalog, { ping: () => Promise.resolve({ status: 200, body: { ok: true } }) });`,
-      `registerMcpEndpoint(app, { name: 'probe', version: '1.0.0', catalog, prefix: 'probe', tools: { ping: true } });`,
+      `registerMcpEndpoint(app, { name: 'probe', version: '1.0.0', catalog, prefix: 'probe', tools: { ping: true }, authenticate: () => undefined });`,
       `const res = await app.inject({ method: 'POST', url: '/mcp', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' }, payload: { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'probe_ping', arguments: {} } } });`,
       `const data = res.statusCode === 200 ? /^data: (.*)$/m.exec(res.body) : null;`,
       `if (!data || JSON.parse(JSON.parse(data[1]).result.content[0].text).ok !== true) throw new Error('mcp call failed: ' + res.statusCode + ' ' + res.body);`,
