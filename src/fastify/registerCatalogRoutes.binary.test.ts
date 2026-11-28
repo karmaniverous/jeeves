@@ -97,7 +97,7 @@ async function build(
         return Promise.resolve({
           status: 200,
           body: new Uint8Array([1, 2, 3]),
-          ...(type ? { headers: { 'content-type': type } } : {}),
+          headers: type ? { 'content-type': type } : { 'x-trace': '1' },
         });
       },
     },

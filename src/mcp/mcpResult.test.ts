@@ -108,6 +108,13 @@ describe('mcpResultFromResponse (spec 5.2 Results)', () => {
     });
   });
 
+  it('defers a non-image media range to plugin mapping', async () => {
+    const result = await map('application/*', respond(PNG, 'application/pdf'));
+    expect(result).toEqual(
+      await asPlugin('application/*', respond(PNG, 'application/pdf')),
+    );
+  });
+
   it('is the existing error result for other binary', async () => {
     const result = await map(
       'application/pdf',

@@ -9,28 +9,23 @@ import type {
   FastifyReply,
   FastifyRequest,
   FastifySchema,
+  RouteOptions,
 } from 'fastify';
 import type { z } from 'zod';
 
-import { SERVER_ERROR_MESSAGE } from '../api/errorBody.js';
 import { errorBodySchema } from '../catalog/errorBody.js';
-import {
-  isJsonContentType,
-  isMediaRange,
-  mediaTypeOf,
-} from '../catalog/schemaHelpers.js';
+import { isJsonContentType } from '../catalog/schemaHelpers.js';
 import type { Catalog, CatalogEntry } from '../catalog/types.js';
+import { registerBinaryRoute } from './binaryRoute.js';
 import { errorHandlerFor } from './errorHandler.js';
 import {
-  errorReplyBody,
   isBuiltErrorBody,
   normaliseErrorPayload,
   rawErrorPayloadBody,
-  ResponseMismatchError,
   sentStatus,
   setErrorHeaders,
-  unbuiltErrorBody,
 } from './errorReply.js';
+import { errorSerializerFor, serializerFor } from './routeSerializers.js';
 import type {
   CatalogHandler,
   CatalogHandlers,
@@ -39,49 +34,8 @@ import type {
   RegisterCatalogRoutesOptions,
   RequestInput,
 } from './types.js';
+import { sendWildcardFault } from './wildcardReply.js';
 import { validatorCompiler } from './zodValidation.js';
-
-/**
- * The serializer for one response schema.
- *
- * @param schema - Response schema for the status range.
- * @param mode - `strict` or `log`.
- * @param warn - Logs a `log`-mode mismatch.
- * @returns Payload to JSON string.
- */
-function serializerFor(
-  schema: z.ZodType,
-  mode: 'strict' | 'log',
-  warn: (issues: z.core.$ZodIssue[]) => void,
-): (payload: unknown) => string {
-  return (payload) => {
-    const parsed = schema.safeParse(payload);
-    if (parsed.success) return JSON.stringify(parsed.data);
-    if (mode === 'strict') throw new ResponseMismatchError(parsed.error.issues);
-    warn(parsed.error.issues);
-    return JSON.stringify(payload);
-  };
-}
-
-/**
- * The serializer for an entry's `4xx`/`5xx` responses: only bodies core
- * built go out. Anything else reached it through Fastify's fallback (a hook
- * threw while an error reply was being sent) and is replaced with the
- * masked standard body ({@link unbuiltErrorBody}).
- *
- * @param log - Where an unbuilt payload is logged.
- * @returns Payload to JSON string.
- */
-function errorSerializerFor(
-  log: Pick<CatalogRouteLogger, 'error'>,
-): (payload: unknown) => string {
-  return (payload) =>
-    JSON.stringify(
-      isBuiltErrorBody(payload)
-        ? errorBodySchema.parse(payload)
-        : unbuiltErrorBody(payload, log),
-    );
-}
 
 /**
  * Fastify route schema for an entry. Every entry's `4xx`/`5xx` responses
@@ -106,67 +60,6 @@ function routeSchema(entry: CatalogEntry): FastifySchema {
 }
 
 /**
- * Whether `actual` is a concrete type matching the media range `range`
- * (same type, case-insensitively, a concrete, non-range subtype).
- *
- * @param range - The declared media range (e.g. `image/*`).
- * @param actual - A reply's `content-type`.
- * @returns `true` when `actual` matches.
- */
-function matchesRange(range: string, actual: string): boolean {
-  const want = mediaTypeOf(range);
-  const got = mediaTypeOf(actual);
-  return got.subtype !== '*' && got.type === want.type;
-}
-
-/**
- * A result header, read case-insensitively.
- *
- * @param headers - Result headers.
- * @param name - Lower-case header name.
- * @returns Its value, if set.
- */
-function headerValue(
-  headers: HandlerResult<CatalogEntry>['headers'],
-  name: string,
-): string | undefined {
-  if (!headers) return undefined;
-  const key = Object.keys(headers).find((k) => k.toLowerCase() === name);
-  return key ? headers[key] : undefined;
-}
-
-/**
- * Answer a handler fault (spec 5.2 Wildcard replies) as a logged 500 in
- * core's error body; never the literal declared range.
- *
- * @param entry - Catalog entry.
- * @param actual - The reply's `content-type`, if any.
- * @param reply - Fastify reply.
- * @param log - Where the fault is logged.
- * @returns The sent reply.
- */
-function sendWildcardFault(
-  entry: CatalogEntry,
-  actual: string | undefined,
-  reply: FastifyReply,
-  log: Pick<CatalogRouteLogger, 'error'>,
-): FastifyReply {
-  const body = errorReplyBody(500, SERVER_ERROR_MESSAGE, undefined, log, {
-    deliberate: false,
-    cause: {
-      details: {
-        entry: entry.name,
-        declaredContentType: entry.contentType,
-        actualContentType: actual,
-      },
-      message:
-        'Handler fault: a 2xx reply for a wildcard contentType entry did not set a concrete, matching content-type header',
-    },
-  });
-  return reply.status(500).send(body);
-}
-
-/**
  * Send a handler result. An error result's body goes out as JSON, and the
  * scope's `preSerialization` hook rebuilds it from the status (Fastify's
  * body; a 5xx keeps its message and is logged), like every other error
@@ -187,15 +80,8 @@ function send(
   reply: FastifyReply,
   log: Pick<CatalogRouteLogger, 'error'>,
 ): FastifyReply {
-  if (
-    result.status < 400 &&
-    entry.contentType !== undefined &&
-    isMediaRange(entry.contentType)
-  ) {
-    const actual = headerValue(result.headers, 'content-type');
-    if (!actual || !matchesRange(entry.contentType, actual))
-      return sendWildcardFault(entry, actual, reply, log);
-  }
+  const fault = sendWildcardFault(entry, result, reply, log);
+  if (fault) return fault;
   reply.status(result.status);
   if (result.status >= 400) {
     setErrorHeaders(reply, result.headers);
@@ -350,7 +236,7 @@ export async function registerCatalogRoutes<C extends Catalog>(
 
         for (const entry of catalog.entries) {
           const handler = byName[entry.name];
-          const routeOptions = {
+          const routeOptions: RouteOptions = {
             method: entry.method,
             url: entry.path,
             schema: routeSchema(entry),
@@ -375,29 +261,7 @@ export async function registerCatalogRoutes<C extends Catalog>(
             scope.route(routeOptions);
             continue;
           }
-          // A binary-body entry gets its own encapsulated child of the
-          // catalog scope (spec 5.8), so its buffer content-type parser
-          // applies to exactly this route and no other; the child inherits
-          // the scope's hooks (and so the component's access hook), error
-          // handler and serializers.
-          void scope.register(
-            (child) =>
-              new Promise<void>((resolveChild) => {
-                // Only the declared media type parses here: the inherited
-                // JSON and text parsers go, so any other content type,
-                // JSON included, is Fastify's 415.
-                child.removeAllContentTypeParsers();
-                child.addContentTypeParser(
-                  entry.requestContentType as string,
-                  { parseAs: 'buffer' },
-                  (_request, body, done) => {
-                    done(null, body);
-                  },
-                );
-                child.route(routeOptions);
-                resolveChild();
-              }),
-          );
+          registerBinaryRoute(scope, entry.requestContentType, routeOptions);
         }
         resolve();
       }),

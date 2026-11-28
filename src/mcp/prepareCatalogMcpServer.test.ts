@@ -180,6 +180,34 @@ describe('prepareCatalogMcpServer', () => {
     ).toThrow(message);
   });
 
+  it('serves an entry with no inputs', async () => {
+    const bare = defineCatalog([
+      {
+        name: 'status',
+        method: 'GET',
+        path: '/status',
+        description: 'Status.',
+        response: z.object({ ok: z.boolean() }),
+        auth: 'none',
+        kind: 'read',
+      },
+    ]);
+    const transport = vi
+      .fn<CatalogTransport>()
+      .mockResolvedValue(reply({ ok: true }));
+    const client = await connect(
+      prepareCatalogMcpServer({
+        name: 'srv',
+        version: '1',
+        catalog: bare,
+        prefix: 'srv',
+        tools: { status: true },
+      })(transport),
+    );
+    const result = await client.callTool({ name: 'srv_status', arguments: {} });
+    expect(result.isError).toBe(false);
+  });
+
   it('throws for a duplicate tool name', () => {
     // `defineCatalog` keeps entry names unique, so a duplicate tool name
     // needs a catalog built without it (a defensive check).
