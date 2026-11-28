@@ -26,6 +26,10 @@ export const libraryEntries = {
     input: 'src/fastify/index.ts',
     scoped: ['fastify'],
   },
+  'mcp/index': {
+    input: 'src/mcp/index.ts',
+    scoped: ['@modelcontextprotocol/server', 'fastify'],
+  },
 } as const satisfies Record<string, LibraryEntry>;
 
 /**

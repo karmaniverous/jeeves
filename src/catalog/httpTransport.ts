@@ -68,13 +68,25 @@ export function httpTransport(options: HttpTransportOptions): CatalogTransport {
         ? options.baseUrl()
         : options.baseUrl;
     if (!baseUrl) throw new Error('httpTransport: no base URL resolved');
+    // `body` (JSON) and `rawBody` (spec 5.8) are exclusive; a raw body is
+    // sent with its own content type in place of `application/json`.
+    const { rawBody } = request;
     const hasBody = request.body !== undefined;
+    if (rawBody && hasBody)
+      throw new Error('httpTransport: a request has body or rawBody, not both');
+    const headers = rawBody
+      ? { 'content-type': rawBody.contentType, ...request.headers }
+      : hasBody
+        ? { 'content-type': 'application/json', ...request.headers }
+        : request.headers;
     const res = await (options.fetch ?? fetch)(urlOf(baseUrl, request), {
       method: request.method,
-      headers: hasBody
-        ? { 'content-type': 'application/json', ...request.headers }
-        : request.headers,
-      ...(hasBody ? { body: JSON.stringify(request.body) } : {}),
+      headers,
+      ...(rawBody
+        ? { body: rawBody.data }
+        : hasBody
+          ? { body: JSON.stringify(request.body) }
+          : {}),
       signal,
     });
     return {

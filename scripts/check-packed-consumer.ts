@@ -13,7 +13,8 @@
  *    point type-checks and imports, stage by stage, adding each stage's
  *    peers first: the root and `/catalog` with no peers (a catalog client
  *    round-trips a request), then `/openapi` with `zod-openapi`, then
- *    `/fastify` with `fastify` (spec 5a.4);
+ *    `/fastify` with `fastify` (spec 5a.4), then `/mcp` with
+ *    `@modelcontextprotocol/server` (a tool call through `/mcp`, #136);
  * 2. installs the tarball alone into a temporary global prefix and runs
  *    `/fastify` from that copy with the consumer project's own Zod and
  *    Fastify. A service installed globally beside the `jeeves` CLI may use
@@ -132,6 +133,34 @@ const stages: Stage[] = [
       `await registerCatalogRoutes(app, defineCatalog([status]), { status: () => Promise.resolve({ status: 200, body: { name: 'probe', version: '1', uptime: 0, status: 'healthy', health: {} } }) });`,
       `const res = await app.inject('/status');`,
       `if (res.statusCode !== 200 || res.json().name !== 'probe') throw new Error('route failed: ' + res.body);`,
+      `await app.close();`,
+    ].join('\n'),
+  },
+  {
+    label: 'mcp',
+    entries: ['/mcp'],
+    peers: ['@modelcontextprotocol/server'],
+    typeProbe: [
+      `import { registerMcpEndpoint } from '${pkg.name}/mcp';`,
+      `export const probeMcp = (app: FastifyInstance) => registerMcpEndpoint(app, { name: 'probe', version: '1.0.0', catalog: probeCatalog, prefix: 'probe', tools: { ping: true }, authenticate: () => undefined });`,
+    ].join('\n'),
+    probe: [
+      `const { default: Fastify } = await import('fastify');`,
+      `const { defineCatalog } = await import('${pkg.name}/catalog');`,
+      `const { registerCatalogRoutes } = await import('${pkg.name}/fastify');`,
+      `const { registerMcpEndpoint } = await import('${pkg.name}/mcp');`,
+      `const { z } = await import('zod');`,
+      `const catalog = defineCatalog([{ name: 'ping', method: 'GET', path: '/ping', description: 'Ping.', response: z.object({ ok: z.boolean() }), auth: 'none', kind: 'read' }, { name: 'image', method: 'GET', path: '/image', description: 'Image.', contentType: 'image/*', response: z.instanceof(Uint8Array), auth: 'none', kind: 'read' }, { name: 'upload', method: 'PUT', path: '/upload', description: 'Upload.', requestContentType: 'application/octet-stream', bodyLimit: 64, response: z.object({ size: z.number() }), auth: 'none', kind: 'write' }]);`,
+      `const app = Fastify();`,
+      `await registerCatalogRoutes(app, catalog, { ping: () => Promise.resolve({ status: 200, body: { ok: true } }), image: () => Promise.resolve({ status: 200, body: new Uint8Array([137, 80, 78, 71]), headers: { 'content-type': 'image/png' } }), upload: ({ body }) => Promise.resolve({ status: 200, body: { size: body.length } }) });`,
+      `registerMcpEndpoint(app, { name: 'probe', version: '1.0.0', catalog, prefix: 'probe', tools: { ping: true, image: true }, authenticate: () => undefined });`,
+      `const call = (name) => app.inject({ method: 'POST', url: '/mcp', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' }, payload: { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: {} } } });`,
+      `const resultOf = (res) => { const data = res.statusCode === 200 ? /^data: (.*)$/m.exec(res.body) : null; if (!data) throw new Error('mcp call failed: ' + res.statusCode + ' ' + res.body); return JSON.parse(data[1]).result; };`,
+      `if (JSON.parse(resultOf(await call('probe_ping')).content[0].text).ok !== true) throw new Error('mcp ping failed');`,
+      `const img = resultOf(await call('probe_image')).content[0];`,
+      `if (img.type !== 'image' || img.mimeType !== 'image/png' || img.data !== 'iVBORw==') throw new Error('mcp image failed: ' + JSON.stringify(img));`,
+      `const up = await app.inject({ method: 'PUT', url: '/upload', headers: { 'content-type': 'application/octet-stream' }, payload: Buffer.from([1, 2, 3]) });`,
+      `if (up.statusCode !== 200 || up.json().size !== 3) throw new Error('binary upload failed: ' + up.statusCode + ' ' + up.body);`,
       `await app.close();`,
     ].join('\n'),
   },

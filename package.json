@@ -20,6 +20,8 @@
   "devDependencies": {
     "@dotenvx/dotenvx": "^2.38.2",
     "@eslint/js": "^10.0.1",
+    "@modelcontextprotocol/client": "^2.4.0",
+    "@modelcontextprotocol/server": "^2.4.0",
     "@rollup/plugin-alias": "^6.0.1",
     "@rollup/plugin-commonjs": "^29.0.3",
     "@rollup/plugin-json": "^6.1.0",
@@ -60,10 +62,14 @@
     "zod-openapi": "^6.0.2"
   },
   "peerDependencies": {
+    "@modelcontextprotocol/server": "^2.4.0",
     "fastify": "^5",
     "zod-openapi": "^6.0.2"
   },
   "peerDependenciesMeta": {
+    "@modelcontextprotocol/server": {
+      "optional": true
+    },
     "fastify": {
       "optional": true
     },
@@ -94,6 +100,11 @@
       "types": "./dist/fastify/index.d.ts",
       "import": "./dist/fastify/index.js",
       "default": "./dist/fastify/index.js"
+    },
+    "./mcp": {
+      "types": "./dist/mcp/index.d.ts",
+      "import": "./dist/mcp/index.js",
+      "default": "./dist/mcp/index.js"
     }
   },
   "files": [

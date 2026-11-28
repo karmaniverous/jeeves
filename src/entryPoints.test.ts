@@ -20,6 +20,7 @@ const ENTRIES = {
   catalog: 'catalog/index.ts',
   openapi: 'openapi/index.ts',
   fastify: 'fastify/index.ts',
+  mcp: 'mcp/index.ts',
 } as const;
 
 const oldDeclarations = readFileSync(
@@ -79,6 +80,7 @@ const EXPECTED: Record<keyof typeof ENTRIES, string[]> = {
     'Credential',
     'EntryKind',
     'ErrorBody',
+    'HasRawBody',
     'HttpTransportOptions',
     'IsJsonEntry',
     'Secret',
@@ -131,6 +133,22 @@ const EXPECTED: Record<keyof typeof ENTRIES, string[]> = {
     'registerCatalogRoutes',
     'registerOpenApiRoute',
     'standardHandlers',
+  ],
+  // #136.
+  mcp: [
+    'CatalogMcpContent',
+    'CatalogMcpServerFactory',
+    'CatalogMcpServerOptions',
+    'MCP_PATH',
+    'McpAuthenticate',
+    'McpEndpointOptions',
+    'McpSkill',
+    'McpToolSettings',
+    'createCatalogMcpServer',
+    'credentialHeaderNames',
+    'injectTransport',
+    'prepareCatalogMcpServer',
+    'registerMcpEndpoint',
   ],
 };
 

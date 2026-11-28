@@ -238,6 +238,31 @@ describe('createPluginToolset catalog checks', () => {
       'createPluginToolset: catalog must include standardEntries(name, ...) (missing "status")',
     );
   });
+
+  it('throws at registration when a binary-body entry is selected as a tool (spec 5.8)', () => {
+    const withUpload = defineCatalog([
+      ...catalog.entries,
+      {
+        name: 'upload',
+        method: 'POST',
+        path: '/upload',
+        description: 'Upload raw bytes.',
+        requestContentType: 'application/octet-stream',
+        bodyLimit: 1024,
+        response: z.object({ size: z.number() }),
+        auth: 'none',
+        kind: 'write',
+      } as const,
+    ]);
+    expect(() =>
+      createPluginToolset(descriptor, {
+        catalog: withUpload,
+        tools: { upload: true },
+      }),
+    ).toThrow(
+      'Tool for entry "upload": an entry with a binary request body cannot be a tool',
+    );
+  });
 });
 
 describe('createPluginToolset credentials', () => {

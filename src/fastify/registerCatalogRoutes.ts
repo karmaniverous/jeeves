@@ -4,22 +4,28 @@
  * @module
  */
 
-import type { FastifyInstance, FastifyReply, FastifySchema } from 'fastify';
+import type {
+  FastifyInstance,
+  FastifyReply,
+  FastifyRequest,
+  FastifySchema,
+  RouteOptions,
+} from 'fastify';
 import type { z } from 'zod';
 
 import { errorBodySchema } from '../catalog/errorBody.js';
 import { isJsonContentType } from '../catalog/schemaHelpers.js';
 import type { Catalog, CatalogEntry } from '../catalog/types.js';
+import { registerBinaryRoute } from './binaryRoute.js';
 import { errorHandlerFor } from './errorHandler.js';
 import {
   isBuiltErrorBody,
   normaliseErrorPayload,
   rawErrorPayloadBody,
-  ResponseMismatchError,
   sentStatus,
   setErrorHeaders,
-  unbuiltErrorBody,
 } from './errorReply.js';
+import { errorSerializerFor, serializerFor } from './routeSerializers.js';
 import type {
   CatalogHandler,
   CatalogHandlers,
@@ -28,49 +34,8 @@ import type {
   RegisterCatalogRoutesOptions,
   RequestInput,
 } from './types.js';
+import { sendWildcardFault } from './wildcardReply.js';
 import { validatorCompiler } from './zodValidation.js';
-
-/**
- * The serializer for one response schema.
- *
- * @param schema - Response schema for the status range.
- * @param mode - `strict` or `log`.
- * @param warn - Logs a `log`-mode mismatch.
- * @returns Payload to JSON string.
- */
-function serializerFor(
-  schema: z.ZodType,
-  mode: 'strict' | 'log',
-  warn: (issues: z.core.$ZodIssue[]) => void,
-): (payload: unknown) => string {
-  return (payload) => {
-    const parsed = schema.safeParse(payload);
-    if (parsed.success) return JSON.stringify(parsed.data);
-    if (mode === 'strict') throw new ResponseMismatchError(parsed.error.issues);
-    warn(parsed.error.issues);
-    return JSON.stringify(payload);
-  };
-}
-
-/**
- * The serializer for an entry's `4xx`/`5xx` responses: only bodies core
- * built go out. Anything else reached it through Fastify's fallback (a hook
- * threw while an error reply was being sent) and is replaced with the
- * masked standard body ({@link unbuiltErrorBody}).
- *
- * @param log - Where an unbuilt payload is logged.
- * @returns Payload to JSON string.
- */
-function errorSerializerFor(
-  log: Pick<CatalogRouteLogger, 'error'>,
-): (payload: unknown) => string {
-  return (payload) =>
-    JSON.stringify(
-      isBuiltErrorBody(payload)
-        ? errorBodySchema.parse(payload)
-        : unbuiltErrorBody(payload, log),
-    );
-}
 
 /**
  * Fastify route schema for an entry. Every entry's `4xx`/`5xx` responses
@@ -98,18 +63,25 @@ function routeSchema(entry: CatalogEntry): FastifySchema {
  * Send a handler result. An error result's body goes out as JSON, and the
  * scope's `preSerialization` hook rebuilds it from the status (Fastify's
  * body; a 5xx keeps its message and is logged), like every other error
- * reply.
+ * reply. For an entry whose declared `contentType` is a media range (spec
+ * 5.2 Wildcard replies), a 2xx result without a concrete, matching
+ * `content-type` in its headers is a logged handler fault, answered 500
+ * instead: the declared range itself never reaches the wire.
  *
  * @param entry - Catalog entry.
  * @param result - Handler result.
  * @param reply - Fastify reply.
+ * @param log - Where a wildcard-reply fault is logged.
  * @returns The sent reply.
  */
 function send(
   entry: CatalogEntry,
   result: HandlerResult<CatalogEntry>,
   reply: FastifyReply,
+  log: Pick<CatalogRouteLogger, 'error'>,
 ): FastifyReply {
+  const fault = sendWildcardFault(entry, result, reply, log);
+  if (fault) return fault;
   reply.status(result.status);
   if (result.status >= 400) {
     setErrorHeaders(reply, result.headers);
@@ -264,19 +236,36 @@ export async function registerCatalogRoutes<C extends Catalog>(
 
         for (const entry of catalog.entries) {
           const handler = byName[entry.name];
-          scope.route({
+          const routeOptions: RouteOptions = {
             method: entry.method,
             url: entry.path,
             schema: routeSchema(entry),
-            handler: async (request, reply) => {
+            ...(entry.bodyLimit !== undefined
+              ? { bodyLimit: entry.bodyLimit }
+              : {}),
+            handler: async (request: FastifyRequest, reply: FastifyReply) => {
               const input = {
                 params: request.params,
                 query: request.query,
-                body: request.body ?? {},
+                // A bodiless request skips parsing: a binary entry still
+                // gets a (empty) Buffer, as its type says.
+                body:
+                  request.body ??
+                  (entry.requestContentType ? Buffer.alloc(0) : {}),
               } as RequestInput<CatalogEntry>;
-              return send(entry, await handler(input, request), reply);
+              return send(
+                entry,
+                await handler(input, request),
+                reply,
+                options.logger ?? request.log,
+              );
             },
-          });
+          };
+          if (!entry.requestContentType) {
+            scope.route(routeOptions);
+            continue;
+          }
+          registerBinaryRoute(scope, entry.requestContentType, routeOptions);
         }
         resolve();
       }),

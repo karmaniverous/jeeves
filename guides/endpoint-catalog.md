@@ -20,6 +20,7 @@ Adoption is optional and per component. A component that doesn't adopt keeps wor
 | `core` | `@karmaniverous/jeeves` (already there), `zod` `^4.6`; `zod-openapi` `^6` as a dev dependency (writes `openapi.json`) |
 | `service` | `fastify` `^5` (your app) |
 | `openclaw` | nothing new |
+| `service`, for `/mcp` | `@modelcontextprotocol/server` `^2.4` (optional peer of `/mcp`) |
 
 `fastify` and `zod-openapi` are optional peers of `@karmaniverous/jeeves`: `/fastify` needs `fastify` (types; your app's own instance does the work) and `/openapi` needs `zod-openapi`. The root and `/catalog` need neither, so an SDK built on `createCatalogClient` stays light. Core validates requests itself; you don't need `fastify-type-provider-zod` unless the service uses it for its own routes outside the catalog.
 
@@ -287,6 +288,74 @@ const tools = createPluginToolset(descriptor, {
 
 Parameters are generated from the schemas, so they include keywords such as `additionalProperties: false`; the model can't pass parameters a route doesn't accept.
 
+## 8. MCP endpoint in `service`
+
+```ts
+const { registerMcpEndpoint } = await import('@karmaniverous/jeeves/mcp');
+
+registerMcpEndpoint(app, {
+  name: 'jeeves-acme',
+  version,
+  catalog,
+  prefix: 'acme',
+  tools: {
+    search: true,
+    listTags: { defaults: { prefix: [] } },
+    readFile: { fixed: { raw: '1' } },
+  },
+  authenticate: (request) => {
+    if (!isValidKey(request.headers.authorization))
+      throw new AcmeUnauthorized();
+  },
+  instructions: promptRules,
+  skill: {
+    uri: 'skill://jeeves-acme/SKILL.md',
+    name: 'jeeves-acme',
+    text: skill,
+  },
+});
+```
+
+- `POST /mcp` (Streamable HTTP, stateless) serves MCP clients outside OpenClaw (Claude Code, Codex, Cursor and others); inside OpenClaw the plugin stays the interface. It serves the 2026-07-28 revision and, for 2025-era clients, the stateless fallback; `GET` and `DELETE` answer `405`.
+- **Who does what.** jeeves supplies the mechanics: tool definitions, dispatch, the origin check, the call to your `authenticate`, credential forwarding and result mapping. Your component makes every security decision: who the caller is, what they may do where, which entries become tools, where `/mcp` is registered and which address the app listens on.
+- **Tools** come from the same shared tool definition as plugin tools, in catalog order: the entry's `description` (no override), the merged input schema and hints from `kind`. Per entry you can rename fields with `inputAliases`, fill omitted parameters with `defaults` (still in the schema, no longer required, overridable), pin parameters with `fixed` (removed from the schema and always sent, so a client can't see or override them) and set a `timeoutMs`. The content-level `timeoutMs` is the default (120 s). The definitions are built once, at registration: an unknown entry, a bad alias, a `fixed` key that names no parameter, a parameter in both `defaults` and `fixed`, or an entry with a binary request body throws from `registerMcpEndpoint`. `prepareCatalogMcpServer` does the same for a host that serves MCP another way.
+- **`authenticate` is required.** It runs on every `/mcp` request after the origin check; throw to refuse. The error goes to your app's error handler, so with `registerErrorHandlers` a `defineError` error keeps its status, code and message. If your access hook covers only the catalog scope and refuses routes without a catalog entry, register `/mcp` outside that scope.
+- **Each tool call** goes to the app's own route through `app.inject`, so auth, validation and error mapping are the HTTP API's, and the route checks the caller again. The call carries only the caller's `authorization` header and headers named by a `header` scheme; never a cookie (even if the catalog declares one) and never a query key.
+- **Results.** JSON and text map as plugin tools map them. A 2xx PNG, JPEG, GIF or WebP becomes an MCP `image` result, up to `maxImageBytes` (default 5 MiB; larger is an error result, never truncated). SVG is returned as text. Declare `contentType: 'image/*'` for a route that picks the image type per response, and set the concrete type in the result's `headers['content-type']`: a 2xx reply without a concrete, matching one (a 204 included) is a logged 500. Plugin tools keep treating binary as an error.
+- **Body limit.** Tool arguments travel in the `/mcp` request body, limited by the endpoint's `bodyLimit` (default the app's). For tools with large inputs (base64 content), raise it and the target entry's own `bodyLimit`.
+- A request with a browser `Origin` that isn't allowed gets `403` (DNS rebinding); requests without `Origin` (CLI clients) pass. `allowedOrigins` takes hostnames and defaults to the localhost ones.
+- `/mcp` is as reachable as your other routes: it listens wherever the app listens.
+- `instructions` are sent on `initialize`; `skill` is served as a `text/markdown` resource.
+
+Install `@modelcontextprotocol/server` in `service`. Importing `/mcp` with `await import()` keeps it out of the startup path of a service that leaves it optional.
+
+## 9. Binary request bodies
+
+```ts
+{
+  name: 'upload',
+  method: 'PUT',
+  path: '/upload/*',
+  description: 'Upload a file.',
+  params: z.object({ '*': z.string() }),
+  requestContentType: 'application/octet-stream',
+  bodyLimit: 50 * 1024 * 1024,
+  response: z.object({ path: z.string(), size: z.number() }),
+  auth: bearer,
+  kind: 'write',
+}
+```
+
+- An entry with `requestContentType` takes raw bytes instead of a JSON `body`; its method is `POST`, `PUT` or `PATCH`, and `bodyLimit` is required. The handler's `body` is a `Buffer`. Another content type, JSON included, answers 415; a body over `bodyLimit` answers 413. The parser applies to that route only.
+- `bodyLimit` also works on JSON entries, to raise one route's limit above the app's.
+- The body is read after `onRequest` hooks: authenticate there and an unauthenticated upload is refused before a byte is read. A hook that runs later reads up to `bodyLimit` first.
+- OpenAPI documents the body as `format: binary`. The client method takes the body as `Uint8Array | Blob`.
+- Such an entry is never a tool (tool input is JSON): selecting it as a plugin or MCP tool throws. MCP clients upload large files with the route directly (`curl --data-binary`).
+
+## 10. Confirmation for destructive entries
+
+A tool result is read as success whenever the status is 2xx, so a model can report "done" for a call that did nothing. A route that refuses until the user confirms must refuse with an **error**: for example `428` with a code like `ACME_CONFIRMATION_REQUIRED`, whose message says nothing was done, what would happen and the next step (ask the user, then call again with a confirmation flag such as `userConfirmed: true`). Offer a preview only when asked for (`dryRun: true`), as a 2xx clearly labelled as a preview. Never answer a refused call with a 2xx.
+
 ## Checklist
 
 - [ ] One `zod` in `npm ls zod`.
@@ -296,3 +365,6 @@ Parameters are generated from the schemas, so they include keywords such as `add
 - [ ] Auth hook before `registerCatalogRoutes`, exempting `/openapi.json`; 401 tests per protected entry.
 - [ ] Every response schema names every field or is loose; responses tested; `responseValidation: 'strict'`.
 - [ ] Plugin tools from the catalog; tool names and results checked against the previous release.
+- [ ] `/mcp` registered with an `authenticate` that admits only your callers; a tool call to a protected entry tested with and without the key; no cookie reaches a route.
+- [ ] Image routes declare their type (or `image/*` with a concrete reply type); large-input tools have `bodyLimit` raised on `/mcp` and the entry.
+- [ ] Destructive entries refuse unconfirmed calls with an error, never a 2xx.

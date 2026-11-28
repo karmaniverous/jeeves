@@ -11,6 +11,7 @@ import type { PluginApiUrlResolver } from '../plugin/pluginApiUrl.js';
 import {
   buildCatalogRequest,
   type CatalogInput,
+  type CatalogRequest,
 } from './buildCatalogRequest.js';
 import {
   attachCredential,
@@ -130,7 +131,27 @@ export function createCatalogClient<C extends Catalog>(
   const timeoutMs = options.timeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS;
 
   const call = async (entry: CatalogEntry, input: unknown) => {
-    const request = buildCatalogRequest(entry, input as never);
+    let request: CatalogRequest;
+    if (entry.requestContentType !== undefined) {
+      // A binary-body entry (spec 5.8) takes its body as `Uint8Array |
+      // Blob`, separate from the params/query fields built as usual; a
+      // `Blob` is read to bytes and sent as `rawBody`, never `body`.
+      const { body: rawInput, ...rest } = (input ?? {}) as {
+        body?: Uint8Array | Blob;
+      } & Record<string, unknown>;
+      if (!(rawInput instanceof Uint8Array) && !(rawInput instanceof Blob))
+        throw new TypeError(
+          `${entry.name}: body must be a Uint8Array or Blob (binary request body)`,
+        );
+      request = buildCatalogRequest(entry, rest as never);
+      const data =
+        rawInput instanceof Blob
+          ? new Uint8Array(await rawInput.arrayBuffer())
+          : rawInput;
+      request.rawBody = { contentType: entry.requestContentType, data };
+    } else {
+      request = buildCatalogRequest(entry, input as never);
+    }
     try {
       await attachCredential(entry, request, credential);
       const res = await transport(request, AbortSignal.timeout(timeoutMs));

@@ -138,7 +138,18 @@ function operationOf(entry: CatalogEntry): ZodOpenApiOperationObject {
       ...(entry.params ? { path: entry.params } : {}),
       ...(entry.query ? { query: entry.query } : {}),
     };
-  if (entry.body)
+  if (entry.requestContentType)
+    // Binary request body (spec 5.8): always required, OpenAPI's
+    // `format: binary` for raw bytes.
+    operation.requestBody = {
+      required: true,
+      content: {
+        [entry.requestContentType]: {
+          schema: { type: 'string', format: 'binary' },
+        },
+      },
+    };
+  else if (entry.body)
     operation.requestBody = {
       content: { 'application/json': { schema: entry.body } },
     };
